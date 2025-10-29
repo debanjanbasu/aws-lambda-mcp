@@ -1,0 +1,24 @@
+[package]
+name = "aws-lambda-mcp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["macros"] }
+lambda_runtime = { version = "0.14", features = ["anyhow"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+
+[package.metadata.lambda.deploy]
+memory = 128                    # Function's memory
+timeout = 30                    # Function's execution timeout
+tracing = "active"              # Tracing mode
+# role = "role-full-arn"          # Function's execution role
+# env_file = ".env.production"    # File to load environment variables from
+# env = { "VAR1" = "VAL1" }       # Additional environment variables
+# layers = [ "layer-full-arn" ]   # List of layers to deploy with your function
+# tags = { "team" = "lambda" }    # List of AWS resource tags for this function
+# s3_bucket = "deploy-bucket"     # S3 bucket to upload the Lambda function to
+# s3_key = "prefix/bootstrap.zip" # S3 object key to upload the Lambda function to
+# include = [ "README.md" ]       # Extra list of files to add to the zip bundle
