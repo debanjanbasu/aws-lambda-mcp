@@ -1,50 +1,26 @@
-use anyhow::{Result as AnyhowResult, bail};
-use lambda_runtime::{service_fn, LambdaEvent, Error};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+mod handler;
+mod models;
 
-#[derive(Deserialize)]
-struct Request {
-    #[serde(rename = "firstName")]
-    first_name: Option<String>,
-}
-
-#[derive(Serialize)]
-struct Response {
-    message: String,
-}
+use handler::function_handler;
+use lambda_runtime::{Error, run, service_fn};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let func = service_fn(func);
-    lambda_runtime::run(func).await?;
-    Ok(())
-}
-
-async fn func(event: LambdaEvent<Value>) -> Result<Value, Error> {
-    let (event, _context) = event.into_parts();
+    // Configure tracing for CloudWatch Logs compatibility
+    tracing_subscriber::fmt()
+        .json()
+        // Use environment variable RUST_LOG with INFO as default
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        // Remove duplicated span information from logs
+        .with_current_span(false)
+        // Disable ANSI colors for CloudWatch compatibility
+        .with_ansi(false)
+        // Use AWS Lambda's built-in timestamps
+        .without_time()
+        // Reduce log verbosity by removing module paths
+        .with_target(false)
+        .init();
     
-    // Parse the request
-    let request: Request = serde_json::from_value(event)?;
-    
-    let first_name = request.first_name.as_deref().unwrap_or("world");
-    
-    // Create greeting
-    let response = create_greeting(first_name)?;
-    
-    Ok(json!({ "message": response.message }))
-}
-
-fn create_greeting(name: &str) -> AnyhowResult<Response> {
-    if name.is_empty() {
-        bail!("Name cannot be empty")
-    }
-    
-    if name.len() > 100 {
-        bail!("Name is too long: {} characters", name.len())
-    }
-    
-    Ok(Response {
-        message: format!("Hello, {}!", name),
-    })
+    run(service_fn(function_handler)).await
 }
