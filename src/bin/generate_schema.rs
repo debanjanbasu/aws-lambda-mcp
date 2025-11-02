@@ -1,5 +1,18 @@
-use aws_lambda_mcp::models::{WeatherRequest, WeatherResponse};
-use aws_lambda_mcp::tools::weather;
+//! Schema generator for AWS Bedrock Agent tools.
+//!
+//! This binary scans registered tools and generates `tool_schema.json`,
+//! which contains the input/output schemas in AWS Bedrock format.
+//!
+//! # Adding New Tools
+//!
+//! When you create a new tool in `src/tools/`:
+//! 1. Annotate it with `#[tool(...)]` from rmcp
+//! 2. Add an entry to the `tools` vec in `main()`
+//! 3. Run `make schema` to regenerate `tool_schema.json`
+//!
+//! The `tool_entry!` macro automatically extracts tool metadata and schemas,
+//! so adding a tool is just one line.
+
 use schemars::{JsonSchema, schema_for};
 use serde_json::{Value, json};
 use std::fs;
@@ -11,23 +24,38 @@ struct Tool {
     output_schema: Value,
 }
 
+/// Helper macro to extract tool metadata and generate schemas.
+/// Reduces boilerplate when adding new tools to the registry.
+macro_rules! tool_entry {
+    ($attr_fn:expr, $input_ty:ty, $output_ty:ty) => {
+        {
+            let attr = $attr_fn;
+            Tool {
+                name: attr.name.to_string(),
+                description: attr.description.map_or_else(String::new, String::from),
+                input_schema: generate_bedrock_schema::<$input_ty>(),
+                output_schema: generate_bedrock_schema::<$output_ty>(),
+            }
+        }
+    };
+}
+
 fn main() {
-    let get_weather_attr = weather::get_weather_tool_attr();
-
-    eprintln!("DEBUG: Tool name: {}", get_weather_attr.name);
-    eprintln!(
-        "DEBUG: Tool description: {:?}",
-        get_weather_attr.description
-    );
-
-    let tools = vec![Tool {
-        name: get_weather_attr.name.to_string(),
-        description: get_weather_attr
-            .description
-            .map_or_else(String::new, String::from),
-        input_schema: generate_bedrock_schema::<WeatherRequest>(),
-        output_schema: generate_bedrock_schema::<WeatherResponse>(),
-    }];
+    // Tool registry: Add new tools here as they are created in src/tools/
+    // Format: tool_entry!(module::function_tool_attr(), InputType, OutputType)
+    let tools = vec![
+        tool_entry!(
+            aws_lambda_mcp::tools::weather::get_weather_tool_attr(),
+            aws_lambda_mcp::models::WeatherRequest,
+            aws_lambda_mcp::models::WeatherResponse
+        ),
+        // Add new tools below (one line per tool):
+        // tool_entry!(
+        //     aws_lambda_mcp::tools::example::another_tool_tool_attr(),
+        //     aws_lambda_mcp::models::AnotherInput,
+        //     aws_lambda_mcp::models::AnotherOutput
+        // ),
+    ];
 
     write_schema(&tools);
     println!("✅ Generated tool_schema.json with {} tool(s)", tools.len());

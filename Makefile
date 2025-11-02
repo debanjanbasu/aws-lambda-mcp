@@ -4,7 +4,7 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 schema: ## Generate tool_schema.json
-	@cargo run --bin generate-schema
+	@cargo run --bin generate-schema --features schema-gen
 
 build: schema ## Build Lambda (debug)
 	@cargo lambda build --bin aws-lambda-mcp

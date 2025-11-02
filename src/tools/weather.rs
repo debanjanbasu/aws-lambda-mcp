@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::time::Duration;
 use tracing::{debug, instrument};
+use rmcp::tool;
 
 use crate::http::HTTP_CLIENT;
 use crate::models::{TemperatureUnit, WeatherRequest, WeatherResponse};
@@ -39,7 +40,7 @@ struct CurrentWeather {
 /// # Errors
 ///
 /// Returns an error if the geocoding or weather API calls fail.
-#[rmcp::tool(
+#[tool(
     description = "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide."
 )]
 #[instrument(fields(location = %request.location))]

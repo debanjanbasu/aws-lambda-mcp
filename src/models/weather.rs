@@ -32,21 +32,21 @@ impl TemperatureUnit {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct WeatherRequest {
-    /// Location name (city, address, or place)
+    #[schemars(description = "Location name (city, address, or place)")]
     pub location: String,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct WeatherResponse {
-    /// Location name
+    #[schemars(description = "Location name")]
     pub location: String,
-    /// Temperature value
+    #[schemars(description = "Temperature value")]
     pub temperature: f64,
-    /// The unit of temperature (Celsius or Fahrenheit)
+    #[schemars(description = "The unit of temperature (Celsius or Fahrenheit)")]
     pub temperature_unit: TemperatureUnit,
-    /// WMO weather code
+    #[schemars(description = "WMO weather code")]
     pub weather_code: i32,
-    /// Wind speed in km/h
+    #[schemars(description = "Wind speed in km/h")]
     pub wind_speed: f64,
 }

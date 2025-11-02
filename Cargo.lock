@@ -115,7 +115,6 @@ dependencies = [
  "reqwest-middleware",
  "reqwest-tracing",
  "rmcp",
- "rmcp-macros",
  "schemars",
  "serde",
  "serde_json",
