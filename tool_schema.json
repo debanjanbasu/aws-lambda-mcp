@@ -1,0 +1,53 @@
+[
+  {
+    "description": "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide.",
+    "inputSchema": {
+      "properties": {
+        "location": {
+          "description": "Location name (city, address, or place)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "location"
+      ],
+      "type": "object"
+    },
+    "name": "get_weather",
+    "outputSchema": {
+      "properties": {
+        "location": {
+          "description": "Location name",
+          "type": "string"
+        },
+        "temperature": {
+          "description": "Temperature value",
+          "format": "double",
+          "type": "number"
+        },
+        "temperature_unit": {
+          "description": "The unit of temperature (Celsius or Fahrenheit)",
+          "type": "string"
+        },
+        "weather_code": {
+          "description": "WMO weather code",
+          "format": "int32",
+          "type": "integer"
+        },
+        "wind_speed": {
+          "description": "Wind speed in km/h",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "location",
+        "temperature",
+        "temperature_unit",
+        "weather_code",
+        "wind_speed"
+      ],
+      "type": "object"
+    }
+  }
+]

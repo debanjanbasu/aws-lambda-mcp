@@ -1,33 +1,71 @@
-use anyhow::{bail, Result as AnyhowResult};
-use crate::models::{Request, Response};
-use serde_json::{from_value, json, Value};
+use anyhow::{Context, Result};
 use lambda_runtime::Diagnostic;
-use tracing::debug;
+use serde_json::Value;
+use tracing::{debug, error};
 
-pub async fn function_handler(event: lambda_runtime::LambdaEvent<Value>) -> Result<Value, Diagnostic> {
+use crate::models::WeatherRequest;
+use crate::tools::weather::get_weather;
+
+/// Handles Lambda events and routes them to appropriate tools.
+///
+/// # Errors
+/// Returns a `Diagnostic` error if:
+/// - The event payload cannot be parsed into the expected request type
+/// - The requested tool fails during execution
+/// - The tool name is unknown
+/// - Response serialization fails
+pub async fn function_handler(
+    event: lambda_runtime::LambdaEvent<Value>,
+) -> Result<Value, Diagnostic> {
     let (event, context) = event.into_parts();
-    
-    // Log incoming event for debugging (visible only at DEBUG level)
-    debug!(request_id = %context.request_id, event = ?event, "Received Lambda event");
-    
-    // Parse request and extract name with default fallback
-    let request: Request = from_value(event).map_err(anyhow::Error::from)?;
-    let name = request.first_name.as_deref().unwrap_or("world");
-    
-    // Log parsed input for traceability
-    debug!(request_id = %context.request_id, input_name = ?name, "Processing greeting request");
-    
-    // Generate response and serialize to JSON
-    let response = create_greeting(name)?;
-    Ok(json!({ "message": response.message }))
-}
 
-fn create_greeting(name: &str) -> AnyhowResult<Response> {
-    match name.len() {
-        0 => bail!("Name cannot be empty"),
-        l if l > 100 => bail!("Name is too long: {l} characters"),
-        _ => Ok(Response {
-            message: format!("Hello, {name}!"),
-        }),
+    // Log incoming event and context for debugging (visible only at DEBUG level)
+    debug!(
+        event = ?event,
+        context = ?context,
+        "Received Lambda event"
+    );
+
+    let tool_name = context
+        .client_context
+        .as_ref()
+        .and_then(|cc| cc.custom.get("bedrockAgentCoreToolName"))
+        .map_or("unknown", String::as_str);
+
+    debug!(
+        tool_name = %tool_name,
+        "Extracted tool name from client context"
+    );
+
+    // Route to the appropriate tool based on the tool name
+    if tool_name == "get_weather" {
+        let request: WeatherRequest = serde_json::from_value(event).map_err(|e| {
+            error!(error = %e, "Failed to parse WeatherRequest");
+            Diagnostic {
+                error_type: "InvalidInput".to_string(),
+                error_message: format!("Failed to parse request: {e}"),
+            }
+        })?;
+
+        let response = get_weather(request).await.map_err(|e| {
+            error!(error = %e, "Failed to get weather");
+            Diagnostic {
+                error_type: "ToolError".to_string(),
+                error_message: format!("Failed to get weather: {e}"),
+            }
+        })?;
+
+        serde_json::to_value(response)
+            .context("Failed to serialize response")
+            .map_err(|e| Diagnostic {
+                error_type: "SerializationError".to_string(),
+                error_message: format!("Failed to serialize response: {e}"),
+            })
+    } else {
+        error!(tool_name = %tool_name, "Unknown tool");
+        Err(Diagnostic {
+            error_type: "UnknownTool".to_string(),
+            error_message: format!("Unknown tool: {tool_name}"),
+        })
     }
 }

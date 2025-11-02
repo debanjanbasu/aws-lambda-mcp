@@ -1,0 +1,17 @@
+[unstable]
+build-std = ["std", "panic_abort", "core", "alloc", "proc_macro"]
+
+[build]
+rustflags = [
+    "-Clto",
+    "-Cembed-bitcode=yes",
+    "-Zdylib-lto",
+    "-Zlocation-detail=none",
+    "-Zfmt-debug=none",
+    "-Zpanic_abort_tests",
+    "-Zhint-mostly-unused",
+    "--cfg",
+    "tokio_unstable",
+    "--cfg",
+    "reqwest_unstable",
+]
