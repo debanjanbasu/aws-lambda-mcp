@@ -9,8 +9,12 @@ schema: ## Generate tool_schema.json
 build: schema ## Build Lambda (debug)
 	@cargo lambda build --bin aws-lambda-mcp
 
-release: schema ## Build Lambda (release, ARM64)
+release: schema ## Build Lambda (release, ARM64) with UPX compression
 	@cargo lambda build --release --arm64 --bin aws-lambda-mcp
+	@echo "Compressing binary with UPX (--best --lzma)..."
+	@upx --best --lzma target/lambda/aws-lambda-mcp/bootstrap
+	@echo "Final size:"
+	@ls -lh target/lambda/aws-lambda-mcp/bootstrap
 
 test: ## Run tests
 	@cargo test

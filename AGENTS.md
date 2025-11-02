@@ -1,6 +1,6 @@
 # AI Assistant Instructions
 
-**Last updated**: 2025-11-02T13:13:50.000Z
+**Last updated**: 2025-11-02T13:39:36.000Z
 
 Repository-specific instructions for AI coding assistants (GitHub Copilot, Claude, MCP agents) working on this AWS Lambda project.
 
@@ -12,7 +12,7 @@ Repository-specific instructions for AI coding assistants (GitHub Copilot, Claud
 
 ⚠️ **Not an MCP Server** - This is a Lambda function using Bedrock Agent schema format. We use `rmcp`'s `#[tool]` macro for metadata only, not the full MCP server infrastructure.
 
-**Stack**: Rust 2024 | Lambda Runtime | Tokio | serde/schemars | tracing | reqwest | cargo-lambda
+**Stack**: Rust 2024 | Lambda Runtime | Tokio | serde/schemars | tracing | reqwest | cargo-lambda | UPX
 
 ---
 
@@ -22,9 +22,11 @@ Repository-specific instructions for AI coding assistants (GitHub Copilot, Claud
 ```bash
 make schema   # Generate tool_schema.json
 make build    # Debug build
-make release  # ARM64 production build
+make release  # ARM64 production build with UPX compression (~1.3MB)
 make test     # Run tests
 ```
+
+**Binary Size**: Release builds are automatically compressed with UPX (`--best --lzma`), reducing size from ~3.7MB to ~1.3MB (65% reduction). This significantly improves cold start time.
 
 ### Adding a New Tool
 1. Create model in `src/models/`: `#[derive(Debug, Serialize, Deserialize, JsonSchema)]`

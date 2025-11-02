@@ -61,6 +61,9 @@ macros/                       # Proc macro crate
 
 - Rust toolchain (edition 2024)
 - [cargo-lambda](https://github.com/cargo-lambda/cargo-lambda) - `cargo install cargo-lambda`
+- [UPX](https://upx.github.io/) - For binary compression (optional but recommended)
+  - macOS: `brew install upx`
+  - Linux: `apt-get install upx-ucl` or download from releases
 
 ## Getting Started
 
@@ -84,17 +87,15 @@ make release
 ### 2. Available Make Commands
 
 ```bash
-make help          # Show all available commands
-make schema        # Generate tool_schema.json from code
-make build         # Build Lambda function (debug)
-make release       # Build Lambda function (optimized, ARM64)
-make test          # Run tests
-make clippy        # Run clippy linter
-make fmt           # Format code
-make fmt-check     # Check code formatting
-make lint          # Run all linters
-make clean         # Clean build artifacts
+make help     # Show all available commands
+make schema   # Generate tool_schema.json from code
+make build    # Build Lambda function (debug)
+make release  # Build Lambda (ARM64, UPX compressed) - ~1.3MB
+make test     # Run tests
+make all      # Run tests and build release
 ```
+
+**Binary Size**: The release build produces a ~3.7MB binary, which is automatically compressed to ~1.3MB using UPX with `--best --lzma` flags (65% reduction). This significantly reduces cold start time and deployment package size.
 
 ### 3. Local Development
 
