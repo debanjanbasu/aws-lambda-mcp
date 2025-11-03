@@ -87,12 +87,17 @@ make release
 ### 2. Available Make Commands
 
 ```bash
-make help     # Show all available commands
-make schema   # Generate tool_schema.json from code
-make build    # Build Lambda function (debug)
-make release  # Build Lambda (ARM64, UPX compressed) - ~1.3MB
-make test     # Run tests
-make all      # Run tests and build release
+make help       # Show all available commands
+make schema     # Generate tool_schema.json from code
+make build      # Build Lambda function (debug)
+make release    # Build Lambda (ARM64, UPX compressed) - ~1.3MB
+make test       # Run tests
+make all        # Run tests and build release
+make tf-init    # Initialize Terraform
+make tf-plan    # Plan Terraform deployment
+make tf-apply   # Apply Terraform changes
+make deploy     # Build and deploy to AWS (builds + applies Terraform)
+make tf-destroy # Destroy AWS resources
 ```
 
 **Binary Size**: The release build produces a ~3.7MB binary, which is automatically compressed to ~1.3MB using UPX with `--best --lzma` flags (65% reduction). This significantly reduces cold start time and deployment package size.
@@ -106,6 +111,20 @@ make watch
 # Development mode with auto-reload
 make dev
 ```
+
+## Deployment
+
+After building, deploy to AWS with Terraform:
+
+```bash
+# Initialize Terraform (first time only)
+make tf-init
+
+# Deploy (builds Lambda + deploys infrastructure)
+make deploy
+```
+
+See [iac/README.md](./iac/README.md) for detailed deployment documentation.
 
 ## Tool Schema Generation
 
