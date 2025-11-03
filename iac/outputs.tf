@@ -50,12 +50,17 @@ output "bedrock_gateway_id" {
 
 output "bedrock_gateway_name" {
   description = "Name of the Bedrock Agent Gateway"
-  value       = aws_bedrockagentcore_gateway.main.gateway_name
+  value       = aws_bedrockagentcore_gateway.main.name
+}
+
+output "bedrock_gateway_url" {
+  description = "URL of the Bedrock Agent Gateway"
+  value       = aws_bedrockagentcore_gateway.main.gateway_url
 }
 
 output "bedrock_gateway_target_id" {
   description = "ID of the Bedrock Agent Gateway Target"
-  value       = aws_bedrockagentcore_gateway_target.lambda.id
+  value       = aws_bedrockagentcore_gateway_target.lambda.target_id
 }
 
 # Entra ID OAuth Outputs (mandatory)

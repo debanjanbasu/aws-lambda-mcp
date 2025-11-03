@@ -13,6 +13,11 @@ resource "azuread_application" "bedrock_gateway" {
   # Application ID URI (audience claim)
   identifier_uris = ["api://${var.entra_app_name}"]
 
+  # Use v2 access tokens (allows more flexible identifier URIs)
+  api {
+    requested_access_token_version = 2
+  }
+
   # Enable public client flows (device code, PKCE)
   public_client {
     redirect_uris = var.entra_public_client_redirect_uris
@@ -41,6 +46,12 @@ resource "azuread_application" "bedrock_gateway" {
     "oauth2",
     "terraform-managed"
   ]
+}
+
+# Update application with identifier URI after creation
+resource "azuread_application_identifier_uri" "bedrock_gateway" {
+  application_id = azuread_application.bedrock_gateway.id
+  identifier_uri = "api://${azuread_application.bedrock_gateway.client_id}"
 }
 
 # Create Service Principal for the application

@@ -82,16 +82,53 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 #   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 # }
 
+# IAM Role for Bedrock Gateway
+resource "aws_iam_role" "bedrock_gateway" {
+  name = "${var.gateway_name}-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "bedrock.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+
+  tags = var.common_tags
+}
+
+# Policy allowing Bedrock Gateway to invoke Lambda
+resource "aws_iam_role_policy" "bedrock_gateway_lambda" {
+  name = "${var.gateway_name}-lambda-invoke"
+  role = aws_iam_role.bedrock_gateway.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "lambda:InvokeFunction"
+      ]
+      Resource = aws_lambda_function.bedrock_agent_gateway.arn
+    }]
+  })
+}
+
 # Bedrock Agent Gateway
 resource "aws_bedrockagentcore_gateway" "main" {
-  gateway_name = var.gateway_name
-  description  = "Bedrock Agent Gateway for tool invocations with Entra ID OAuth"
+  name            = var.gateway_name
+  description     = "Bedrock Agent Gateway for tool invocations with Entra ID OAuth"
+  protocol_type   = "MCP"
+  authorizer_type = "CUSTOM_JWT"
+  role_arn        = aws_iam_role.bedrock_gateway.arn
 
-  # OAuth authorization using Entra ID discovery URL
   authorizer_configuration {
-    openid_connect {
-      issuer_url = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0"
-      audience   = azuread_application.bedrock_gateway.client_id
+    custom_jwt_authorizer {
+      discovery_url    = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0/.well-known/openid-configuration"
+      allowed_audience = [azuread_application.bedrock_gateway.client_id]
     }
   }
 
@@ -99,18 +136,49 @@ resource "aws_bedrockagentcore_gateway" "main" {
 }
 
 # Bedrock Agent Gateway Target (Lambda)
+# Tool schemas loaded directly from programmatically generated tool_schema.json
 resource "aws_bedrockagentcore_gateway_target" "lambda" {
+  name               = "${var.gateway_name}-target"
   gateway_identifier = aws_bedrockagentcore_gateway.main.gateway_id
+  description        = "Lambda target with MCP tools from tool_schema.json"
 
-  target {
-    lambda_target {
-      lambda_arn = aws_lambda_function.bedrock_agent_gateway.arn
+  target_configuration {
+    mcp {
+      lambda {
+        lambda_arn = aws_lambda_function.bedrock_agent_gateway.arn
+
+        # Load tool schemas from tool_schema.json using dynamic blocks
+        dynamic "tool_schema" {
+          for_each = jsondecode(file(var.tool_schema_path))
+          content {
+            inline_payload {
+              name        = tool_schema.value.name
+              description = tool_schema.value.description
+
+              input_schema {
+                type        = tool_schema.value.inputSchema.type
+                description = try(tool_schema.value.inputSchema.description, null)
+
+                # Dynamically create property blocks from inputSchema.properties
+                dynamic "property" {
+                  for_each = try(tool_schema.value.inputSchema.properties, {})
+                  content {
+                    name        = property.key
+                    type        = property.value.type
+                    description = try(property.value.description, null)
+                    required    = contains(try(tool_schema.value.inputSchema.required, []), property.key)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 
-  # Tool schema from tool_schema.json
-  tool_schema {
-    tools = jsondecode(file(var.tool_schema_path))
+  credential_provider_configuration {
+    gateway_iam_role {}
   }
 }
 

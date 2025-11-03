@@ -108,13 +108,13 @@ variable "entra_redirect_uris" {
 variable "entra_spa_redirect_uris" {
   description = "Redirect URIs for single-page applications (PKCE only, no secret)"
   type        = list(string)
-  default     = ["http://localhost:3000"]
+  default     = ["http://localhost:3000/"]
 }
 
 variable "entra_public_client_redirect_uris" {
   description = "Redirect URIs for public clients (device code flow, mobile apps)"
   type        = list(string)
-  default     = [
+  default = [
     "https://login.microsoftonline.com/common/oauth2/nativeclient",
     "http://localhost"
   ]
