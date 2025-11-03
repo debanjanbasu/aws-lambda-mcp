@@ -1,25 +1,18 @@
 # Terraform
 .terraform/
-.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 *.tfvars
 !terraform.tfvars.example
-.terraform.tfstate.lock.info
 
-# Crash logs
-crash.log
-crash.*.log
+# Secrets and tokens
+.env
+*.pem
+*.key
 
-# Override files
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
+# Logs
+*.log
 
-# CLI config
-.terraformrc
-terraform.rc
-
-# Auto-generated Lambda zip files
-lambda-*.zip
+# OS
+.DS_Store
+Thumbs.db

@@ -1,3 +1,10 @@
+# AWS Region Output
+output "aws_region" {
+  description = "AWS region where resources are deployed"
+  value       = var.aws_region
+}
+
+# Lambda Outputs
 output "lambda_function_arn" {
   description = "ARN of the Lambda function"
   value       = aws_lambda_function.bedrock_agent_gateway.arn
@@ -67,6 +74,11 @@ output "bedrock_gateway_target_id" {
 output "entra_app_client_id" {
   description = "Entra ID application client ID"
   value       = azuread_application.bedrock_gateway.client_id
+}
+
+output "entra_app_name" {
+  description = "Entra ID application name"
+  value       = var.entra_app_name
 }
 
 output "entra_app_object_id" {

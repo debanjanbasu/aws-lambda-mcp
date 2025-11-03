@@ -49,7 +49,7 @@ variable "lambda_alias_version" {
 variable "rust_log_level" {
   description = "Rust logging level (trace, debug, info, warn, error)"
   type        = string
-  default     = "warn" # Reduced from 'info' to minimize CloudWatch log volume
+  default     = "trace" # Reduced from 'info' to minimize CloudWatch log volume
 }
 
 variable "additional_env_vars" {
@@ -99,23 +99,56 @@ variable "entra_app_name" {
   default     = "aws-lambda-mcp"
 }
 
+variable "entra_sign_in_audience" {
+  description = "Entra ID sign-in audience (AzureADMyOrg, AzureADMultipleOrgs, AzureADandPersonalMicrosoftAccount)"
+  type        = string
+  default     = "AzureADMyOrg"
+}
+
 variable "entra_redirect_uris" {
-  description = "Redirect URIs for web OAuth flows (authorization code + PKCE)"
+  description = "List of redirect URIs for OAuth callbacks"
   type        = list(string)
-  default     = ["http://localhost:8080/callback"]
+  default     = ["http://localhost:6274/callback/"]
 }
 
-variable "entra_spa_redirect_uris" {
-  description = "Redirect URIs for single-page applications (PKCE only, no secret)"
+variable "entra_group_membership_claims" {
+  description = "Group membership claims to include in tokens"
   type        = list(string)
-  default     = ["http://localhost:3000/"]
+  default     = ["SecurityGroup"]
 }
 
-variable "entra_public_client_redirect_uris" {
-  description = "Redirect URIs for public clients (device code flow, mobile apps)"
+variable "entra_oauth_scope_value" {
+  description = "OAuth scope value (used in token requests)"
+  type        = string
+  default     = "access_as_user"
+}
+
+variable "entra_oauth_scope_admin_name" {
+  description = "OAuth scope admin consent display name"
+  type        = string
+  default     = "Access Bedrock Gateway"
+}
+
+variable "entra_oauth_scope_admin_description" {
+  description = "OAuth scope admin consent description"
+  type        = string
+  default     = "Allow the application to access the Bedrock Gateway on behalf of the signed-in user"
+}
+
+variable "entra_oauth_scope_user_name" {
+  description = "OAuth scope user consent display name"
+  type        = string
+  default     = "Access Bedrock Gateway"
+}
+
+variable "entra_oauth_scope_user_description" {
+  description = "OAuth scope user consent description"
+  type        = string
+  default     = "Allow the application to access the Bedrock Gateway on your behalf"
+}
+
+variable "entra_app_tags" {
+  description = "Tags for Entra ID application"
   type        = list(string)
-  default = [
-    "https://login.microsoftonline.com/common/oauth2/nativeclient",
-    "http://localhost"
-  ]
+  default     = ["bedrock-gateway", "oauth2", "pkce", "terraform-managed"]
 }

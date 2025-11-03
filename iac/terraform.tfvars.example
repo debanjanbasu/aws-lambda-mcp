@@ -42,16 +42,7 @@ common_tags = {
 # Customize the app registration name if needed
 entra_app_name = "aws-lambda-mcp"
 
-# Redirect URIs for different OAuth flows
+# Redirect URIs for OAuth flows
 entra_redirect_uris = [
   "http://localhost:8080/callback"
-]
-
-entra_spa_redirect_uris = [
-  "http://localhost:3000"
-]
-
-entra_public_client_redirect_uris = [
-  "https://login.microsoftonline.com/common/oauth2/nativeclient",
-  "http://localhost"
 ]

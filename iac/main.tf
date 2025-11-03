@@ -117,18 +117,17 @@ resource "aws_iam_role_policy" "bedrock_gateway_lambda" {
   })
 }
 
-# Bedrock Agent Gateway
+# Bedrock Agent Core Gateway with JWT authorization
 resource "aws_bedrockagentcore_gateway" "main" {
   name            = var.gateway_name
-  description     = "Bedrock Agent Gateway for tool invocations with Entra ID OAuth"
   protocol_type   = "MCP"
-  authorizer_type = "CUSTOM_JWT"
   role_arn        = aws_iam_role.bedrock_gateway.arn
+  authorizer_type = "CUSTOM_JWT"
 
   authorizer_configuration {
     custom_jwt_authorizer {
-      discovery_url    = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0/.well-known/openid-configuration"
-      allowed_audience = [azuread_application.bedrock_gateway.client_id]
+      discovery_url    = local.entra_discovery_url
+      allowed_audience = local.gateway_allowed_audiences
     }
   }
 
