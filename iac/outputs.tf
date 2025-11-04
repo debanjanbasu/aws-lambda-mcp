@@ -45,45 +45,45 @@ output "cloudwatch_log_group_arn" {
   value       = aws_cloudwatch_log_group.lambda_logs.arn
 }
 
-output "bedrock_gateway_arn" {
-  description = "ARN of the Bedrock Agent Gateway"
+output "agentcore_gateway_arn" {
+  description = "ARN of the AWS Bedrock AgentCore Gateway"
   value       = aws_bedrockagentcore_gateway.main.gateway_arn
 }
 
-output "bedrock_gateway_id" {
-  description = "ID of the Bedrock Agent Gateway"
+output "agentcore_gateway_id" {
+  description = "ID of the AWS Bedrock AgentCore Gateway"
   value       = aws_bedrockagentcore_gateway.main.gateway_id
 }
 
-output "bedrock_gateway_name" {
-  description = "Name of the Bedrock Agent Gateway"
+output "agentcore_gateway_name" {
+  description = "Name of the AWS Bedrock AgentCore Gateway"
   value       = aws_bedrockagentcore_gateway.main.name
 }
 
-output "bedrock_gateway_url" {
-  description = "URL of the Bedrock Agent Gateway"
+output "agentcore_gateway_url" {
+  description = "URL of the AWS Bedrock AgentCore Gateway"
   value       = aws_bedrockagentcore_gateway.main.gateway_url
 }
 
-output "bedrock_gateway_target_id" {
-  description = "ID of the Bedrock Agent Gateway Target"
+output "agentcore_gateway_target_id" {
+  description = "ID of the AWS Bedrock AgentCore Gateway Target"
   value       = aws_bedrockagentcore_gateway_target.lambda.target_id
 }
 
 # Entra ID OAuth Outputs (mandatory)
 output "entra_app_client_id" {
   description = "Entra ID application client ID"
-  value       = azuread_application.bedrock_gateway.client_id
+  value       = azuread_application.agentcore_app.client_id
 }
 
 output "entra_app_name" {
   description = "Entra ID application name"
-  value       = var.entra_app_name
+  value       = var.project_name
 }
 
 output "entra_app_object_id" {
   description = "Entra ID application object ID"
-  value       = azuread_application.bedrock_gateway.object_id
+  value       = azuread_application.agentcore_app.object_id
 }
 
 output "entra_tenant_id" {

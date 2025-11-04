@@ -1,34 +1,68 @@
 # AWS Lambda Bedrock Agent Gateway
 
-A production-ready AWS Lambda function that serves as a gateway for Amazon Bedrock Agents, written in Rust. This provides a secure, high-performance bridge between Bedrock AI agents and custom tool implementations.
+A production-ready AWS Lambda function that serves as a gateway for Amazon Bedrock Agents, written in Rust. This provides a secure, high-performance bridge between Bedrock AI agents and custom tool implementations with OAuth authentication via Entra ID.
+
+## Architecture
+
+```
+MCP Client → Entra ID OAuth (PKCE) → Bedrock Gateway → Lambda (Rust) → External APIs
+                                            ↓
+                                   JWT Validation (OIDC)
+```
+
+**Components**:
+- **AWS Lambda**: ARM64 Rust binary (~1.3MB with UPX compression)
+- **Bedrock Agent Core Gateway**: MCP protocol endpoint
+- **Entra ID OAuth**: Secretless PKCE flow
+- **CloudWatch Logs**: 3-day retention for cost optimization
 
 ## Important: Not an MCP Server
 
-**This is NOT a Model Context Protocol (MCP) server.** It's an AWS Lambda function specifically designed for Amazon Bedrock Agent integration. While we reference patterns from the [rust-sdk MCP implementation](https://github.com/modelcontextprotocol/rust-sdk), we use a custom tooling approach tailored for AWS Bedrock's schema requirements.
-
-For details on why we chose this architecture, see [COPILOT.md](./COPILOT.md).
+**This is NOT a Model Context Protocol (MCP) server.** It's an AWS Lambda function specifically designed for Amazon Bedrock Agent integration. We use a custom `#[tool]` macro approach tailored for AWS Bedrock's schema requirements.
 
 ## Features
 
-- **Rust Performance**: Compiled for ARM64/Graviton for optimal performance and cost efficiency
-- **Security First**: No `unsafe` code, no `unwrap/expect/panic`, strict clippy lints enforced
-- **Observability**: Structured tracing with JSON output for CloudWatch integration
-- **Clean Tool Definitions**: Use `#[tool(description = "...")]` macro for clean, maintainable code
-- **Auto-Generated Schemas**: Tool schemas automatically generated from code for Bedrock compatibility
-- **HTTP Client**: Pre-configured `reqwest` client with middleware tracing for all requests
-- **Modern Rust**: Edition 2024 with latest async/await patterns
-- **Low Cold Start**: Minimal dependencies and optimized binary size for fast Lambda cold starts
+- **Rust Performance**: Compiled for ARM64/Graviton (20% cheaper, UPX compressed to 1.3MB)
+- **Secretless OAuth**: PKCE flow with Entra ID (no client secrets)
+- **JWT Validation**: Every request validated via OIDC discovery
+- **Security First**: No `unsafe` code, no `unwrap/expect/panic`, strict clippy lints
+- **Observability**: Structured tracing with JSON output for CloudWatch
+- **Auto-Generated Schemas**: Tool schemas from code annotations
+- **Low Cold Start**: Minimal dependencies and optimized binary size
+- **Cost Optimized**: Free tier covers typical usage ($0/month)
+
+## Quick Start
+
+```bash
+# 1. Authenticate to AWS and Azure
+make login
+
+# 2. Deploy infrastructure
+make deploy
+
+# 3. Test with OAuth token
+make test-token
+```
+
+This authenticates, deploys everything, and launches the MCP Inspector automatically.
 
 ## Example Tool: Weather Service
 
-The project includes a working example of a weather tool that:
-- Takes a location name (city, address, or place)
-- Geocodes the location using Open-Meteo API
+The project includes a working weather tool that demonstrates the complete pattern:
+- Geocodes locations using Open-Meteo API
 - Fetches current weather data
-- Intelligently returns temperature in Celsius or Fahrenheit based on country
-- Returns WMO weather code and wind speed
+- Returns temperature in local units (Celsius/Fahrenheit by country)
+- Includes WMO weather code and wind speed
 
-This demonstrates the complete pattern for building Bedrock Agent tools.
+## Prerequisites
+
+- Rust toolchain (edition 2024)
+- [cargo-lambda](https://github.com/cargo-lambda/cargo-lambda) - `cargo install cargo-lambda`
+- [UPX](https://upx.github.io/) - For binary compression
+  - macOS: `brew install upx`
+  - Linux: `apt-get install upx-ucl`
+- AWS CLI configured
+- Azure CLI configured
 
 ## Project Structure
 
@@ -57,20 +91,11 @@ macros/                       # Proc macro crate
     └── lib.rs               # #[tool] attribute macro implementation
 ```
 
-## Prerequisites
-
-- Rust toolchain (edition 2024)
-- [cargo-lambda](https://github.com/cargo-lambda/cargo-lambda) - `cargo install cargo-lambda`
-- [UPX](https://upx.github.io/) - For binary compression (optional but recommended)
-  - macOS: `brew install upx`
-  - Linux: `apt-get install upx-ucl` or download from releases
-
 ## Getting Started
 
 ### 1. Clone and Build
 
 ```bash
-# Clone the repository
 git clone <your-repo-url>
 cd aws-lambda-mcp
 
@@ -80,51 +105,59 @@ make schema
 # Build for development
 make build
 
-# Build for production (ARM64/Graviton)
+# Build for production (ARM64/Graviton with UPX compression)
 make release
 ```
 
-### 2. Available Make Commands
+### 2. Deploy to AWS
 
 ```bash
-make help       # Show all available commands
-make schema     # Generate tool_schema.json from code
-make build      # Build Lambda function (debug)
-make release    # Build Lambda (ARM64, UPX compressed) - ~1.3MB
-make test       # Run tests
-make all        # Run tests and build release
-make tf-init    # Initialize Terraform
-make tf-plan    # Plan Terraform deployment
-make tf-apply   # Apply Terraform changes
-make deploy     # Build and deploy to AWS (builds + applies Terraform)
-make tf-destroy # Destroy AWS resources
-```
+# Login to AWS and Azure
+make login
 
-**Binary Size**: The release build produces a ~3.7MB binary, which is automatically compressed to ~1.3MB using UPX with `--best --lzma` flags (65% reduction). This significantly reduces cold start time and deployment package size.
-
-### 3. Local Development
-
-```bash
-# Watch for changes and auto-regenerate schema
-make watch
-
-# Development mode with auto-reload
-make dev
-```
-
-## Deployment
-
-After building, deploy to AWS with Terraform:
-
-```bash
-# Initialize Terraform (first time only)
-make tf-init
-
-# Deploy (builds Lambda + deploys infrastructure)
+# Deploy everything (builds Lambda + applies Terraform)
 make deploy
 ```
 
-See [iac/README.md](./iac/README.md) for detailed deployment documentation.
+### 3. Test the Gateway
+
+```bash
+# Get OAuth token and launch MCP Inspector
+make test-token
+
+# Refresh expired token
+make refresh
+
+# Test Lambda directly (bypass Gateway)
+make test-lambda
+
+# View logs
+make logs
+```
+
+## Available Commands
+
+All commands can be run from the root directory:
+
+```bash
+# Build Commands
+make help         # Show all commands
+make schema       # Generate tool_schema.json
+make build        # Build Lambda (debug)
+make release      # Build Lambda (ARM64, UPX compressed)
+make test         # Run tests
+make all          # Run tests + build release
+
+# Infrastructure Commands
+make login        # Authenticate AWS + Azure CLIs
+make deploy       # Build + deploy to AWS
+make test-token   # OAuth flow + launch Inspector
+make refresh      # Refresh expired access token
+make test-lambda  # Test Lambda directly
+make logs         # Tail Lambda logs
+make clean        # Remove tokens and backups
+make tf-destroy   # Destroy infrastructure
+```
 
 ## Tool Schema Generation
 

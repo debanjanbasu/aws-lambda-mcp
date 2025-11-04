@@ -8,9 +8,11 @@ Repository-specific instructions for AI coding assistants (GitHub Copilot, Claud
 
 ## Project Overview
 
-**AWS Lambda Bedrock Agent Gateway** - Rust-based Lambda function that translates AWS Bedrock Agent tool calls to actual implementations. Focus: security, performance (ARM64/Graviton), minimal cold start, structured tracing.
+**AWS Bedrock AgentCore Gateway** - Rust-based Lambda function that translates AWS Bedrock AgentCore tool calls to actual implementations. Focus: security, performance (ARM64/Graviton), minimal cold start, structured tracing.
 
-⚠️ **Not an MCP Server** - This is a Lambda function using Bedrock Agent schema format. We use `rmcp`'s `#[tool]` macro for metadata only, not the full MCP server infrastructure.
+⚠️ **Not an MCP Server** - This is a Lambda function using AWS Bedrock AgentCore schema format. We use `rmcp`'s `#[tool]` macro for metadata only, not the full MCP server infrastructure.
+
+⚠️ **Critical Naming** - Always use "AWS Bedrock AgentCore Gateway" (not "Bedrock Gateway" or "Bedrock Agent Gateway"). This is the official AWS service name.
 
 **Stack**: Rust 2024 | Lambda Runtime | Tokio | serde/schemars | tracing | reqwest | cargo-lambda | UPX
 
@@ -235,7 +237,7 @@ async fn process(id: UserId, data: Data) -> Result<Response> {
 - MCP protocol format
 
 ### Why Custom Approach?
-1. **Different schema format**: Bedrock ≠ MCP
+1. **Different schema format**: AWS Bedrock AgentCore ≠ MCP
 2. **Lambda runtime**: No need for transport layers
 3. **Performance**: Minimal dependencies for fast cold start
 4. **Simplicity**: Custom schema generator is ~100 LOC
@@ -248,11 +250,11 @@ async fn process(id: UserId, data: Data) -> Result<Response> {
 1. `rmcp` macro generates `{function}_tool_attr()` accessor
 2. `generate_schema` binary calls these accessors
 3. `schemars` generates JSON Schema from request/response types
-4. Custom cleanup transforms to Bedrock format (no `$schema`, inline enums)
+4. Custom cleanup transforms to AWS Bedrock AgentCore format (no `$schema`, inline enums)
 
 **Run**: `make schema` before building
 
-**Bedrock Format**:
+**AWS Bedrock AgentCore Format**:
 - No `$schema` or `$defs`
 - Enums converted to `string` type
 - No complex nested types
@@ -291,10 +293,8 @@ Before marking task complete:
 ## Common Pitfalls
 
 1. **Don't use rmcp SDK fully** - Only the `#[tool]` macro
-2. **Don't change to MCP schema** - Must be Bedrock format
-3. **Don't add unnecessary abstractions** - Direct code is clearer
-4. **Don't use `.as_ref().map()` chains** - Use `.as_deref()`
-5. **Don't create wrappers for LazyLock** - Access directly
+2. **Don't change to MCP schema** - Must be AWS Bedrock AgentCore format
+3. **Don't call it "Bedrock Gateway"** - Always use full name "AWS Bedrock AgentCore Gateway"
 
 ---
 

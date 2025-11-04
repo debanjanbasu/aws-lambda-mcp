@@ -14,8 +14,8 @@ use crate::tools::weather::get_weather;
 /// 3. Strips Bedrock Gateway prefix if present (`gateway-id___tool_name`)
 fn extract_tool_name(event: &Value, context: &lambda_runtime::Context) -> String {
     // 1. Check client_context (standard AWS Lambda invocation)
-    if let Some(ref cc) = context.client_context {
-        if let Some(name) = cc.custom.get("bedrockAgentCoreToolName") {
+    if let Some(ref cc) = context.client_context
+        && let Some(name) = cc.custom.get("bedrockAgentCoreToolName") {
             debug!(
                 tool_name = %name,
                 source = "client_context",
@@ -23,7 +23,6 @@ fn extract_tool_name(event: &Value, context: &lambda_runtime::Context) -> String
             );
             return strip_gateway_prefix(name);
         }
-    }
 
     // 2. Check event payload (Bedrock Agent Core Gateway format)
     event
@@ -95,42 +94,39 @@ pub async fn function_handler(
     );
 
     // Route to the appropriate tool based on the tool name
-    match tool_name.as_str() {
-        "get_weather" => {
-            let request: WeatherRequest = serde_json::from_value(event_payload).map_err(|e| {
-                error!(error = %e, "Failed to parse WeatherRequest");
+    if tool_name.as_str() == "get_weather" {
+        let request: WeatherRequest = serde_json::from_value(event_payload).map_err(|e| {
+            error!(error = %e, "Failed to parse WeatherRequest");
+            Diagnostic {
+                error_type: "InvalidInput".to_string(),
+                error_message: format!("Failed to parse request: {e}"),
+            }
+        })?;
+
+        let response = get_weather(request).await.map_err(|e| {
+            error!(error = %e, "Failed to get weather");
+            Diagnostic {
+                error_type: "ToolError".to_string(),
+                error_message: format!("Failed to get weather: {e}"),
+            }
+        })?;
+
+        info!("Weather data retrieved successfully");
+
+        serde_json::to_value(response)
+            .context("Failed to serialize response")
+            .map_err(|e| {
+                error!(error = %e, "Failed to serialize response");
                 Diagnostic {
-                    error_type: "InvalidInput".to_string(),
-                    error_message: format!("Failed to parse request: {e}"),
+                    error_type: "SerializationError".to_string(),
+                    error_message: format!("Failed to serialize response: {e}"),
                 }
-            })?;
-
-            let response = get_weather(request).await.map_err(|e| {
-                error!(error = %e, "Failed to get weather");
-                Diagnostic {
-                    error_type: "ToolError".to_string(),
-                    error_message: format!("Failed to get weather: {e}"),
-                }
-            })?;
-
-            info!("Weather data retrieved successfully");
-
-            serde_json::to_value(response)
-                .context("Failed to serialize response")
-                .map_err(|e| {
-                    error!(error = %e, "Failed to serialize response");
-                    Diagnostic {
-                        error_type: "SerializationError".to_string(),
-                        error_message: format!("Failed to serialize response: {e}"),
-                    }
-                })
-        }
-        _ => {
-            error!(tool_name = %tool_name, "Unknown tool requested");
-            Err(Diagnostic {
-                error_type: "UnknownTool".to_string(),
-                error_message: format!("Unknown tool: {tool_name}"),
             })
-        }
+    } else {
+        error!(tool_name = %tool_name, "Unknown tool requested");
+        Err(Diagnostic {
+            error_type: "UnknownTool".to_string(),
+            error_message: format!("Unknown tool: {tool_name}"),
+        })
     }
 }

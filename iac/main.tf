@@ -1,16 +1,16 @@
-# Bedrock Agent Gateway Infrastructure
-# Main infrastructure resources for AWS Lambda and Bedrock integration
+# AWS Bedrock AgentCore Gateway Infrastructure
+# Main infrastructure resources for AWS Lambda and AWS Bedrock AgentCore integration
 
 # Create zip file from Lambda binary
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_file = var.lambda_binary_path
-  output_path = "${path.module}/.terraform/lambda-${filemd5(var.lambda_binary_path)}.zip"
+  source_file = local.lambda_binary_path
+  output_path = "${path.module}/.terraform/lambda-${filemd5(local.lambda_binary_path)}.zip"
 }
 
 # Lambda Function
 resource "aws_lambda_function" "bedrock_agent_gateway" {
-  function_name = var.lambda_function_name
+  function_name = var.project_name
   role          = aws_iam_role.lambda_execution.arn
   handler       = "bootstrap"
   runtime       = "provided.al2023"
@@ -44,7 +44,7 @@ resource "aws_lambda_function" "bedrock_agent_gateway" {
 
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "lambda_logs" {
-  name              = "/aws/lambda/${var.lambda_function_name}"
+  name              = "/aws/lambda/${var.project_name}"
   retention_in_days = var.log_retention_days
 
   # KMS encryption disabled to reduce costs (free tier uses SSE)
@@ -53,7 +53,7 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 
 # IAM Role for Lambda
 resource "aws_iam_role" "lambda_execution" {
-  name               = "${var.lambda_function_name}-execution-role"
+  name               = "${var.project_name}-lambda-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
@@ -82,9 +82,9 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 #   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 # }
 
-# IAM Role for Bedrock Gateway
-resource "aws_iam_role" "bedrock_gateway" {
-  name = "${var.gateway_name}-role"
+# IAM Role for AWS Bedrock AgentCore Gateway
+resource "aws_iam_role" "gateway_role" {
+  name = "${var.project_name}-gateway-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -100,10 +100,10 @@ resource "aws_iam_role" "bedrock_gateway" {
   tags = var.common_tags
 }
 
-# Policy allowing Bedrock Gateway to invoke Lambda
-resource "aws_iam_role_policy" "bedrock_gateway_lambda" {
-  name = "${var.gateway_name}-lambda-invoke"
-  role = aws_iam_role.bedrock_gateway.id
+# Policy allowing AWS Bedrock AgentCore Gateway to invoke Lambda
+resource "aws_iam_role_policy" "gateway_lambda_invoke" {
+  name = "${var.project_name}-gateway-lambda-invoke"
+  role = aws_iam_role.gateway_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -117,11 +117,11 @@ resource "aws_iam_role_policy" "bedrock_gateway_lambda" {
   })
 }
 
-# Bedrock Agent Core Gateway with JWT authorization
+# AWS Bedrock AgentCore Gateway with JWT authorization
 resource "aws_bedrockagentcore_gateway" "main" {
-  name            = var.gateway_name
+  name            = var.project_name
   protocol_type   = "MCP"
-  role_arn        = aws_iam_role.bedrock_gateway.arn
+  role_arn        = aws_iam_role.gateway_role.arn
   authorizer_type = "CUSTOM_JWT"
 
   authorizer_configuration {
@@ -134,10 +134,10 @@ resource "aws_bedrockagentcore_gateway" "main" {
   tags = var.common_tags
 }
 
-# Bedrock Agent Gateway Target (Lambda)
+# AWS Bedrock AgentCore Gateway Target (Lambda)
 # Tool schemas loaded directly from programmatically generated tool_schema.json
 resource "aws_bedrockagentcore_gateway_target" "lambda" {
-  name               = "${var.gateway_name}-target"
+  name               = "${var.project_name}-target"
   gateway_identifier = aws_bedrockagentcore_gateway.main.gateway_id
   description        = "Lambda target with MCP tools from tool_schema.json"
 
@@ -148,7 +148,7 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
 
         # Load tool schemas from tool_schema.json using dynamic blocks
         dynamic "tool_schema" {
-          for_each = jsondecode(file(var.tool_schema_path))
+          for_each = jsondecode(file(local.tool_schema_path))
           content {
             inline_payload {
               name        = tool_schema.value.name
@@ -181,9 +181,9 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
   }
 }
 
-# Lambda permission for Bedrock Agent Gateway to invoke
-resource "aws_lambda_permission" "bedrock_gateway" {
-  statement_id  = "AllowBedrockAgentGatewayInvoke"
+# Lambda permission for AWS Bedrock AgentCore Gateway to invoke
+resource "aws_lambda_permission" "agentcore_gateway_invoke" {
+  statement_id  = "AllowAgentCoreGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.bedrock_agent_gateway.function_name
   principal     = "bedrock.amazonaws.com"
@@ -194,7 +194,7 @@ resource "aws_lambda_permission" "bedrock_gateway" {
 resource "aws_iam_role_policy" "secrets_manager" {
   count = length(var.secrets_manager_arns) > 0 ? 1 : 0
 
-  name   = "${var.lambda_function_name}-secrets-manager"
+  name   = "${var.project_name}-secrets-manager"
   role   = aws_iam_role.lambda_execution.id
   policy = data.aws_iam_policy_document.secrets_manager[0].json
 }
