@@ -2,6 +2,7 @@
   {
     "description": "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide.",
     "inputSchema": {
+      "description": "Request for weather information",
       "properties": {
         "location": {
           "description": "Location name (city, address, or place)",
@@ -15,6 +16,7 @@
     },
     "name": "get_weather",
     "outputSchema": {
+      "description": "Response containing weather information",
       "properties": {
         "location": {
           "description": "Location name",

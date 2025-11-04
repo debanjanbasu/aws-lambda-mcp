@@ -7,11 +7,13 @@ use rmcp::tool;
 use crate::http::HTTP_CLIENT;
 use crate::models::{TemperatureUnit, WeatherRequest, WeatherResponse};
 
+// Response from geocoding API
 #[derive(Debug, Deserialize)]
 struct GeocodingResponse {
     results: Option<Vec<GeocodingResult>>,
 }
 
+// Geocoding result with location coordinates
 #[derive(Debug, Deserialize)]
 struct GeocodingResult {
     name: String,
@@ -20,11 +22,13 @@ struct GeocodingResult {
     country_code: Option<String>,
 }
 
+// Response from OpenMeteo weather API
 #[derive(Debug, Deserialize)]
 struct OpenMeteoResponse {
     current: CurrentWeather,
 }
 
+// Current weather data
 #[derive(Debug, Deserialize)]
 struct CurrentWeather {
     temperature_2m: f64,

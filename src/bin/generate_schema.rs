@@ -61,23 +61,18 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
         obj.remove("title");
         
         // Handle enum references by converting them to string types
-        if let Some(defs) = obj.remove("$defs") {
-            if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
-                for prop_value in properties.values_mut() {
-                    if let Some(prop_obj) = prop_value.as_object_mut() {
-                        // Check if property references a definition
-                        if let Some(Value::String(ref_path)) = prop_obj.get("$ref") {
-                            if let Some(def_name) = ref_path.strip_prefix("#/$defs/") {
-                                if let Some(def_value) = defs.get(def_name) {
-                                    prop_obj.remove("$ref");
-                                    
-                                    // Convert enums to string type for AWS Bedrock compatibility
-                                    if def_value.get("enum").is_some() {
-                                        prop_obj.insert("type".to_string(), json!("string"));
-                                    }
-                                }
-                            }
-                        }
+        if let Some(defs) = obj.remove("$defs")
+            && let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
+            for prop_value in properties.values_mut() {
+                if let Some(prop_obj) = prop_value.as_object_mut()
+                    && let Some(Value::String(ref_path)) = prop_obj.get("$ref")
+                    && let Some(def_name) = ref_path.strip_prefix("#/$defs/")
+                    && let Some(def_value) = defs.get(def_name) {
+                    prop_obj.remove("$ref");
+                    
+                    // Convert enums to string type for AWS Bedrock compatibility
+                    if def_value.get("enum").is_some() {
+                        prop_obj.insert("type".to_string(), json!("string"));
                     }
                 }
             }

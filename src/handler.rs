@@ -6,12 +6,12 @@ use tracing::{debug, error, info, instrument};
 use crate::models::WeatherRequest;
 use crate::tools::weather::get_weather;
 
-/// Extracts tool name from event payload, checking multiple possible locations.
-///
-/// Checks in order:
-/// 1. Client context custom fields (standard AWS)
-/// 2. Event fields: `name`, `tool_name`, `toolName`
-/// 3. Strips Bedrock Gateway prefix if present (`gateway-id___tool_name`)
+// Extracts tool name from event payload, checking multiple possible locations.
+//
+// Checks in order:
+// 1. Client context custom fields (standard AWS)
+// 2. Event fields: `name`, `tool_name`, `toolName`
+// 3. Strips Bedrock Gateway prefix if present (`gateway-id___tool_name`)
 fn extract_tool_name(event: &Value, context: &lambda_runtime::Context) -> String {
     // 1. Check client_context (standard AWS Lambda invocation)
     if let Some(ref cc) = context.client_context
@@ -46,9 +46,9 @@ fn extract_tool_name(event: &Value, context: &lambda_runtime::Context) -> String
         )
 }
 
-/// Strips Bedrock Gateway prefix from tool name.
-///
-/// Format: `gateway-target-id___tool_name` → `tool_name`
+// Strips Bedrock Gateway prefix from tool name.
+//
+// Format: `gateway-target-id___tool_name` → `tool_name`
 fn strip_gateway_prefix(name: &str) -> String {
     if let Some((_, actual_name)) = name.split_once("___") {
         debug!(
@@ -65,6 +65,7 @@ fn strip_gateway_prefix(name: &str) -> String {
 /// Handles Lambda events and routes them to appropriate tools.
 ///
 /// # Errors
+///
 /// Returns a `Diagnostic` error if:
 /// - The event payload cannot be parsed into the expected request type
 /// - The requested tool fails during execution

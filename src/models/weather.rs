@@ -1,6 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Temperature unit for weather measurements
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum TemperatureUnit {
@@ -11,6 +12,8 @@ pub enum TemperatureUnit {
 
 impl TemperatureUnit {
     /// Determines temperature unit based on country code (case-insensitive)
+    /// 
+    /// Countries using Fahrenheit: US, Liberia, Myanmar
     #[must_use]
     pub fn from_country_code(country_code: &str) -> Self {
         matches!(country_code, "US" | "us" | "LR" | "lr" | "MM" | "mm")
@@ -29,6 +32,7 @@ impl TemperatureUnit {
     }
 }
 
+/// Request for weather information
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct WeatherRequest {
@@ -36,6 +40,7 @@ pub struct WeatherRequest {
     pub location: String,
 }
 
+/// Response containing weather information
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct WeatherResponse {
