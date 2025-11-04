@@ -38,6 +38,10 @@ common_tags = {
   Team        = "platform"
 }
 
+# AWS Bedrock AgentCore Gateway Configuration
+# Enable debug-level error logging (shows detailed error context)
+# gateway_enable_debug = true
+
 # Entra ID OAuth Configuration (mandatory for security)
 # Customize the app registration name if needed
 entra_app_name = "aws-lambda-mcp"

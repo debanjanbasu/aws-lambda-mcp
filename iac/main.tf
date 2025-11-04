@@ -70,6 +70,25 @@ data "aws_iam_policy_document" "lambda_assume_role" {
   }
 }
 
+# Gateway assume role policy - allow Bedrock AgentCore service
+# IMPORTANT: Both service principals are required for AWS Bedrock AgentCore Gateway to work:
+# - bedrock.amazonaws.com: Legacy service principal (may be used by some Gateway operations)
+# - bedrock-agentcore.amazonaws.com: AgentCore-specific service principal for Lambda invocation
+# Without both, you'll get "Access denied while invoking Lambda function" errors even if
+# the Lambda resource policy and Gateway role policy are correctly configured.
+data "aws_iam_policy_document" "gateway_assume_role" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["bedrock.amazonaws.com", "bedrock-agentcore.amazonaws.com"]
+    }
+
+    actions = ["sts:AssumeRole"]
+  }
+}
+
 # Basic Lambda Execution Policy
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   role       = aws_iam_role.lambda_execution.name
@@ -86,16 +105,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 resource "aws_iam_role" "gateway_role" {
   name = "${var.project_name}-gateway-role"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "bedrock.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
+  assume_role_policy = data.aws_iam_policy_document.gateway_assume_role.json
 
   tags = var.common_tags
 }
@@ -130,6 +140,12 @@ resource "aws_bedrockagentcore_gateway" "main" {
       allowed_audience = local.gateway_allowed_audiences
     }
   }
+
+  # Exception level for error logging
+  # When set to "DEBUG", provides detailed error messages with full context
+  # When omitted (null), shows minimal error information
+  # Note: AWS provider currently only supports "DEBUG" or omitting this field
+  exception_level = var.gateway_enable_debug ? "DEBUG" : null
 
   tags = var.common_tags
 }

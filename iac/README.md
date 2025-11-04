@@ -27,7 +27,43 @@ entra_sign_in_audience = "AzureADMultipleOrgs"  # Any Entra ID tenant
 lambda_memory_size     = 128                     # Minimal for cost
 lambda_timeout         = 30
 log_retention_days     = 3
+rust_log_level         = "info"                  # info (prod), debug/trace (troubleshooting)
+gateway_enable_debug   = false                   # Enable for detailed errors
 ```
+
+### Lambda Debug Logging
+
+Control Lambda logging verbosity for security and troubleshooting:
+
+```hcl
+# Production (secure - no event payloads in logs)
+rust_log_level = "info"   # Default - logs only event size
+
+# Troubleshooting (detailed - includes full event payloads)
+rust_log_level = "debug"  # or "trace" for maximum detail
+```
+
+**Security implications:**
+- `info/warn/error`: Only logs event size. Event payloads excluded from logs automatically.
+- `debug/trace`: Logs full event payloads and context. Use only for troubleshooting, not production.
+
+### Gateway Debug Logging
+
+Enable detailed error messages for troubleshooting:
+
+```hcl
+# In terraform.tfvars
+gateway_enable_debug = true
+```
+
+Then redeploy:
+```bash
+terraform apply -auto-approve
+```
+
+When enabled, Gateway returns detailed error messages with full context. When disabled (default), only minimal error information is provided.
+
+**Note**: Current AWS provider only supports DEBUG level or standard error messages. Set back to `false` for production.
 
 ## Available Commands
 

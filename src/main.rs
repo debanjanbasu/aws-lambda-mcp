@@ -4,15 +4,14 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    // Configure tracing for CloudWatch Logs compatibility
+    // Configure tracing for CloudWatch Logs - AWS Lambda handles JSON formatting
+    // Use default formatter for best compatibility with Lambda logging
     tracing_subscriber::fmt()
-        .json()
+        .with_max_level(tracing::Level::TRACE)
         // Use environment variable RUST_LOG with INFO as default
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
-        // Remove duplicated span information from logs
-        .with_current_span(false)
         // Disable ANSI colors for CloudWatch compatibility
         .with_ansi(false)
         // Use AWS Lambda's built-in timestamps

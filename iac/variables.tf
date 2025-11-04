@@ -23,9 +23,14 @@ variable "lambda_timeout" {
 }
 
 variable "rust_log_level" {
-  description = "Rust logging level (trace, debug, info, warn, error)"
+  description = "Rust logging level. debug/trace logs full event payloads (use for troubleshooting). info/warn/error logs only event size (production setting for security)"
   type        = string
-  default     = "trace"
+  default     = "info"
+
+  validation {
+    condition     = contains(["trace", "debug", "info", "warn", "error"], var.rust_log_level)
+    error_message = "Rust log level must be one of: trace, debug, info, warn, error."
+  }
 }
 
 variable "additional_env_vars" {
@@ -85,4 +90,11 @@ variable "entra_oauth_scope_value" {
   description = "OAuth scope value (used in token requests)"
   type        = string
   default     = "access_as_user"
+}
+
+# AWS Bedrock AgentCore Gateway Configuration
+variable "gateway_enable_debug" {
+  description = "Enable detailed error logging for Gateway troubleshooting. When false, minimal error messages are shown."
+  type        = bool
+  default     = false
 }

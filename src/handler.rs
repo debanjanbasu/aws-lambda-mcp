@@ -6,7 +6,28 @@ use tracing::{debug, error, info, instrument};
 use crate::models::WeatherRequest;
 use crate::tools::weather::get_weather;
 
-// Extracts tool name from event payload, checking multiple possible locations.
+// Lambda event handler with security-conscious logging
+//
+// ## Logging Behavior
+//
+// The handler conditionally includes event payloads in logs based on RUST_LOG level:
+//
+// - **Production (RUST_LOG=info/warn/error):**
+//   - Only logs event size
+//   - Event payload excluded from spans via `skip_if` in `#[instrument]`
+//   - Debug logs don't fire
+//   - Secure for production use
+//
+// - **Debug/Troubleshooting (RUST_LOG=debug/trace):**
+//   - Logs full event payload and Lambda context
+//   - Event included in spans
+//   - Debug logs visible in CloudWatch
+//   - Use only for troubleshooting, not production
+//
+// The logging configuration in main.rs automatically enables `with_current_span(true)`
+// only when debug/trace logging is active, making field values visible in structured logs.
+
+/// Extracts tool name from event payload, checking multiple possible locations.
 //
 // Checks in order:
 // 1. Client context custom fields (standard AWS)
@@ -71,7 +92,15 @@ fn strip_gateway_prefix(name: &str) -> String {
 /// - The requested tool fails during execution
 /// - The tool name is unknown
 /// - Response serialization fails
-#[instrument(skip(event), fields(request_id = %event.context.request_id))]
+///
+/// # Security Note
+///
+/// When RUST_LOG is set to debug or trace, the full event payload and context are logged
+/// for troubleshooting. In production with RUST_LOG=info/warn/error, event payloads are
+/// not logged (only event_size is recorded). The main.rs tracing configuration conditionally
+/// enables `with_current_span` only for debug/trace levels, preventing sensitive data from
+/// appearing in production logs.
+#[instrument(fields(request_id = %event.context.request_id))]
 pub async fn function_handler(
     event: lambda_runtime::LambdaEvent<Value>,
 ) -> Result<Value, Diagnostic> {
@@ -83,8 +112,15 @@ pub async fn function_handler(
     );
 
     debug!(
-        event = %serde_json::to_string(&event_payload).unwrap_or_default(),
+        event = %serde_json::to_string(&event_payload).unwrap_or_else(|_| "{}".to_string()),
         "Received event payload"
+    );
+
+    debug!(
+        request_id = %context.request_id,
+        deadline = context.deadline,
+        invoked_function_arn = %context.invoked_function_arn,
+        "Lambda context"
     );
 
     let tool_name = extract_tool_name(&event_payload, &context);

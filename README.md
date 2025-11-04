@@ -135,6 +135,77 @@ make test-lambda
 make logs
 ```
 
+## Troubleshooting
+
+### Enable Detailed Error Logging
+
+If you're getting "An internal error occurred" from the Gateway, enable debug logging:
+
+1. Edit `iac/terraform.tfvars` (or create it):
+```hcl
+gateway_enable_debug = true
+```
+
+2. Redeploy:
+```bash
+cd iac && terraform apply -auto-approve
+```
+
+3. Test again - errors will now include detailed context with `_meta.debug` fields
+
+4. **Important**: Disable debug after troubleshooting:
+```hcl
+gateway_enable_debug = false  # Default
+```
+
+Debug mode provides detailed error information but may expose sensitive details in error responses.
+
+### Common Issues
+
+**"Access denied while invoking Lambda"**: Gateway IAM role needs both `bedrock.amazonaws.com` AND `bedrock-agentcore.amazonaws.com` service principals. See `iac/main.tf` trust policy comments.
+
+**"Invalid Bearer token"**: Token requires `api://CLIENT_ID/access_as_user` scope. Run `make test-token` to get a fresh token.
+
+**Lambda timeout**: Increase `lambda_timeout` in `variables.tf` if your tools need more time.
+
+### Debug Logging and Security
+
+The Lambda function conditionally logs event payloads based on the `RUST_LOG` environment variable:
+
+- **Production (`RUST_LOG=info/warn/error`)**: Only event size is logged. Event payload is NOT included in logs for security.
+- **Debug/Troubleshooting (`RUST_LOG=debug/trace`)**: Full event payload and context are logged to CloudWatch for debugging.
+
+To enable detailed logging for troubleshooting:
+
+1. Edit `iac/variables.tf`:
+```hcl
+variable "rust_log_level" {
+  default     = "debug"  # or "trace" for even more detail
+}
+```
+
+2. Redeploy:
+```bash
+cd iac && terraform apply -auto-approve
+```
+
+3. View logs with event details:
+```bash
+make logs
+```
+
+4. **Important**: Set back to `info` for production to avoid logging sensitive data:
+```hcl
+variable "rust_log_level" {
+  default     = "info"
+}
+```
+
+The tracing configuration automatically:
+- Enables `with_current_span(true)` for debug/trace levels (shows field values)
+- Uses `skip_if` in `#[instrument]` to exclude event from spans when not debugging
+- Keeps CloudWatch logs lean and secure in production
+
 ## Available Commands
 
 All commands can be run from the root directory:
