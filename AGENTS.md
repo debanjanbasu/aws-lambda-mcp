@@ -1,6 +1,6 @@
 # AI Assistant Instructions
 
-**Last updated**: 2025-11-02T13:39:36.000Z
+**Last updated**: 2025-11-04T01:40:55.000Z
 
 Repository-specific instructions for AI coding assistants (GitHub Copilot, Claude, MCP agents) working on this AWS Lambda project.
 
@@ -19,6 +19,21 @@ Repository-specific instructions for AI coding assistants (GitHub Copilot, Claud
 ---
 
 ## Quick Reference
+
+### MCP Inspector
+```bash
+# Get help on current MCP Inspector options
+npx @modelcontextprotocol/inspector --help
+
+# Launch with HTTP transport
+# Note: For HTTP transport, authentication token must be entered in the UI
+npx @modelcontextprotocol/inspector \
+  --transport http \
+  --server-url "https://..."
+
+# The Inspector will open in your browser
+# Enter your Bearer token in the UI's authentication field
+```
 
 ### Build Commands
 ```bash

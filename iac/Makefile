@@ -177,7 +177,15 @@ test-token:
 	fi; \
 	echo "Gateway URL: $$GATEWAY_URL"; \
 	echo ""; \
-	npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL" --header "Authorization: Bearer $$ACCESS_TOKEN"; \
+	echo "📋 Full Access Token (copy everything below):"; \
+	echo "$$ACCESS_TOKEN"; \
+	echo ""; \
+	echo "Instructions:"; \
+	echo "   1. Click Connect in the Inspector"; \
+	echo "   2. Enter the token above in the Bearer Token field"; \
+	echo "   3. Click Connect to authenticate"; \
+	echo ""; \
+	npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL"; \
 	'
 
 refresh:
@@ -235,13 +243,21 @@ refresh:
 	fi; \
 	echo "Gateway: $$GATEWAY_URL"; \
 	echo ""; \
-	npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL" --header "Authorization: Bearer $$NEW_ACCESS_TOKEN"; \
+	echo "📋 Full Access Token (copy everything below):"; \
+	echo "$$NEW_ACCESS_TOKEN"; \
+	echo ""; \
+	echo "Instructions:"; \
+	echo "   1. Click Connect in the Inspector"; \
+	echo "   2. Enter the token above in the Bearer Token field"; \
+	echo "   3. Click Connect to authenticate"; \
+	echo ""; \
+	npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL"; \
 	'
 
 test-lambda:
 	@echo "=== Testing Lambda Directly (bypassing Gateway) ==="
 	@echo ""
-	@echo "Test 1: Sydney weather"
+	@echo "Testing Sydney weather"
 	@aws lambda invoke \
 		--function-name aws-agentcore-gateway \
 		--cli-binary-format raw-in-base64-out \
@@ -249,15 +265,6 @@ test-lambda:
 		/tmp/test-response.json > /dev/null
 	@echo "Response:"
 	@cat /tmp/test-response.json | jq .
-	@echo ""
-	@echo "Test 2: Sydney weather (again)"
-	@aws lambda invoke \
-		--function-name aws-agentcore-gateway \
-		--cli-binary-format raw-in-base64-out \
-		--payload '{"name":"get_weather","location":"Sydney"}' \
-		/tmp/test-response2.json > /dev/null
-	@echo "Response:"
-	@cat /tmp/test-response2.json | jq .
 	@echo ""
 	@echo "✅ Lambda is working correctly!"
 

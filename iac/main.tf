@@ -169,6 +169,22 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
                   }
                 }
               }
+
+              output_schema {
+                type        = tool_schema.value.outputSchema.type
+                description = try(tool_schema.value.outputSchema.description, null)
+
+                # Dynamically create property blocks from outputSchema.properties
+                dynamic "property" {
+                  for_each = try(tool_schema.value.outputSchema.properties, {})
+                  content {
+                    name        = property.key
+                    type        = property.value.type
+                    description = try(property.value.description, null)
+                    required    = contains(try(tool_schema.value.outputSchema.required, []), property.key)
+                  }
+                }
+              }
             }
           }
         }

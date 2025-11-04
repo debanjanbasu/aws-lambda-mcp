@@ -22,7 +22,6 @@
         },
         "temperature": {
           "description": "Temperature value",
-          "format": "double",
           "type": "number"
         },
         "temperature_unit": {
@@ -31,12 +30,10 @@
         },
         "weather_code": {
           "description": "WMO weather code",
-          "format": "int32",
           "type": "integer"
         },
         "wind_speed": {
           "description": "Wind speed in km/h",
-          "format": "double",
           "type": "number"
         }
       },
