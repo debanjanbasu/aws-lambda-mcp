@@ -137,7 +137,10 @@ resource "aws_bedrockagentcore_gateway" "main" {
   authorizer_configuration {
     custom_jwt_authorizer {
       discovery_url    = local.entra_discovery_url
-      allowed_audience = local.gateway_allowed_audiences
+      allowed_audience = [
+    "api://${azuread_application.agentcore_app.client_id}",
+    azuread_application.agentcore_app.client_id
+  ]
     }
   }
 

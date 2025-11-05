@@ -18,25 +18,25 @@ resource "azuread_application" "agentcore_app" {
     requested_access_token_version = 2
 
     oauth2_permission_scope {
-      admin_consent_description  = local.oauth_scope_description
-      admin_consent_display_name = local.oauth_scope_display_name
+      admin_consent_description  = "Allow the application to access ${local.project_display_name} on behalf of the signed-in user"
+      admin_consent_display_name = "Access ${local.project_display_name}"
       enabled                    = true
       id                         = random_uuid.oauth_scope.result
       type                       = "User"
-      user_consent_description   = local.oauth_scope_description
-      user_consent_display_name  = local.oauth_scope_display_name
+      user_consent_description   = "Allow the application to access ${local.project_display_name} on behalf of the signed-in user"
+      user_consent_display_name  = "Access ${local.project_display_name}"
       value                      = var.entra_oauth_scope_value
     }
   }
 
   # Public client configuration - supports authorization code with PKCE
   public_client {
-    redirect_uris = var.entra_redirect_uris
+    redirect_uris = local.combined_redirect_uris
   }
 
   # Web application configuration - supports client credentials with secret
   web {
-    redirect_uris = var.entra_redirect_uris
+    redirect_uris = local.combined_redirect_uris
     
     implicit_grant {
       access_token_issuance_enabled = false

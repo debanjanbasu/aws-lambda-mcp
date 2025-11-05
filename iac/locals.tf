@@ -18,20 +18,16 @@ locals {
   entra_tenant_id     = data.azuread_client_config.current.tenant_id
   entra_discovery_url = "https://login.microsoftonline.com/${local.entra_tenant_id}/v2.0/.well-known/openid-configuration"
 
+  # Combined redirect URIs: standard defaults + any additional from var.entra_redirect_uris
+  combined_redirect_uris = distinct(concat([
+    "http://localhost:6274/callback/",
+    "https://vscode.dev/redirect",
+    "http://127.0.0.1:33418/"
+  ], var.entra_redirect_uris))
+
   # Generate display name and descriptions from project name
   project_display_name     = title(replace(var.project_name, "-", " "))
-  oauth_scope_display_name = "Access ${local.project_display_name}"
-  oauth_scope_description  = "Allow the application to access ${local.project_display_name} on behalf of the signed-in user"
 
   # Generate Entra app tags from project type
   entra_app_tags = ["agentcore-gateway", "oauth2", "pkce", "terraform-managed"]
-
-  # Application identifier URI - api://{client_id}
-  app_identifier_uri = "api://${azuread_application.agentcore_app.client_id}"
-
-  # Gateway allowed audiences - accept both formats for compatibility
-  gateway_allowed_audiences = [
-    local.app_identifier_uri,
-    azuread_application.agentcore_app.client_id
-  ]
 }
