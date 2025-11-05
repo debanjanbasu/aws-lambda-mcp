@@ -1,5 +1,5 @@
 use anyhow::Result;
-use lambda_runtime::Diagnostic;
+use lambda_runtime::{Context, Diagnostic, LambdaEvent};
 use serde_json::Value;
 use tracing::{debug, error, info, instrument};
 
@@ -12,12 +12,16 @@ use crate::tools::weather::get_weather;
 
 /// Extracts tool name from event, checking `client_context.custom` or event.name fields.
 /// Strips Bedrock Gateway prefix if present.
-fn extract_tool_name(context: &lambda_runtime::Context) -> String {
+fn extract_tool_name(event_payload: &Value, context: &Context) -> String {
     let tool_name = context
         .client_context
         .as_ref()
         .and_then(|cc| cc.custom.get("bedrockAgentCoreToolName"))
-        .map_or("unknown", String::as_str);
+        .map_or_else(|| {
+            event_payload["name"]
+                .as_str()
+                .unwrap_or("unknown")
+        }, String::as_str);
 
     strip_gateway_prefix(tool_name)
 }
@@ -88,14 +92,14 @@ async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, Diag
 /// - `UnknownTool`: The requested tool name was not recognized
 #[instrument(skip(event), fields(req_id = %event.context.request_id))]
 pub async fn function_handler(
-    event: lambda_runtime::LambdaEvent<Value>,
+    event: LambdaEvent<Value>,
 ) -> Result<Value, Diagnostic> {
     // No point in trying to log event or context, they're obfuscated for privacy
     let (event_payload, context) = event.into_parts();
 
     info!(event_size = event_payload.to_string().len(), "Lambda invocation started");
 
-    let tool_name = extract_tool_name(&context);
+    let tool_name = extract_tool_name(&event_payload, &context);
     info!(tool_name = %tool_name, "Routing to tool handler");
 
     route_tool(&tool_name, event_payload).await

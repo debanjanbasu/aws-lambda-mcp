@@ -127,25 +127,27 @@ add-redirect-url: ## Add Power Automate redirect URL to Entra ID app
 	fi; \
 	echo ""; \
 	echo "Adding redirect URL: $$REDIRECT_URL"; \
-	cd iac && bash -c ' \
-		CURRENT_URIS=$$(grep "entra_redirect_uris" terraform.tfvars 2>/dev/null || echo ""); \
-		if [ -z "$$CURRENT_URIS" ]; then \
-			echo "entra_redirect_uris = [" >> terraform.tfvars; \
-			echo "  \"$$REDIRECT_URL\"" >> terraform.tfvars; \
-			echo "]" >> terraform.tfvars; \
-		else \
-			if grep -q "\"$$REDIRECT_URL\"" terraform.tfvars 2>/dev/null; then \
-				echo "⚠️  URL already exists in terraform.tfvars"; \
-				exit 0; \
-			fi; \
-			sed -i.bak "/entra_redirect_uris/a\\ \\ \"$$REDIRECT_URL\"," terraform.tfvars; \
-			rm -f terraform.tfvars.bak; \
+	cd iac && \
+	TFVARS_FILE="terraform.tfvars"; \
+	TEMP_TFVARS_FILE="terraform.tfvars.tmp"; \
+	REDIRECT_URI_ESCAPED=$$(echo "$$REDIRECT_URL" | sed "s|\"|\\\"|g"); \
+	\
+	if ! grep -q "entra_redirect_uris" "$$TFVARS_FILE" 2>/dev/null; then \
+		echo "entra_redirect_uris = [" >> "$$TFVARS_FILE"; \
+		echo "  \"$$REDIRECT_URI_ESCAPED\"" >> "$$TFVARS_FILE"; \
+		echo "]" >> "$$TFVARS_FILE"; \
+	else \
+		if grep -q "\"$$REDIRECT_URI_ESCAPED\"" "$$TFVARS_FILE" 2>/dev/null; then \
+			echo "⚠️  URL already exists in terraform.tfvars"; \
+			exit 0; \
 		fi; \
-		echo "✅ Added to terraform.tfvars"; \
-		echo ""; \
-		echo "Applying changes..."; \
-		terraform apply -auto-approve; \
-	' 
+		awk -v new_uri="  \"$$REDIRECT_URI_ESCAPED\"," '/^]/ && !x { print new_uri; x=1 } { print }' "$$TFVARS_FILE" > "$$TEMP_TFVARS_FILE"; \
+		mv "$$TEMP_TFVARS_FILE" "$$TFVARS_FILE"; \
+	fi; \
+	echo "✅ Added to terraform.tfvars"; \
+	echo ""; \
+	echo "Applying changes..."; \
+	terraform apply -auto-approve;
 tf-destroy: ## Destroy Terraform resources
 	@echo "Destroying Terraform resources..."
 	@cd iac && terraform destroy -auto-approve

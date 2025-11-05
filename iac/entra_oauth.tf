@@ -151,11 +151,6 @@ resource "azuread_service_principal_delegated_permission_grant" "graph_permissio
   claim_values                         = ["User.Read", "openid", "profile", "email"]
 }
 
-# Data source for Microsoft Graph service principal
-data "azuread_service_principal" "microsoft_graph" {
-  client_id = local.microsoft_graph_app_id
-}
-
 # Client secret for M365 Copilot (requires confidential client)
 # 2 year expiry - minimum practical duration for Azure AD
 resource "azuread_application_password" "copilot_connector" {
@@ -167,3 +162,10 @@ resource "azuread_application_password" "copilot_connector" {
     ignore_changes = [end_date]
   }
 }
+
+# Data source for Microsoft Graph service principal
+data "azuread_service_principal" "microsoft_graph" {
+  client_id = local.microsoft_graph_app_id
+}
+
+
