@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use lambda_runtime::Diagnostic;
 use serde_json::Value;
 use tracing::{debug, error, info, instrument};
@@ -10,7 +10,7 @@ use crate::tools::weather::get_weather;
 // - Production (RUST_LOG=info/warn/error): Only event_size logged, event skipped from spans
 // - Debug (RUST_LOG=debug/trace): Full event + context logged via println!
 
-/// Extracts tool name from event, checking client_context.custom or event.name fields.
+/// Extracts tool name from event, checking `client_context.custom` or event.name fields.
 /// Strips Bedrock Gateway prefix if present.
 fn extract_tool_name(event: &Value, context: &lambda_runtime::Context) -> String {
     // Check client_context custom fields first (standard AWS invocation)
@@ -54,8 +54,17 @@ fn strip_gateway_prefix(name: &str) -> String {
     }
 }
 
-/// Lambda event handler. Routes to tools based on event.name or client_context.custom fields.
-/// Logs full event when RUST_LOG=debug/trace, only event_size in production.
+/// Lambda event handler. Routes to tools based on event.name or `client_context.custom` fields.
+/// Logs full event when `RUST_LOG=debug/trace`, onl`event_size`ze in production.
+///
+/// # Errors
+///
+/// Returns a `Diagnostic` error with one of the following types:
+///
+/// - `InvalidInput`: Failed to parse the event payload into the required request type
+/// - `ToolError`: The requested tool failed to execute
+/// - `SerializationError`: Failed to serialize the tool response back to JSON
+/// - `UnknownTool`: The requested tool name was not recognized
 #[instrument(skip(event), fields(req_id = %event.context.request_id))]
 pub async fn function_handler(
     event: lambda_runtime::LambdaEvent<Value>,

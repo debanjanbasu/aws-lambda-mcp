@@ -77,7 +77,9 @@ variable "entra_sign_in_audience" {
 variable "entra_redirect_uris" {
   description = "List of redirect URIs for OAuth callbacks"
   type        = list(string)
-  default     = ["http://localhost:6274/callback/"]
+  default     = [
+    "http://localhost:6274/callback/"
+  ]
 }
 
 variable "entra_group_membership_claims" {

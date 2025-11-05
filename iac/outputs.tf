@@ -105,3 +105,14 @@ output "entra_token_url" {
   description = "Entra ID OAuth token URL"
   value       = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/oauth2/v2.0/token"
 }
+
+output "entra_client_secret" {
+  description = "Entra ID client secret for M365 Copilot (2 year expiry)"
+  value       = azuread_application_password.copilot_connector.value
+  sensitive   = true
+}
+
+output "entra_client_secret_expires" {
+  description = "Client secret expiration time"
+  value       = azuread_application_password.copilot_connector.end_date
+}

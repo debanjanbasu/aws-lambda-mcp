@@ -26,3 +26,6 @@ bootstrap
 
 # Temp
 /tmp/
+
+# Generated files
+tool_schema.json

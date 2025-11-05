@@ -34,6 +34,16 @@ resource "azuread_application" "agentcore_app" {
     redirect_uris = var.entra_redirect_uris
   }
 
+  # Web application configuration - supports client credentials with secret
+  web {
+    redirect_uris = var.entra_redirect_uris
+    
+    implicit_grant {
+      access_token_issuance_enabled = false
+      id_token_issuance_enabled     = false
+    }
+  }
+
   # Required resource access - Microsoft Graph for user info and OpenID scopes
   required_resource_access {
     resource_app_id = local.microsoft_graph_app_id
@@ -144,4 +154,16 @@ resource "azuread_service_principal_delegated_permission_grant" "graph_permissio
 # Data source for Microsoft Graph service principal
 data "azuread_service_principal" "microsoft_graph" {
   client_id = local.microsoft_graph_app_id
+}
+
+# Client secret for M365 Copilot (requires confidential client)
+# 2 year expiry - minimum practical duration for Azure AD
+resource "azuread_application_password" "copilot_connector" {
+  application_id = azuread_application.agentcore_app.id
+  display_name   = "M365 Copilot Connector"
+  end_date       = timeadd(timestamp(), "17520h") # 2 years
+  
+  lifecycle {
+    ignore_changes = [end_date]
+  }
 }

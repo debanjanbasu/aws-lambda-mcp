@@ -1,256 +1,159 @@
-# AWS Lambda Bedrock Agent Gateway
+# AWS Bedrock AgentCore Gateway
 
-A production-ready AWS Lambda function that serves as a gateway for Amazon Bedrock Agents, written in Rust. This provides a secure, high-performance bridge between Bedrock AI agents and custom tool implementations with OAuth authentication via Entra ID.
+Production-ready AWS Lambda function in Rust for AWS Bedrock AgentCore tool execution. Secure, OAuth-authenticated bridge between Bedrock AI agents and custom tools.
 
 ## Architecture
 
 ```
-MCP Client → Entra ID OAuth (PKCE) → Bedrock Gateway → Lambda (Rust) → External APIs
-                                            ↓
-                                   JWT Validation (OIDC)
+Client → Entra ID (PKCE) → AgentCore Gateway → Lambda (Rust) → External APIs
+                                    ↓
+                            JWT Validation (OIDC)
 ```
 
-**Components**:
-- **AWS Lambda**: ARM64 Rust binary (~1.3MB with UPX compression)
-- **Bedrock Agent Core Gateway**: MCP protocol endpoint
-- **Entra ID OAuth**: Secretless PKCE flow
-- **CloudWatch Logs**: 3-day retention for cost optimization
+**Stack**: ARM64 Lambda (~1.3MB UPX) | Entra ID OAuth | CloudWatch (3d retention)
 
-## Important: Not an MCP Server
+## ⚠️ Not an MCP Server
 
-**This is NOT a Model Context Protocol (MCP) server.** It's an AWS Lambda function specifically designed for Amazon Bedrock Agent integration. We use a custom `#[tool]` macro approach tailored for AWS Bedrock's schema requirements.
+This is an **AWS Lambda function** for AWS Bedrock AgentCore, not a Model Context Protocol server. Uses custom `#[tool]` macro for Bedrock-specific schemas.
 
 ## Features
 
-- **Rust Performance**: Compiled for ARM64/Graviton (20% cheaper, UPX compressed to 1.3MB)
-- **Secretless OAuth**: PKCE flow with Entra ID (no client secrets)
-- **JWT Validation**: Every request validated via OIDC discovery
-- **Security First**: No `unsafe` code, no `unwrap/expect/panic`, strict clippy lints
-- **Observability**: Structured tracing with JSON output for CloudWatch
-- **Auto-Generated Schemas**: Tool schemas from code annotations
-- **Low Cold Start**: Minimal dependencies and optimized binary size
-- **Cost Optimized**: Free tier covers typical usage ($0/month)
+- **ARM64/Graviton** - 20% cheaper, UPX compressed to 1.3MB
+- **Secretless OAuth** - PKCE flow, no client secrets
+- **JWT Validation** - OIDC discovery per request
+- **Zero Unsafe** - No `unwrap/expect/panic/unsafe`, strict lints
+- **Structured Tracing** - JSON logs for CloudWatch
+- **Auto Schemas** - Generated from code annotations
+- **Fast Cold Start** - Minimal deps, optimized binary
+- **Free Tier** - Typical usage $0/month
 
 ## Quick Start
 
 ```bash
-# 1. Authenticate to AWS and Azure
-make login
-
-# 2. Deploy infrastructure
-make deploy
-
-# 3. Test with OAuth token
-make test-token
+make login        # AWS + Azure auth
+make deploy       # Build + deploy
+make test-token   # Get OAuth token (auto-copied to clipboard)
 ```
 
-This authenticates, deploys everything, and launches the MCP Inspector automatically.
+Token is automatically copied to clipboard (macOS/Linux/WSL). Paste into MCP Inspector when prompted.
 
-## Example Tool: Weather Service
+## Example: Weather Tool
 
-The project includes a working weather tool that demonstrates the complete pattern:
-- Geocodes locations using Open-Meteo API
-- Fetches current weather data
-- Returns temperature in local units (Celsius/Fahrenheit by country)
-- Includes WMO weather code and wind speed
+Included working tool demonstrates the pattern:
+- Geocodes locations (Open-Meteo API)
+- Fetches current weather
+- Returns temperature in local units (°C/°F by country)
+- WMO weather code + wind speed
 
 ## Prerequisites
 
-- Rust toolchain (edition 2024)
-- [cargo-lambda](https://github.com/cargo-lambda/cargo-lambda) - `cargo install cargo-lambda`
-- [UPX](https://upx.github.io/) - For binary compression
-  - macOS: `brew install upx`
-  - Linux: `apt-get install upx-ucl`
-- AWS CLI configured
-- Azure CLI configured
+- **Rust** (edition 2024)
+- **cargo-lambda**: `cargo install cargo-lambda`
+- **UPX**: `brew install upx` (macOS) | `apt install upx-ucl` (Linux)
+- **AWS CLI** (configured)
+- **Azure CLI** (configured)
 
-## Project Structure
+## Structure
 
 ```
 src/
-├── main.rs                   # Lambda bootstrap & tracing initialization
-├── handler.rs                # Lambda event handler
-├── lib.rs                    # Library exports for schema generation
-├── macros/                   # Re-export of tool attribute macro
-│   └── mod.rs
-├── models/                   # Domain models with JsonSchema
-│   ├── mod.rs
-│   └── weather.rs           # Weather request/response types
-├── tools/                    # Tool implementations (use #[tool] macro)
-│   ├── mod.rs
-│   └── weather.rs           # Weather API integration
-├── http/                     # HTTP client configuration
-│   ├── mod.rs
-│   └── client.rs            # Global HTTP_CLIENT with tracing
+├── main.rs              # Lambda bootstrap + tracing
+├── handler.rs           # Event handler
+├── models/              # Request/response types (JsonSchema)
+│   └── weather.rs
+├── tools/               # Tool implementations (#[tool] macro)
+│   └── weather.rs
+├── http/                # Global HTTP_CLIENT
 └── bin/
-    └── generate_schema.rs   # Schema generator binary
+    └── generate_schema.rs
 
-macros/                       # Proc macro crate
-├── Cargo.toml
-└── src/
-    └── lib.rs               # #[tool] attribute macro implementation
+macros/                  # Custom #[tool] proc macro
+└── src/lib.rs
 ```
 
-## Getting Started
+## Usage
 
-### 1. Clone and Build
-
+### Build
 ```bash
-git clone <your-repo-url>
-cd aws-lambda-mcp
-
-# Generate tool schema
-make schema
-
-# Build for development
-make build
-
-# Build for production (ARM64/Graviton with UPX compression)
-make release
+make schema    # Generate tool_schema.json
+make build     # Debug build
+make release   # ARM64 + UPX (~1.3MB)
+make test      # Run tests
 ```
 
-### 2. Deploy to AWS
-
+### Deploy
 ```bash
-# Login to AWS and Azure
-make login
-
-# Deploy everything (builds Lambda + applies Terraform)
-make deploy
+make login     # AWS + Azure auth
+make deploy    # Build + Terraform apply
 ```
 
-### 3. Test the Gateway
-
+### Test
 ```bash
-# Get OAuth token and launch MCP Inspector
-make test-token
-
-# Refresh expired token
-make refresh
-
-# Test Lambda directly (bypass Gateway)
-make test-lambda
-
-# View logs
-make logs
+make test-token   # OAuth + Inspector (token auto-copied)
+make refresh      # Refresh expired token
+make test-lambda  # Direct Lambda test
+make logs         # Tail CloudWatch logs
 ```
 
 ## Troubleshooting
 
-### Enable Detailed Error Logging
+### Gateway Debug Mode
 
-If you're getting "An internal error occurred" from the Gateway, enable debug logging:
-
-1. Edit `iac/terraform.tfvars` (or create it):
+Enable detailed errors in `iac/terraform.tfvars`:
 ```hcl
-gateway_enable_debug = true
+gateway_enable_debug = true  # Shows _meta.debug in responses
 ```
 
-2. Redeploy:
-```bash
-cd iac && terraform apply -auto-approve
-```
+Redeploy: `cd iac && terraform apply -auto-approve`
 
-3. Test again - errors will now include detailed context with `_meta.debug` fields
+⚠️ Disable after troubleshooting (may expose sensitive data)
 
-4. **Important**: Disable debug after troubleshooting:
+### Lambda Debug Logs
+
+Edit `iac/variables.tf`:
 ```hcl
-gateway_enable_debug = false  # Default
+variable "rust_log_level" {
+  default = "debug"  # or "trace"
+}
 ```
 
-Debug mode provides detailed error information but may expose sensitive details in error responses.
+Redeploy and view: `make logs`
+
+**Production**: Set to `"info"` to avoid logging sensitive payloads
 
 ### Common Issues
 
-**"Access denied while invoking Lambda"**: Gateway IAM role needs both `bedrock.amazonaws.com` AND `bedrock-agentcore.amazonaws.com` service principals. See `iac/main.tf` trust policy comments.
+| Issue | Solution |
+|-------|----------|
+| "Access denied" | Gateway IAM needs both `bedrock.amazonaws.com` AND `bedrock-agentcore.amazonaws.com` principals |
+| "Invalid Bearer token" | Token needs `api://CLIENT_ID/access_as_user` scope. Run `make test-token` |
+| Lambda timeout | Increase `lambda_timeout` in `iac/variables.tf` |
 
-**"Invalid Bearer token"**: Token requires `api://CLIENT_ID/access_as_user` scope. Run `make test-token` to get a fresh token.
+## Commands
 
-**Lambda timeout**: Increase `lambda_timeout` in `variables.tf` if your tools need more time.
+| Command | Description |
+|---------|-------------|
+| `make help` | Show all commands |
+| `make schema` | Generate tool_schema.json |
+| `make build` | Debug build |
+| `make release` | ARM64 + UPX production build |
+| `make test` | Run tests |
+| `make all` | Test + release build |
+| `make login` | AWS + Azure auth |
+| `make deploy` | Build + Terraform apply |
+| `make test-token` | OAuth + Inspector (clipboard) |
+| `make refresh` | Refresh expired token |
+| `make test-lambda` | Direct Lambda test |
+| `make logs` | Tail CloudWatch logs |
+| `make clean` | Remove tokens/backups |
+| `make tf-destroy` | Destroy infrastructure |
 
-### Debug Logging and Security
+## Schema Generation
 
-The Lambda function conditionally logs event payloads based on the `RUST_LOG` environment variable:
+Generates AWS Bedrock AgentCore schemas from code using custom `#[tool]` macro (not MCP):
 
-- **Production (`RUST_LOG=info/warn/error`)**: Only event size is logged. Event payload is NOT included in logs for security.
-- **Debug/Troubleshooting (`RUST_LOG=debug/trace`)**: Full event payload and context are logged to CloudWatch for debugging.
-
-To enable detailed logging for troubleshooting:
-
-1. Edit `iac/variables.tf`:
-```hcl
-variable "rust_log_level" {
-  default     = "debug"  # or "trace" for even more detail
-}
-```
-
-2. Redeploy:
-```bash
-cd iac && terraform apply -auto-approve
-```
-
-3. View logs with event details:
-```bash
-make logs
-```
-
-4. **Important**: Set back to `info` for production to avoid logging sensitive data:
-```hcl
-variable "rust_log_level" {
-  default     = "info"
-}
-```
-
-The tracing configuration automatically:
-- Enables `with_current_span(true)` for debug/trace levels (shows field values)
-- Uses `skip_if` in `#[instrument]` to exclude event from spans when not debugging
-- Keeps CloudWatch logs lean and secure in production
-
-## Available Commands
-
-All commands can be run from the root directory:
-
-```bash
-# Build Commands
-make help         # Show all commands
-make schema       # Generate tool_schema.json
-make build        # Build Lambda (debug)
-make release      # Build Lambda (ARM64, UPX compressed)
-make test         # Run tests
-make all          # Run tests + build release
-
-# Infrastructure Commands
-make login        # Authenticate AWS + Azure CLIs
-make deploy       # Build + deploy to AWS
-make test-token   # OAuth flow + launch Inspector
-make refresh      # Refresh expired access token
-make test-lambda  # Test Lambda directly
-make logs         # Tail Lambda logs
-make clean        # Remove tokens and backups
-make tf-destroy   # Destroy infrastructure
-```
-
-## Tool Schema Generation
-
-The project automatically generates AWS Bedrock-compatible tool schemas from your Rust code using a **custom** `#[tool]` attribute macro (not the rmcp SDK):
-
-1. Define your models in `src/models/` with `#[derive(JsonSchema)]`
-2. Implement your tool function in `src/tools/` with `#[tool(description = "...")]`
-3. Run `make schema` to generate `tool_schema.json`
-
-The schema generator:
-- Reads metadata exported by the custom `#[tool]` macro
-- Extracts function names (becomes tool name)
-- Uses macro descriptions (becomes tool description)
-- Generates JSON schemas from your models with `schemars`
-- Produces AWS Bedrock-compatible output (no enums, inlined types)
-
-**Note**: We use a custom macro specifically designed for Bedrock Agent schemas. This is different from MCP tool schemas. See [COPILOT.md](./COPILOT.md) for architectural decisions.
-
-Example:
 ```rust
-use crate::macros::tool;  // Our custom macro, not rmcp
-use crate::models::{WeatherRequest, WeatherResponse};
+use crate::macros::tool;
 
 #[tool(description = "Get current weather for a location")]
 #[instrument(fields(location = %request.location))]
@@ -259,84 +162,49 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
 }
 ```
 
-This generates:
-- Function metadata constant: `GET_WEATHER_METADATA`
-- Tool schema entry in `tool_schema.json` with name "get_weather"
-- Input/output schemas derived from `WeatherRequest`/`WeatherResponse` that conform to Bedrock requirements
+Run `make schema` → generates `tool_schema.json` with:
+- Tool name from function name
+- Description from macro attribute
+- Input/output schemas from types (via `schemars`)
+- Bedrock-compatible format (no enums, inlined types)
 
-## Adding New Tools
+## Adding Tools
 
-1. Create model types in `src/models/your_tool.rs`:
+**1. Model** (`src/models/your_tool.rs`):
 ```rust
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct YourRequest {
-    /// Input parameter description
+    #[schemars(description = "Input description")]
     pub input: String,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct YourResponse {
-    /// Output parameter description
     pub result: String,
 }
 ```
 
-2. Implement the tool in `src/tools/your_tool.rs`:
+**2. Tool** (`src/tools/your_tool.rs`):
 ```rust
-use crate::macros::tool;  // Our custom macro
-use crate::models::{YourRequest, YourResponse};
-use anyhow::Result;
-use tracing::instrument;
-
-/// # Errors
-/// Returns error if something fails.
-#[tool(description = "Your tool description here - be detailed and clear")]
+#[tool(description = "Clear, detailed description")]
 #[instrument(fields(input = %request.input))]
-pub async fn your_tool_name(request: YourRequest) -> Result<YourResponse> {
-    // Implementation
-    Ok(YourResponse { result: String::new() })
+pub async fn your_tool(request: YourRequest) -> Result<YourResponse> {
+    // implementation
 }
 ```
 
-3. Export in respective `mod.rs` files:
+**3. Register** in `src/bin/generate_schema.rs`:
 ```rust
-// src/models/mod.rs
-pub mod your_tool;
-pub use your_tool::*;
-
-// src/tools/mod.rs  
-pub mod your_tool;
-pub use your_tool::*;
+tool_entry!(your_tool::YOUR_TOOL_METADATA, YourRequest, YourResponse),
 ```
 
-4. Update `src/bin/generate_schema.rs` to include your tool:
-```rust
-use aws_lambda_mcp::tools::{weather, your_tool};
+**4. Generate**: `make schema`
 
-fn main() {
-    let tools = vec![
-        build_tool_from_fn("get_weather", weather::GET_WEATHER_METADATA, ...),
-        build_tool_from_fn("your_tool_name", your_tool::YOUR_TOOL_NAME_METADATA, ...),
-    ];
-    // ...
-}
-```
-
-5. Run `make schema` to regenerate schemas
-6. Update handler to route to your tool
+**5. Route**: Update `handler.rs` to call your tool
 
 ## Configuration
 
-### Environment Variables
-
-Create a `.env` file for local development (see `.env.example`).
-
-### Lambda Configuration
-
-Lambda settings are defined in `Cargo.toml`:
+**Lambda** (`Cargo.toml`):
 ```toml
 [package.metadata.lambda.deploy]
 memory = 128
@@ -344,39 +212,25 @@ timeout = 30
 tracing = "active"
 ```
 
-## CI/CD Guidelines
+**Infrastructure**: Edit `iac/terraform.tfvars` for custom settings
 
-See [AGENTS.md](./AGENTS.md) for detailed coding conventions and guidelines for AI coding agents and contributors.
+## Coding Standards
 
-See [COPILOT.md](./COPILOT.md) for GitHub Copilot-specific instructions and architectural decisions.
+See [AGENTS.md](./AGENTS.md) for full guidelines.
 
-Key principles:
-- No `unsafe` code
-- No `unwrap()`, `expect()`, or `panic!()`
-- Structured tracing for all operations
-- Comprehensive error handling with `anyhow`
-- Strict clippy lints enforced
-- Custom `#[tool]` macro, not rmcp SDK
+**Rules**:
+- ✅ `Result<T>` + `?` with `.context()`
+- ✅ `#[instrument]` for tracing
+- ✅ `#[must_use]` on pure functions
+- ❌ No `unwrap/expect/panic/unsafe`
+- ❌ No blocking I/O in async
+- ❌ No wildcard imports
 
-## Dependencies
-
-Core dependencies:
-- `lambda_runtime` - AWS Lambda runtime
-- `tokio` - Async runtime
-- `serde` / `serde_json` - Serialization
-- `schemars` - JSON Schema generation
-- `reqwest` - HTTP client with middleware tracing
-- `tracing` - Structured logging
-- `anyhow` - Error handling
-- `aws-lambda-mcp-macros` - Custom `#[tool]` attribute macro
-
-## License
-
-[Your License Here]
+**Dependencies**: `lambda_runtime` | `tokio` | `serde` | `schemars` | `reqwest` | `tracing` | `anyhow`
 
 ## Contributing
 
-1. Read [AGENTS.md](./AGENTS.md) for coding standards
-2. Run `make lint` before committing
-3. Ensure `make release` builds successfully
-4. Regenerate schema with `make schema` if models change
+1. Read [AGENTS.md](./AGENTS.md)
+2. `cargo clippy -- -D warnings`
+3. `make schema` if models changed
+4. `make release` succeeds

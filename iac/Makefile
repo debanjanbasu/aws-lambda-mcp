@@ -71,188 +71,87 @@ test-token:
 	echo ""; \
 	CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
-	APP_NAME=$$(terraform output -raw entra_app_name 2>/dev/null); \
-	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ]; then \
+	CLIENT_SECRET=$$(terraform output -raw entra_client_secret 2>/dev/null); \
+	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$CLIENT_SECRET" ]; then \
 		echo "❌ Error: Could not read Terraform outputs"; \
 		echo "Run \"make apply\" first"; \
 		exit 1; \
 	fi; \
 	echo "Client ID: $$CLIENT_ID"; \
 	echo "Tenant ID: $$TENANT_ID"; \
-	echo "App Name: $$APP_NAME"; \
 	echo ""; \
-	echo "Generating PKCE parameters..."; \
-	CODE_VERIFIER=$$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-43); \
-	CODE_CHALLENGE=$$(echo -n "$$CODE_VERIFIER" | openssl dgst -sha256 -binary | base64 | tr "+" "-" | tr "/" "_" | tr -d "="); \
-	REDIRECT_URI="http://localhost:6274/callback/"; \
-	SCOPE="api://$$CLIENT_ID/access_as_user openid profile email offline_access"; \
-	AUTH_URL="https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/authorize"; \
-	AUTH_URL="$$AUTH_URL?client_id=$$CLIENT_ID"; \
-	AUTH_URL="$$AUTH_URL&response_type=code"; \
-	AUTH_URL="$$AUTH_URL&redirect_uri=$$(printf %s "$$REDIRECT_URI" | jq -sRr @uri)"; \
-	AUTH_URL="$$AUTH_URL&response_mode=query"; \
-	AUTH_URL="$$AUTH_URL&scope=$$(printf %s "$$SCOPE" | jq -sRr @uri)"; \
-	AUTH_URL="$$AUTH_URL&code_challenge=$$CODE_CHALLENGE"; \
-	AUTH_URL="$$AUTH_URL&code_challenge_method=S256"; \
-	echo ""; \
-	echo "=================================================="; \
-	echo "🔐 STEP 1: Authenticate in Browser"; \
-	echo "=================================================="; \
-	echo ""; \
-	if command -v open >/dev/null 2>&1; then \
-		open "$$AUTH_URL"; \
-	elif command -v xdg-open >/dev/null 2>&1; then \
-		xdg-open "$$AUTH_URL"; \
-	else \
-		echo "Open this URL:"; \
-		echo "$$AUTH_URL"; \
-	fi; \
-	echo "After authentication, you have two options:"; \
-	echo ""; \
-	echo "Option 1: Save URL to file (recommended for long URLs):"; \
-	echo "  echo 'PASTE_URL_HERE' > /tmp/redirect_url.txt"; \
-	echo "  Press Enter here when done"; \
-	echo ""; \
-	echo "Option 2: Paste URL directly (may truncate):"; \
-	echo "  Just paste the URL and press Enter"; \
-	echo ""; \
-	echo "Waiting for redirect URL..."; \
-	IFS= read -r REDIRECT_RESPONSE < /dev/tty; \
-	if [ -z "$$REDIRECT_RESPONSE" ] && [ -f /tmp/redirect_url.txt ]; then \
-		REDIRECT_RESPONSE=$$(cat /tmp/redirect_url.txt); \
-		rm -f /tmp/redirect_url.txt; \
-		echo "Read URL from file"; \
-	fi; \
-	if [[ "$$REDIRECT_RESPONSE" =~ code=([^&]+) ]]; then \
-		AUTH_CODE="$${BASH_REMATCH[1]}"; \
-	else \
-		echo "❌ Could not extract authorization code"; \
-		exit 1; \
-	fi; \
-	echo ""; \
-	echo "=================================================="; \
-	echo "🔐 STEP 2: Exchange Code for Token"; \
-	echo "=================================================="; \
-	echo ""; \
+	echo "Getting access token (client credentials flow)..."; \
+	SCOPE="api://$$CLIENT_ID/.default"; \
 	TOKEN_RESPONSE=$$(curl -s -X POST "https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token" \
 		-H "Content-Type: application/x-www-form-urlencoded" \
 		-d "client_id=$$CLIENT_ID" \
-		-d "grant_type=authorization_code" \
-		-d "code=$$AUTH_CODE" \
-		-d "redirect_uri=$$REDIRECT_URI" \
-		-d "code_verifier=$$CODE_VERIFIER"); \
+		-d "client_secret=$$CLIENT_SECRET" \
+		-d "grant_type=client_credentials" \
+		-d "scope=$$SCOPE"); \
 	if echo "$$TOKEN_RESPONSE" | jq -e ".error" >/dev/null 2>&1; then \
 		echo "❌ Error:"; \
 		echo "$$TOKEN_RESPONSE" | jq -r ".error_description // .error"; \
 		exit 1; \
 	fi; \
 	ACCESS_TOKEN=$$(echo "$$TOKEN_RESPONSE" | jq -r ".access_token"); \
-	REFRESH_TOKEN=$$(echo "$$TOKEN_RESPONSE" | jq -r ".refresh_token // empty"); \
 	if [ -z "$$ACCESS_TOKEN" ] || [ "$$ACCESS_TOKEN" = "null" ]; then \
 		echo "❌ Failed to get token"; \
 		echo "$$TOKEN_RESPONSE"; \
 		exit 1; \
 	fi; \
-	echo "✅ Success!"; \
+	echo "✅ Token acquired!"; \
 	echo ""; \
 	echo "# Generated: $$(date)" > .env; \
 	echo "export MCP_ACCESS_TOKEN=\"$$ACCESS_TOKEN\"" >> .env; \
-	echo "export MCP_REFRESH_TOKEN=\"$$REFRESH_TOKEN\"" >> .env; \
 	echo "export MCP_CLIENT_ID=\"$$CLIENT_ID\"" >> .env; \
 	echo "export MCP_TENANT_ID=\"$$TENANT_ID\"" >> .env; \
 	echo "Tokens saved to .env"; \
-	echo ""; \
-	echo "=================================================="; \
-	echo "🚀 Launching MCP Inspector"; \
-	echo "=================================================="; \
 	echo ""; \
 	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo ""); \
 	if [ -z "$$GATEWAY_URL" ] || [ "$$GATEWAY_URL" = "null" ]; then \
 		echo "⚠️  Gateway not yet deployed"; \
 		echo ""; \
-		echo "Tokens saved to .env. To test manually after deployment:"; \
+		echo "Token saved to .env. To test manually after deployment:"; \
 		echo "  source .env"; \
-		echo "  npx @modelcontextprotocol/inspector <gateway-url> --authorization-token \"Bearer \$$MCP_ACCESS_TOKEN\""; \
+		echo "  npx @modelcontextprotocol/inspector $$GATEWAY_URL"; \
 		exit 0; \
 	fi; \
+	echo "=================================================="; \
+	echo "🚀 Launching MCP Inspector"; \
+	echo "=================================================="; \
+	echo ""; \
 	echo "Gateway URL: $$GATEWAY_URL"; \
 	echo ""; \
-	echo "📋 Full Access Token (copy everything below):"; \
+	if command -v pbcopy >/dev/null 2>&1; then \
+		echo "$$ACCESS_TOKEN" | pbcopy; \
+		echo "✅ Token copied to clipboard (macOS)"; \
+	elif command -v xclip >/dev/null 2>&1; then \
+		echo "$$ACCESS_TOKEN" | xclip -selection clipboard; \
+		echo "✅ Token copied to clipboard (Linux)"; \
+	elif command -v xsel >/dev/null 2>&1; then \
+		echo "$$ACCESS_TOKEN" | xsel --clipboard --input; \
+		echo "✅ Token copied to clipboard (Linux)"; \
+	elif command -v clip.exe >/dev/null 2>&1; then \
+		echo "$$ACCESS_TOKEN" | clip.exe; \
+		echo "✅ Token copied to clipboard (WSL)"; \
+	else \
+		echo "⚠️  No clipboard tool found"; \
+	fi; \
+	echo ""; \
+	echo "📋 Full Access Token:"; \
 	echo "$$ACCESS_TOKEN"; \
 	echo ""; \
 	echo "Instructions:"; \
 	echo "   1. Click Connect in the Inspector"; \
-	echo "   2. Enter the token above in the Bearer Token field"; \
+	echo "   2. Paste the token in the Bearer Token field"; \
 	echo "   3. Click Connect to authenticate"; \
 	echo ""; \
 	npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL"; \
 	'
 
 refresh:
-	@bash -c ' \
-	set -e; \
-	echo "=== Refreshing OAuth Access Token ==="; \
-	echo ""; \
-	if [ -f .env ]; then \
-		source .env; \
-	fi; \
-	if [ -z "$$MCP_REFRESH_TOKEN" ] || [ -z "$$MCP_CLIENT_ID" ] || [ -z "$$MCP_TENANT_ID" ]; then \
-		echo "❌ Missing credentials. Run \"make test-token\" first."; \
-		exit 1; \
-	fi; \
-	echo "Refreshing access token..."; \
-	TOKEN_RESPONSE=$$(curl -s -X POST "https://login.microsoftonline.com/$$MCP_TENANT_ID/oauth2/v2.0/token" \
-		-H "Content-Type: application/x-www-form-urlencoded" \
-		-d "client_id=$$MCP_CLIENT_ID" \
-		-d "grant_type=refresh_token" \
-		-d "refresh_token=$$MCP_REFRESH_TOKEN" \
-		-d "scope=$$MCP_CLIENT_ID/.default offline_access"); \
-	if echo "$$TOKEN_RESPONSE" | jq -e ".error" >/dev/null 2>&1; then \
-		echo "❌ Error:"; \
-		echo "$$TOKEN_RESPONSE" | jq -r ".error_description // .error"; \
-		echo ""; \
-		echo "Refresh token expired. Run \"make test-token\""; \
-		exit 1; \
-	fi; \
-	NEW_ACCESS_TOKEN=$$(echo "$$TOKEN_RESPONSE" | jq -r ".access_token"); \
-	NEW_REFRESH_TOKEN=$$(echo "$$TOKEN_RESPONSE" | jq -r ".refresh_token // empty"); \
-	if [ -z "$$NEW_REFRESH_TOKEN" ] || [ "$$NEW_REFRESH_TOKEN" = "null" ]; then \
-		NEW_REFRESH_TOKEN="$$MCP_REFRESH_TOKEN"; \
-	fi; \
-	if [ -z "$$NEW_ACCESS_TOKEN" ] || [ "$$NEW_ACCESS_TOKEN" = "null" ]; then \
-		echo "❌ Failed to refresh"; \
-		exit 1; \
-	fi; \
-	echo "✅ Success!"; \
-	echo ""; \
-	echo "# Generated: $$(date)" > .env; \
-	echo "export MCP_ACCESS_TOKEN=\"$$NEW_ACCESS_TOKEN\"" >> .env; \
-	echo "export MCP_REFRESH_TOKEN=\"$$NEW_REFRESH_TOKEN\"" >> .env; \
-	echo "export MCP_CLIENT_ID=\"$$MCP_CLIENT_ID\"" >> .env; \
-	echo "export MCP_TENANT_ID=\"$$MCP_TENANT_ID\"" >> .env; \
-	echo "Token saved to .env"; \
-	echo ""; \
-	echo "=================================================="; \
-	echo "🚀 Launching MCP Inspector"; \
-	echo "=================================================="; \
-	echo ""; \
-	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo ""); \
-	if [ -z "$$GATEWAY_URL" ] || [ "$$GATEWAY_URL" = "null" ]; then \
-		echo "⚠️  Gateway not deployed"; \
-		exit 0; \
-	fi; \
-	echo "Gateway: $$GATEWAY_URL"; \
-	echo ""; \
-	echo "📋 Full Access Token (copy everything below):"; \
-	echo "$$NEW_ACCESS_TOKEN"; \
-	echo ""; \
-	echo "Instructions:"; \
-	echo "   1. Click Connect in the Inspector"; \
-	echo "   2. Enter the token above in the Bearer Token field"; \
-	echo "   3. Click Connect to authenticate"; \
-	echo ""; \
-	npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL"; \
-	'
+	@echo "Refresh not needed with client credentials flow"
+	@echo "Run 'make test-token' to get a new token"
 
 test-lambda:
 	@echo "=== Testing Lambda Directly (bypassing Gateway) ==="
