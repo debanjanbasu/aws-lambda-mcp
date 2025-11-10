@@ -22,6 +22,7 @@ jobs:
     permissions:
       pull-requests: write
       contents: write
+      statuses: write
 
     steps:
       - name: Checkout PR code
