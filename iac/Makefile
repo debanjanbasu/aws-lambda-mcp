@@ -59,7 +59,7 @@ plan: init
 	@terraform plan
 
 apply: init
-	@terraform apply
+	@terraform apply -auto-approve
 
 deploy: init apply
 	@echo "✅ Deployment complete!"

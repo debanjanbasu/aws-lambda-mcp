@@ -1,0 +1,43 @@
+# AWS Lambda MCP - Terraform Variables Example
+# Copy this file to terraform.tfvars and customize for your environment
+
+# AWS Configuration
+aws_region = "ap-southeast-2"
+
+# Lambda Configuration
+lambda_memory_size = 128
+lambda_timeout     = 30
+
+# Logging Configuration
+rust_log_level          = "info"    # Lambda logging level (info/prod, debug/trace/troubleshooting)
+gateway_exception_level = null      # Gateway exception level (DEBUG/INFO/WARN/ERROR/null)
+
+# Entra ID OAuth Configuration
+entra_sign_in_audience = "AzureADMultipleOrgs"
+entra_group_membership_claims = ["SecurityGroup"]
+entra_oauth_scope_value = "access_as_user"
+
+# Redirect URIs - Add your custom redirect URIs here
+# Standard development URIs are automatically included
+entra_redirect_uris = [
+  # Add your custom redirect URIs here
+  # Examples:
+  # "https://your-app.example.com/callback",
+  # "http://localhost:3000/auth/callback"
+]
+
+# Preserve existing redirect URIs (e.g., Power Platform connector URIs)
+# Add any existing redirect URIs you want to preserve here to prevent them from being removed
+# during deployments from different environments (local vs. GitHub Actions)
+preserve_existing_redirect_uris = [
+  # Example Power Platform connector URIs (replace with your actual URIs):
+  # "https://global.consent.azure-apim.net/redirect/cr324-5fagentcore-2dweather-2dmcp-5fac2271d378fbd65b",
+  # "https://global.consent.azure-apim.net/redirect/cr324-5faws-20weather-20mcp-20server-5fac2271d378fbd65b",
+]
+
+# Tags
+common_tags = {
+  Project     = "aws-agentcore-gateway"
+  ManagedBy   = "terraform"
+  Environment = "production"
+}

@@ -82,6 +82,12 @@ variable "entra_redirect_uris" {
   ]
 }
 
+variable "preserve_existing_redirect_uris" {
+  description = "List of existing redirect URIs to preserve (e.g., Power Platform connector URIs)"
+  type        = list(string)
+  default     = []
+}
+
 variable "entra_group_membership_claims" {
   description = "Group membership claims to include in tokens"
   type        = list(string)

@@ -18,12 +18,12 @@ locals {
   entra_tenant_id     = data.azuread_client_config.current.tenant_id
   entra_discovery_url = "https://login.microsoftonline.com/${local.entra_tenant_id}/v2.0/.well-known/openid-configuration"
 
-  # Combined redirect URIs: standard defaults + any additional from var.entra_redirect_uris
+  # Combined redirect URIs: standard defaults + any additional from var.entra_redirect_uris + preserved URIs
   combined_redirect_uris = distinct(concat([
     "http://localhost:6274/callback/",
     "https://vscode.dev/redirect",
     "http://127.0.0.1:33418/"
-  ], var.entra_redirect_uris))
+  ], var.entra_redirect_uris, var.preserve_existing_redirect_uris))
 
   # Generate display name and descriptions from project name
   project_display_name     = title(replace(var.project_name, "-", " "))

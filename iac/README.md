@@ -31,6 +31,26 @@ rust_log_level          = "info"                  # info (prod), debug/trace (tr
 gateway_exception_level = null                    # Gateway exception level (DEBUG/INFO/WARN/ERROR/null)
 ```
 
+### Redirect URI Management
+
+The infrastructure automatically includes standard development redirect URIs:
+- `http://localhost:6274/callback/` (MCP Inspector)
+- `https://vscode.dev/redirect` (VS Code authentication)
+- `http://127.0.0.1:33418/` (Standard OAuth development)
+
+To preserve existing redirect URIs (e.g., Power Platform connector URIs) that are difficult to reconfigure:
+
+```hcl
+# In terraform.tfvars
+preserve_existing_redirect_uris = [
+  "https://global.consent.azure-apim.net/redirect/cr324-5fagentcore-2dweather-2dmcp-5fac2271d378fbd65b",
+  "https://global.consent.azure-apim.net/redirect/cr324-5faws-20weather-20mcp-20server-5fac2271d378fbd65b",
+  # Add any other existing redirect URIs you want to preserve
+]
+```
+
+This prevents these URIs from being removed during deployments from different environments.
+
 ### Lambda Debug Logging
 
 Control Lambda logging verbosity for security and troubleshooting:
