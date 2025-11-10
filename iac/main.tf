@@ -1,5 +1,5 @@
-# AWS Bedrock AgentCore Gateway Infrastructure
-# Main infrastructure resources for AWS Lambda and AWS Bedrock AgentCore integration
+# Amazon Bedrock AgentCore Gateway Infrastructure
+# Main infrastructure resources for AWS Lambda and Amazon Bedrock AgentCore integration
 
 # Create zip file from Lambda binary
 data "archive_file" "lambda_zip" {
@@ -71,7 +71,7 @@ data "aws_iam_policy_document" "lambda_assume_role" {
 }
 
 # Gateway assume role policy - allow Bedrock AgentCore service
-# IMPORTANT: Both service principals are required for AWS Bedrock AgentCore Gateway to work:
+# IMPORTANT: Both service principals are required for Amazon Bedrock AgentCore Gateway to work:
 # - bedrock.amazonaws.com: Legacy service principal (may be used by some Gateway operations)
 # - bedrock-agentcore.amazonaws.com: AgentCore-specific service principal for Lambda invocation
 # Without both, you'll get "Access denied while invoking Lambda function" errors even if
@@ -101,7 +101,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 #   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 # }
 
-# IAM Role for AWS Bedrock AgentCore Gateway
+# IAM Role for Amazon Bedrock AgentCore Gateway
 resource "aws_iam_role" "gateway_role" {
   name = "${var.project_name}-gateway-role"
 
@@ -110,7 +110,7 @@ resource "aws_iam_role" "gateway_role" {
   tags = var.common_tags
 }
 
-# Policy allowing AWS Bedrock AgentCore Gateway to invoke Lambda
+# Policy allowing Amazon Bedrock AgentCore Gateway to invoke Lambda
 resource "aws_iam_role_policy" "gateway_lambda_invoke" {
   name = "${var.project_name}-gateway-lambda-invoke"
   role = aws_iam_role.gateway_role.id
@@ -127,7 +127,7 @@ resource "aws_iam_role_policy" "gateway_lambda_invoke" {
   })
 }
 
-# AWS Bedrock AgentCore Gateway with JWT authorization
+# Amazon Bedrock AgentCore Gateway with JWT authorization
 resource "aws_bedrockagentcore_gateway" "main" {
   name            = var.project_name
   protocol_type   = "MCP"
@@ -153,7 +153,7 @@ resource "aws_bedrockagentcore_gateway" "main" {
   tags = var.common_tags
 }
 
-# AWS Bedrock AgentCore Gateway Target (Lambda)
+# Amazon Bedrock AgentCore Gateway Target (Lambda)
 # Tool schemas loaded directly from programmatically generated tool_schema.json
 resource "aws_bedrockagentcore_gateway_target" "lambda" {
   name               = "${var.project_name}-target"
@@ -216,7 +216,7 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
   }
 }
 
-# Lambda permission for AWS Bedrock AgentCore Gateway to invoke
+# Lambda permission for Amazon Bedrock AgentCore Gateway to invoke
 resource "aws_lambda_permission" "agentcore_gateway_invoke" {
   statement_id  = "AllowAgentCoreGatewayInvoke"
   action        = "lambda:InvokeFunction"

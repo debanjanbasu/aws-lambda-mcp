@@ -1,4 +1,4 @@
-# Entra ID (Azure AD) OAuth Configuration for AWS Bedrock AgentCore Gateway
+# Entra ID (Azure AD) OAuth Configuration for Amazon Bedrock AgentCore Gateway
 # Uses Public Client Application for authorization code flow with PKCE (no secrets)
 
 # Data source to get current Azure AD configuration
@@ -103,7 +103,7 @@ resource "azuread_application" "agentcore_app" {
 # - PKCE is the authentication flow, but this defines your API's identity
 # - Required because we expose our own API scope (oauth2_permission_scope)
 # - Enables clients to request tokens specifically for YOUR API
-# - Used by AWS Bedrock AgentCore Gateway for JWT validation
+# - Used by Amazon Bedrock AgentCore Gateway for JWT validation
 # 
 # Gateway validation:
 #   allowed_audience = ["api://{client_id}", "{client_id}"]

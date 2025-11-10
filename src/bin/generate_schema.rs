@@ -1,7 +1,7 @@
-//! Schema generator for AWS Bedrock Agent tools.
+//! Schema generator for Amazon Bedrock Agent tools.
 //!
 //! This binary scans registered tools and generates `tool_schema.json`,
-//! which contains the input/output schemas in AWS Bedrock format.
+//! which contains the input/output schemas in Amazon Bedrock format.
 
 use schemars::{JsonSchema, schema_for};
 use serde_json::{Value, json};
@@ -47,16 +47,16 @@ fn main() {
     println!("✅ Generated tool_schema.json with {} tool(s)", tools.len());
 }
 
-// Generates a schema in AWS Bedrock format for the given type
+// Generates a schema in Amazon Bedrock format for the given type
 fn generate_bedrock_schema<T: JsonSchema>() -> Value {
     let mut schema = serde_json::to_value(schema_for!(T)).unwrap_or_else(|e| {
         eprintln!("Failed to serialize schema: {e}");
         std::process::exit(1);
     });
     
-    // Clean up schema to conform to AWS Bedrock AgentCore format
+    // Clean up schema to conform to Amazon Bedrock AgentCore format
     if let Some(obj) = schema.as_object_mut() {
-        // Remove fields not supported by AWS Bedrock
+        // Remove fields not supported by Amazon Bedrock
         obj.remove("$schema");
         obj.remove("title");
         
@@ -70,7 +70,7 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
                     && let Some(def_value) = defs.get(def_name) {
                     prop_obj.remove("$ref");
                     
-                    // Convert enums to string type for AWS Bedrock compatibility
+                    // Convert enums to string type for Amazon Bedrock compatibility
                     if def_value.get("enum").is_some() {
                         prop_obj.insert("type".to_string(), json!("string"));
                     }
@@ -78,7 +78,7 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
             }
         }
         
-        // Remove format fields from all properties (not supported by AWS Bedrock)
+        // Remove format fields from all properties (not supported by Amazon Bedrock)
         if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
             for prop_value in properties.values_mut() {
                 if let Some(prop_obj) = prop_value.as_object_mut() {

@@ -94,7 +94,7 @@ variable "entra_oauth_scope_value" {
   default     = "access_as_user"
 }
 
-# AWS Bedrock AgentCore Gateway Configuration
+# Amazon Bedrock AgentCore Gateway Configuration
 variable "gateway_enable_debug" {
   description = "Enable detailed error logging for Gateway troubleshooting. When false, minimal error messages are shown."
   type        = bool

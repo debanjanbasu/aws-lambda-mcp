@@ -1,18 +1,18 @@
 # AI Assistant Instructions
 
-**Last updated**: 2025-11-04T01:40:55.000Z
+**Last updated**: 2025-11-10T00:00:00.000Z
 
-Repository-specific instructions for AI coding assistants (GitHub Copilot, Claude, MCP agents) working on this AWS Lambda project.
+Repository-specific instructions for AI coding assistants (GitHub Copilot, Claude, MCP agents) working on this Model Context Protocol server project.
 
 ---
 
 ## Project Overview
 
-**AWS Bedrock AgentCore Gateway** - Rust-based Lambda function that translates AWS Bedrock AgentCore tool calls to actual implementations. Focus: security, performance (ARM64/Graviton), minimal cold start, structured tracing.
+**Amazon Bedrock AgentCore Gateway** - Rust-based Model Context Protocol server implementation that translates Amazon Bedrock AgentCore tool calls to actual implementations. Focus: security, performance (ARM64/Graviton), minimal cold start, structured tracing.
 
-⚠️ **Not an MCP Server** - This is a Lambda function using AWS Bedrock AgentCore schema format. We use `rmcp`'s `#[tool]` macro for metadata only, not the full MCP server infrastructure.
+✅ **MCP Server Implementation** - This is a full Model Context Protocol server using Amazon Bedrock AgentCore as the transport layer. We use `rmcp`'s `#[tool]` macro for MCP-compliant schema generation.
 
-⚠️ **Critical Naming** - Always use "AWS Bedrock AgentCore Gateway" (not "Bedrock Gateway" or "Bedrock Agent Gateway"). This is the official AWS service name.
+⚠️ **Critical Naming** - Always use "Amazon Bedrock AgentCore Gateway" (not "Bedrock Gateway" or "Bedrock Agent Gateway"). This is the official AWS service name.
 
 **Stack**: Rust 2024 | Lambda Runtime | Tokio | serde/schemars | tracing | reqwest | cargo-lambda | UPX
 
@@ -262,34 +262,37 @@ async fn process(id: UserId, data: Data) -> Result<Response> {
 - `rmcp`'s `#[tool]` macro for metadata extraction
 - Automatic `{function_name}_tool_attr()` generation
 - Integration with `schemars` for JSON Schema
+- MCP-compliant tool schema generation
 
 ### What We Don't Use
 - MCP server infrastructure (ServerHandler, ToolRouter)
 - MCP transports (stdio/SSE/HTTP)
-- MCP protocol format
+- Full MCP protocol implementation
 
 ### Why Custom Approach?
-1. **Different schema format**: AWS Bedrock AgentCore ≠ MCP
-2. **Lambda runtime**: No need for transport layers
+1. **Different transport layer**: Amazon Bedrock AgentCore ≠ Standard MCP transports
+2. **Lambda runtime**: Optimized for serverless execution
 3. **Performance**: Minimal dependencies for fast cold start
-4. **Simplicity**: Custom schema generator is ~100 LOC
+4. **Schema format**: Amazon Bedrock AgentCore specific format requirements
 
 ---
 
 ## Schema Generation
 
 **Process**:
-1. `rmcp` macro generates `{function}_tool_attr()` accessor
+1. `rmcp` macro generates `{function}_tool_attr()` accessor with MCP-compliant metadata
 2. `generate_schema` binary calls these accessors
 3. `schemars` generates JSON Schema from request/response types
-4. Custom cleanup transforms to AWS Bedrock AgentCore format (no `$schema`, inline enums)
+4. Custom cleanup transforms to Amazon Bedrock AgentCore format (no `$schema`, inline enums)
 
 **Run**: `make schema` before building
 
-**AWS Bedrock AgentCore Format**:
+**Amazon Bedrock AgentCore Format**:
 - No `$schema` or `$defs`
 - Enums converted to `string` type
 - No complex nested types
+
+This generates a valid Model Context Protocol schema that is compatible with Amazon Bedrock AgentCore Gateway.
 
 ---
 
@@ -325,8 +328,8 @@ Before marking task complete:
 ## Common Pitfalls
 
 1. **Don't use rmcp SDK fully** - Only the `#[tool]` macro
-2. **Don't change to MCP schema** - Must be AWS Bedrock AgentCore format
-3. **Don't call it "Bedrock Gateway"** - Always use full name "AWS Bedrock AgentCore Gateway"
+2. **Don't change to MCP schema** - Must be Amazon Bedrock AgentCore format
+3. **Don't call it "Bedrock Gateway"** - Always use full name "Amazon Bedrock AgentCore Gateway"
 
 ---
 

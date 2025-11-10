@@ -52,6 +52,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
+          targets: aarch64-unknown-linux-gnu
 
       - name: Cache Rust dependencies
         if: env.IS_RUST_PR == 'true'

@@ -46,27 +46,27 @@ output "cloudwatch_log_group_arn" {
 }
 
 output "agentcore_gateway_arn" {
-  description = "ARN of the AWS Bedrock AgentCore Gateway"
+  description = "ARN of the Amazon Bedrock AgentCore Gateway"
   value       = aws_bedrockagentcore_gateway.main.gateway_arn
 }
 
 output "agentcore_gateway_id" {
-  description = "ID of the AWS Bedrock AgentCore Gateway"
+  description = "ID of the Amazon Bedrock AgentCore Gateway"
   value       = aws_bedrockagentcore_gateway.main.gateway_id
 }
 
 output "agentcore_gateway_name" {
-  description = "Name of the AWS Bedrock AgentCore Gateway"
+  description = "Name of the Amazon Bedrock AgentCore Gateway"
   value       = aws_bedrockagentcore_gateway.main.name
 }
 
 output "agentcore_gateway_url" {
-  description = "URL of the AWS Bedrock AgentCore Gateway"
+  description = "URL of the Amazon Bedrock AgentCore Gateway"
   value       = aws_bedrockagentcore_gateway.main.gateway_url
 }
 
 output "agentcore_gateway_target_id" {
-  description = "ID of the AWS Bedrock AgentCore Gateway Target"
+  description = "ID of the Amazon Bedrock AgentCore Gateway Target"
   value       = aws_bedrockagentcore_gateway_target.lambda.target_id
 }
 

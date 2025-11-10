@@ -1,6 +1,6 @@
-# AWS Bedrock AgentCore Gateway
+# Amazon Bedrock AgentCore Gateway (MCP Server)
 
-Production-ready AWS Lambda function in Rust for AWS Bedrock AgentCore tool execution. Secure, OAuth-authenticated bridge between Bedrock AI agents and custom tools.
+Production-ready Model Context Protocol server implementation using Amazon Bedrock AgentCore Gateway. Secure, OAuth-authenticated bridge between Bedrock AI agents and custom tools.
 
 ## Architecture
 
@@ -12,9 +12,9 @@ Client → Entra ID (PKCE) → AgentCore Gateway → Lambda (Rust) → External 
 
 **Stack**: ARM64 Lambda (~1.3MB UPX) | Entra ID OAuth | CloudWatch (3d retention)
 
-## ⚠️ Not an MCP Server
+## Model Context Protocol Implementation
 
-This is an **AWS Lambda function** for AWS Bedrock AgentCore, not a Model Context Protocol server. Uses custom `#[tool]` macro for Bedrock-specific schemas.
+This is a **Model Context Protocol server** implemented as an AWS Lambda function for Amazon Bedrock AgentCore. Uses the `rmcp` crate's `#[tool]` macro for MCP-compliant schema generation.
 
 ## Features
 
@@ -194,7 +194,7 @@ Redeploy and view: `make logs`
 
 ## Schema Generation
 
-Generates AWS Bedrock AgentCore schemas from code using custom `#[tool]` macro (not MCP):
+Generates Amazon Bedrock AgentCore schemas from code using custom `#[tool]` macro (not MCP):
 
 ```rust
 use crate::macros::tool;
