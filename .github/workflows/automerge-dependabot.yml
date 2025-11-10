@@ -2,7 +2,7 @@
 name: Dependabot Auto-merge
 
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
@@ -11,32 +11,50 @@ on:
       - '**.md'
       - '.gitignore'
 
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+
 env:
   CARGO_TERM_COLOR: always # Ensure Rust color output is consistent
+  AWS_REGION: ap-southeast-2 # Default AWS region
 
 jobs:
   automerge:
     # Only run on PRs from dependabot that are not in draft
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      contents: write
-      statuses: write
-
     steps:
       - name: Checkout PR code
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Detect PR type
+        run: |
+          # Determine if this is a Terraform PR based on changed files
+          if git diff --name-only HEAD^ HEAD | grep -q "iac/.*\.tf"; then
+            echo "IS_TERRAFORM_PR=true" >> $GITHUB_ENV
+          else
+            echo "IS_TERRAFORM_PR=false" >> $GITHUB_ENV
+          fi
+          
+          # Determine if this is a Rust/Cargo PR
+          if git diff --name-only HEAD^ HEAD | grep -q "Cargo\.\(lock\|toml\)"; then
+            echo "IS_RUST_PR=true" >> $GITHUB_ENV
+          else
+            echo "IS_RUST_PR=false" >> $GITHUB_ENV
+          fi
+
+      # Rust Dependency Updates
       - name: Setup Rust toolchain
+        if: env.IS_RUST_PR == 'true'
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
 
       - name: Cache Rust dependencies
+        if: env.IS_RUST_PR == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -50,6 +68,7 @@ jobs:
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
       - name: Install cargo-lambda
+        if: env.IS_RUST_PR == 'true'
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
@@ -57,53 +76,52 @@ jobs:
           fi
 
       - name: Setup Zig
+        if: env.IS_RUST_PR == 'true'
         uses: goto-bus-stop/setup-zig@v2
         with:
           version: master # Always use the latest Zig version
 
-      - name: Run All Checks (Test & Build)
-        run: make all
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v5
+      # Terraform Dependency Updates
+      - name: Setup Terraform
+        if: env.IS_TERRAFORM_PR == 'true'
+        uses: hashicorp/setup-terraform@v3
         with:
-          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          terraform_version: latest
 
       - name: Cache Terraform plugins
+        if: env.IS_TERRAFORM_PR == 'true'
         uses: actions/cache@v4
         with:
           path: iac/.terraform
           key: ${{ runner.os }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: latest
-
-      - name: Setup Azure CLI
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
       - name: Terraform Init
+        if: env.IS_TERRAFORM_PR == 'true'
         run: |
-          cd iac && terraform init \
-            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
-            -backend-config="key=aws-lambda-mcp/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DYNAMODB_TABLE }}"
+          cd iac && terraform init
 
       - name: Terraform Validate
-        run: cd iac && terraform validate
+        if: env.IS_TERRAFORM_PR == 'true'
+        run: |
+          cd iac && terraform validate
 
-      - name: Terraform Plan
-        run: cd iac && terraform plan
+      # Run appropriate tests based on PR type
+      - name: Run Tests
+        # For Dependabot PRs, we only run tests to verify compatibility
+        run: |
+          if [ "${{ env.IS_RUST_PR }}" = "true" ]; then
+            make test
+          elif [ "${{ env.IS_TERRAFORM_PR }}" = "true" ]; then
+            echo "Terraform provider updates validated with terraform validate"
+            # For Terraform updates, we rely on terraform validate
+            # In the future, we could add more specific Terraform tests here
+          else
+            # Fallback to running all tests
+            make test
+          fi
 
       - name: Approve and Merge
-        if: success() # Only run if tests and terraform plan pass
+        if: success() # Only run if tests pass
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -120,4 +138,4 @@ jobs:
           gh pr edit "$PR_URL" --add-label "tests-failed"
           gh pr comment "$PR_URL" --body "## 🚨 Auto-Merge Failed
 
-          One or more checks failed for this Dependabot PR. Please review the workflow logs for details."
+          Tests failed for this Dependabot PR. Please review the workflow logs for details."

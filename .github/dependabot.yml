@@ -6,15 +6,27 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    # Enable auto-merge for minor and patch updates
+    allow:
+      - dependency-type: "all"
+    commit-message:
+      prefix: "deps"
+    open-pull-requests-limit: 10
 
   # Check for updates to Terraform providers
   - package-ecosystem: "terraform"
     directory: "/iac"
     schedule:
       interval: "daily"
+    commit-message:
+      prefix: "deps(tf)"
+    open-pull-requests-limit: 10
 
   # Check for updates to GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
+    commit-message:
+      prefix: "deps(actions)"
+    open-pull-requests-limit: 10

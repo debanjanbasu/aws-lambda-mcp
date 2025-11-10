@@ -43,11 +43,24 @@ make release  # ARM64 production build with UPX compression (~1.3MB)
 make test     # Run tests
 ```
 
+### Ephemeral PR Environments
+```bash
+# Manual environment deployment
+gh workflow run pr-environment.yml -f action=deploy
+
+# Manual environment destruction
+gh workflow run pr-environment.yml -f action=destroy
+```
+
 ### CI/CD Preferences
 
 - **Colored Output**: For all command-line tools run in CI/CD workflows (like `cargo`, `terraform`, etc.), prefer colored output. Do not use flags like `-no-color`. The `CARGO_TERM_COLOR=always` environment variable should be set.
 
 **Binary Size**: Release builds are automatically compressed with UPX (`--best --lzma`), reducing size from ~3.7MB to ~1.3MB (65% reduction). This significantly improves cold start time.
+
+**Ephemeral Environments**: Pull requests automatically get isolated test environments with unique resource names to prevent conflicts. All resources are tagged with PR information for easy identification and cleanup.
+
+**Dependency Updates**: Dependabot automatically updates Rust dependencies, Terraform providers, and GitHub Actions. Updates are automatically tested and merged when passing.
 
 ### Adding a New Tool
 1. Create model in `src/models/`: `#[derive(Debug, Serialize, Deserialize, JsonSchema)]`

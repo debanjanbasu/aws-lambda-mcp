@@ -7,14 +7,6 @@ on:
     paths-ignore:
       - '**.md'
       - '.gitignore'
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
   workflow_dispatch: # Allows manual triggering
 
 env:
@@ -23,7 +15,7 @@ env:
 
 jobs:
   deploy:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request_target'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       id-token: write # Required for OIDC
@@ -108,5 +100,4 @@ jobs:
         run: cd iac && terraform plan
 
       - name: Terraform Apply
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: cd iac && terraform apply -auto-approve

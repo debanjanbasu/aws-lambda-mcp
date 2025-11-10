@@ -54,6 +54,24 @@ make test-token   # Get OAuth token (auto-copied to clipboard)
 
 Token is automatically copied to clipboard (macOS/Linux/WSL). Paste into MCP Inspector when prompted.
 
+## Ephemeral Pull Request Environments
+
+This repository automatically creates isolated test environments for each pull request:
+
+- 🌱 **Automatic Deployment**: When you open a non-draft PR, an ephemeral environment is automatically created
+- 🔗 **Isolated Testing**: Each PR gets its own Gateway URL and backend resources
+- 🧪 **Easy Testing**: Use the same `make test-token` workflow to test your changes
+- 🗑️ **Automatic Cleanup**: Environments are destroyed when the PR is closed or merged
+
+To manually trigger an environment deployment or destruction:
+```bash
+# Deploy a manual environment
+gh workflow run pr-environment.yml -f action=deploy
+
+# Destroy a manual environment
+gh workflow run pr-environment.yml -f action=destroy
+```
+
 ## Example: Weather Tool
 
 Included working tool demonstrates the pattern:
