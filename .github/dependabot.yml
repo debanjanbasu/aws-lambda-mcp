@@ -1,0 +1,20 @@
+# .github/dependabot.yml
+version: 2
+updates:
+  # Check for updates to Rust dependencies
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "daily"
+
+  # Check for updates to Terraform providers
+  - package-ecosystem: "terraform"
+    directory: "/iac"
+    schedule:
+      interval: "daily"
+
+  # Check for updates to GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"

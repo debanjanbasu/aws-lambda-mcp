@@ -43,6 +43,10 @@ make release  # ARM64 production build with UPX compression (~1.3MB)
 make test     # Run tests
 ```
 
+### CI/CD Preferences
+
+- **Colored Output**: For all command-line tools run in CI/CD workflows (like `cargo`, `terraform`, etc.), prefer colored output. Do not use flags like `-no-color`. The `CARGO_TERM_COLOR=always` environment variable should be set.
+
 **Binary Size**: Release builds are automatically compressed with UPX (`--best --lzma`), reducing size from ~3.7MB to ~1.3MB (65% reduction). This significantly improves cold start time.
 
 ### Adding a New Tool
