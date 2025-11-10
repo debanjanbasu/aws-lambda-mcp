@@ -14,20 +14,20 @@ help: ## Show this help
 	@echo "For more iac commands: cd iac && make help"
 
 schema: ## Generate tool_schema.json
-	@cargo run --bin generate-schema --features schema-gen
+	@cargo run --bin generate-schema --features schema-gen --color=always
 
 build: schema ## Build Lambda (debug)
-	@cargo lambda build --bin aws-lambda-mcp
+	@cargo lambda build --bin aws-lambda-mcp --color=always
 
 release: schema ## Build Lambda (release, ARM64) with UPX compression
-	@cargo lambda build --release --arm64 --bin aws-lambda-mcp
+	@cargo lambda build --release --arm64 --bin aws-lambda-mcp --color=always
 	@echo "Compressing binary with UPX (--best --lzma)..."
 	@upx --best --lzma target/lambda/aws-lambda-mcp/bootstrap
 	@echo "Final size:"
 	@ls -lh target/lambda/aws-lambda-mcp/bootstrap
 
 test: ## Run tests
-	@cargo test
+	@cargo test --color=always
 
 all: test release ## Run tests and build release
 
