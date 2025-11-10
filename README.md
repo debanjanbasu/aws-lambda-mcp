@@ -27,6 +27,23 @@ This is an **AWS Lambda function** for AWS Bedrock AgentCore, not a Model Contex
 - **Fast Cold Start** - Minimal deps, optimized binary
 - **Free Tier** - Typical usage $0/month
 
+## One-Time Backend Setup
+
+This project uses an S3 bucket to store Terraform's remote state securely. Before you can deploy, you need to run a one-time setup command.
+
+1.  **Create the Backend Infrastructure:**
+    ```bash
+    make setup-backend
+    ```
+    This command will prompt you for a unique S3 bucket name, then use the AWS CLI to create the S3 bucket and a DynamoDB table for state locking. It also creates a local `iac/backend.config` file, which is ignored by Git.
+
+2.  **Create GitHub Secrets:**
+    For the GitHub Actions workflow to use the remote backend, you must add the following secrets in your repository settings under **Settings > Secrets and variables > Actions**:
+    *   `TF_BACKEND_BUCKET`: The name of the S3 bucket you just created.
+    *   `TF_BACKEND_DYNAMODB_TABLE`: The name of the DynamoDB table (`terraform-state-lock-mcp`).
+
+After this one-time setup, you can proceed with the normal deployment workflow.
+
 ## Quick Start
 
 ```bash

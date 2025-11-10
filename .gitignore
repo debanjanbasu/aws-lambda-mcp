@@ -29,3 +29,6 @@ bootstrap
 
 # Generated files
 tool_schema.json
+
+# Terraform
+iac/backend.config

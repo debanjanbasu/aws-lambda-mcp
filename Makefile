@@ -1,4 +1,6 @@
-.PHONY: help schema build release test all deploy tf-init tf-plan tf-apply tf-destroy login test-token test-lambda logs clean kill-inspector oauth-config add-redirect-url
+.PHONY: help schema build release test all deploy tf-init tf-plan tf-apply tf-destroy login test-token test-lambda logs clean kill-inspector oauth-config add-redirect-url setup-backend
+
+AWS_REGION ?= ap-southeast-2
 
 help: ## Show this help
 	@echo "Root Makefile - Lambda Build & Infrastructure"
@@ -7,7 +9,7 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(schema|build|release|test|all):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Infrastructure Commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(login|deploy|tf-|test-token|test-lambda|logs|clean|kill-inspector|oauth-config|add-redirect-url):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(login|setup-backend|deploy|tf-|test-token|test-lambda|logs|clean|kill-inspector|oauth-config|add-redirect-url):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "For more iac commands: cd iac && make help"
 
@@ -29,13 +31,40 @@ test: ## Run tests
 
 all: test release ## Run tests and build release
 
-# Infrastructure commands - proxy to iac/Makefile
+# Infrastructure commands
 login: ## Authenticate AWS + Azure CLIs
 	@cd iac && $(MAKE) login
 
+setup-backend: ## Create S3/DynamoDB backend for Terraform state
+	@read -p "Enter a globally unique S3 bucket name for Terraform state: " BUCKET_NAME; \
+	if [ -z "$$BUCKET_NAME" ]; then \
+		echo "❌ Bucket name cannot be empty."; \
+		exit 1; \
+	fi; \
+	DYNAMODB_TABLE="terraform-state-lock-mcp"; \
+	echo "▶️ Creating S3 bucket '$$BUCKET_NAME' in region $(AWS_REGION)..."; \
+	aws s3api create-bucket --bucket $$BUCKET_NAME --region $(AWS_REGION) --create-bucket-configuration LocationConstraint=$(AWS_REGION) > /dev/null; \
+	echo "▶️ Enabling versioning and encryption for '$$BUCKET_NAME'..."; \
+	aws s3api put-bucket-versioning --bucket $$BUCKET_NAME --versioning-configuration Status=Enabled > /dev/null; \
+	aws s3api put-bucket-encryption --bucket $$BUCKET_NAME --server-side-encryption-configuration '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}' > /dev/null; \
+	echo "▶️ Creating DynamoDB table '$$DYNAMODB_TABLE' for state locking..."; \
+	aws dynamodb create-table \
+		--table-name $$DYNAMODB_TABLE \
+		--attribute-definitions AttributeName=LockID,AttributeType=S \
+		--key-schema AttributeName=LockID,KeyType=HASH \
+		--provisioned-throughput ReadCapacityUnits=1,WriteCapacityUnits=1 \
+		--region $(AWS_REGION) > /dev/null || echo "⚠️ DynamoDB table may already exist. That's okay."; \
+	echo "▶️ Creating 'iac/backend.config' for local use..."; \
+	echo "bucket         = \"$$BUCKET_NAME\"" > iac/backend.config; \
+	echo "key            = \"aws-lambda-mcp/terraform.tfstate\"" >> iac/backend.config; \
+	echo "region         = \"$(AWS_REGION)\"" >> iac/backend.config; \
+	echo "dynamodb_table = \"$$DYNAMODB_TABLE\"" >> iac/backend.config; \
+	echo "✅ Backend setup complete!"; \
+	echo "Run 'make tf-init' to initialize Terraform with the new backend."
+
 tf-init: ## Initialize Terraform
 	@echo "Initializing Terraform..."
-	@cd iac && terraform init
+	@cd iac && terraform init -backend-config=backend.config
 
 tf-plan: release ## Plan Terraform changes (builds Lambda first)
 	@echo "Planning Terraform deployment..."
@@ -102,8 +131,7 @@ oauth-config: ## Display OAuth configuration for M365 Copilot connector
 		if command -v pbcopy >/dev/null 2>&1; then \
 			echo "$$CLIENT_SECRET" | pbcopy; \
 			echo "✅ Client secret copied to clipboard"; \
-		elif command -v xclip >/dev/null 2>&1; then \
-			echo "$$CLIENT_SECRET" | xclip -selection clipboard; \
+		elif command -v xclip >/dev/null 2>&1; then \			echo "$$CLIENT_SECRET" | xclip -selection clipboard; \
 			echo "✅ Client secret copied to clipboard"; \
 		elif command -v xsel >/dev/null 2>&1; then \
 			echo "$$CLIENT_SECRET" | xsel --clipboard --input; \
