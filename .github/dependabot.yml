@@ -12,9 +12,16 @@ updates:
     directory: "/iac"
     schedule:
       interval: "daily"
+    secrets:
+      - TF_BACKEND_BUCKET
+      - TF_BACKEND_DYNAMODB_TABLE
 
   # Check for updates to GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
+    secrets:
+      - AWS_IAM_ROLE_ARN
+      - AZURE_CLIENT_ID
+      - AZURE_TENANT_ID
