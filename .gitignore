@@ -32,3 +32,6 @@ tool_schema.json
 
 # Terraform
 iac/backend.config
+
+.gemini/
+gha-creds-*.json
