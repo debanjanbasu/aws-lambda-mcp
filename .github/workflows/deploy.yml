@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
   workflow_dispatch: # Allows manual triggering
 
 env:
@@ -45,7 +51,11 @@ jobs:
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
       - name: Install cargo-lambda
-        run: cargo install cargo-lambda
+        run: |
+          if ! command -v cargo-lambda &> /dev/null
+          then
+            cargo install cargo-lambda
+          fi
 
       - name: Setup Zig
         uses: goto-bus-stop/setup-zig@v2

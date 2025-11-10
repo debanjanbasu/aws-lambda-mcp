@@ -7,6 +7,9 @@ on:
       - opened
       - synchronize
       - reopened
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
 
 env:
   CARGO_TERM_COLOR: always # Ensure Rust color output is consistent
@@ -45,8 +48,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
-      - name: Run tests
-        run: cargo test
+      - name: Install cargo-lambda
+        run: |
+          if ! command -v cargo-lambda &> /dev/null
+          then
+            cargo install cargo-lambda
+          fi
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: master # Always use the latest Zig version
+
+      - name: Run All Checks (Test & Build)
+        run: make all
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v5
