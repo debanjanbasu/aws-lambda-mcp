@@ -128,12 +128,28 @@ resource "aws_iam_role_policy" "gateway_lambda_invoke" {
 }
 
 # Amazon Bedrock AgentCore Gateway with JWT authorization
+# Implements Model Context Protocol (MCP) server with semantic tool search
 resource "aws_bedrockagentcore_gateway" "main" {
   name            = var.project_name
   protocol_type   = "MCP"
   role_arn        = aws_iam_role.gateway_role.arn
   authorizer_type = "CUSTOM_JWT"
 
+  # Protocol configuration for MCP
+  # SEMANTIC search type enables intelligent tool selection based on:
+  # - Natural language query understanding
+  # - Tool descriptions and parameter matching
+  # - Context-aware tool recommendations
+  # See: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-using-mcp-semantic-search.html
+  protocol_configuration {
+    mcp {
+      instructions = "Gateway for handling MCP requests"
+      search_type  = "SEMANTIC"
+    }
+  }
+
+  # Authorizer configuration for JWT validation
+  # Uses OIDC discovery URL to validate tokens against Entra ID
   authorizer_configuration {
     custom_jwt_authorizer {
       discovery_url    = local.entra_discovery_url
@@ -145,10 +161,18 @@ resource "aws_bedrockagentcore_gateway" "main" {
   }
 
   # Exception level for error logging
-  # When set to "DEBUG", provides detailed error messages with full context
-  # When omitted (null), shows minimal error information
-  # Note: AWS provider currently only supports "DEBUG" or omitting this field
-  exception_level = var.gateway_enable_debug ? "DEBUG" : null
+  # Controls the verbosity of error messages returned by the Gateway:
+  # - DEBUG: Most verbose - detailed context and debugging information
+  # - INFO:  Informational messages about Gateway operations
+  # - WARN:  Warning messages about potential issues
+  # - ERROR: Only error messages
+  # - null:  Minimal error information (default for security)
+  # 
+  # Security consideration: Higher verbosity levels may expose sensitive information
+  # in error responses. Use DEBUG/INFO only for troubleshooting, not production.
+  # 
+  # Reference: https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway#exception_level-1
+  exception_level = var.gateway_exception_level
 
   tags = var.common_tags
 }

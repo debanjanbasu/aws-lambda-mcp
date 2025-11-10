@@ -23,12 +23,12 @@ Secretless PKCE flow, JWT validation via OIDC, ARM64 Lambda with UPX compression
 All variables have defaults in `variables.tf`. Override in `terraform.tfvars`:
 
 ```hcl
-entra_sign_in_audience = "AzureADMultipleOrgs"  # Any Entra ID tenant
-lambda_memory_size     = 128                     # Minimal for cost
-lambda_timeout         = 30
-log_retention_days     = 3
-rust_log_level         = "info"                  # info (prod), debug/trace (troubleshooting)
-gateway_enable_debug   = false                   # Enable for detailed errors
+entra_sign_in_audience  = "AzureADMultipleOrgs"  # Any Entra ID tenant
+lambda_memory_size      = 128                     # Minimal for cost
+lambda_timeout          = 30
+log_retention_days      = 3
+rust_log_level          = "info"                  # info (prod), debug/trace (troubleshooting)
+gateway_exception_level = null                    # Gateway exception level (DEBUG/INFO/WARN/ERROR/null)
 ```
 
 ### Lambda Debug Logging
@@ -47,13 +47,27 @@ rust_log_level = "debug"  # or "trace" for maximum detail
 - `info/warn/error`: Only logs event size. Event payloads excluded from logs automatically.
 - `debug/trace`: Logs full event payloads and context. Use only for troubleshooting, not production.
 
-### Gateway Debug Logging
+### Gateway Exception Logging
 
-Enable detailed error messages for troubleshooting:
+Control Gateway exception logging verbosity:
 
 ```hcl
 # In terraform.tfvars
-gateway_enable_debug = true
+
+# Disabled (default) - Minimal error information for security
+gateway_exception_level = null
+
+# Error level - Only error messages
+gateway_exception_level = "ERROR"
+
+# Warning level - Warning and error messages
+gateway_exception_level = "WARN"
+
+# Info level - Informational, warning, and error messages
+gateway_exception_level = "INFO"
+
+# Debug level - Most verbose logging (use only for troubleshooting)
+gateway_exception_level = "DEBUG"
 ```
 
 Then redeploy:
@@ -61,9 +75,11 @@ Then redeploy:
 terraform apply -auto-approve
 ```
 
-When enabled, Gateway returns detailed error messages with full context. When disabled (default), only minimal error information is provided.
+**Security considerations:**
+Higher verbosity levels may expose sensitive information in error responses. 
+Use DEBUG/INFO only for troubleshooting, not in production environments.
 
-**Note**: Current AWS provider only supports DEBUG level or standard error messages. Set back to `false` for production.
+Set back to `null` for production deployments.
 
 ## Available Commands
 

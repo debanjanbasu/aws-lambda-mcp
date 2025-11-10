@@ -95,8 +95,13 @@ variable "entra_oauth_scope_value" {
 }
 
 # Amazon Bedrock AgentCore Gateway Configuration
-variable "gateway_enable_debug" {
-  description = "Enable detailed error logging for Gateway troubleshooting. When false, minimal error messages are shown."
-  type        = bool
-  default     = false
+variable "gateway_exception_level" {
+  description = "Exception level for Gateway error logging. Valid values are DEBUG, INFO, WARN, ERROR, or null for disabled."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.gateway_exception_level == null || contains(["DEBUG", "INFO", "WARN", "ERROR"], var.gateway_exception_level)
+    error_message = "Exception level must be one of: DEBUG, INFO, WARN, ERROR, or null."
+  }
 }
