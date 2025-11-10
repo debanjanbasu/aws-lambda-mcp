@@ -16,6 +16,8 @@ Repository-specific instructions for AI coding assistants (GitHub Copilot, Claud
 
 **Stack**: Rust 2024 | Lambda Runtime | Tokio | serde/schemars | tracing | reqwest | cargo-lambda | UPX
 
+**License**: MIT
+
 ---
 
 ## Quick Reference

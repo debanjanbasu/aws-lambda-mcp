@@ -12,6 +12,8 @@ Client → Entra ID (PKCE) → AgentCore Gateway → Lambda (Rust) → External 
 
 **Stack**: ARM64 Lambda (~1.3MB UPX) | Entra ID OAuth | CloudWatch (3d retention)
 
+**License**: MIT
+
 ## Model Context Protocol Implementation
 
 This is a **Model Context Protocol server** implemented as an AWS Lambda function for Amazon Bedrock AgentCore. Uses the `rmcp` crate's `#[tool]` macro for MCP-compliant schema generation.
