@@ -41,12 +41,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: nightly
-          target: aarch64-unknown-linux-gnu # Target for ARM64 Lambda
-          override: true
+          components: rust-src
+          targets: aarch64-unknown-linux-gnu
 
       - name: Install UPX (for release build compression)
         run: sudo apt-get update && sudo apt-get install -y upx-ucl
