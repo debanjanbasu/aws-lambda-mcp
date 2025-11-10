@@ -7,9 +7,6 @@ on:
       - opened
       - synchronize
       - reopened
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
 
 env:
   CARGO_TERM_COLOR: always # Ensure Rust color output is consistent
@@ -17,7 +14,6 @@ env:
 jobs:
   automerge:
     # Only run on PRs from dependabot that are not in draft
-    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
