@@ -7,9 +7,11 @@ on:
     paths-ignore:
       - '**.md'
       - '.gitignore'
-  pull_request:
-    branches:
-      - main
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
     paths-ignore:
       - '**.md'
       - '.gitignore'
@@ -21,11 +23,12 @@ env:
 
 jobs:
   deploy:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     permissions:
       id-token: write # Required for OIDC
       contents: read
+      statuses: write # Required to report status checks
 
     steps:
       - name: Checkout code
