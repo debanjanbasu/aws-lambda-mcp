@@ -143,16 +143,33 @@ make logs         # Tail CloudWatch logs
 
 ## Troubleshooting
 
-### Gateway Debug Mode
+### Gateway Exception Logging
 
-Enable detailed errors in `iac/terraform.tfvars`:
+Control Gateway exception logging verbosity in `iac/terraform.tfvars`:
+
 ```hcl
-gateway_enable_debug = true  # Shows _meta.debug in responses
+# Disabled (default) - Minimal error information for security
+gateway_exception_level = null
+
+# Error level - Only error messages
+gateway_exception_level = "ERROR"
+
+# Warning level - Warning and error messages
+gateway_exception_level = "WARN"
+
+# Info level - Informational, warning, and error messages
+gateway_exception_level = "INFO"
+
+# Debug level - Most verbose logging (use only for troubleshooting)
+gateway_exception_level = "DEBUG"
 ```
 
 Redeploy: `cd iac && terraform apply -auto-approve`
 
-⚠️ Disable after troubleshooting (may expose sensitive data)
+⚠️ Security considerations:
+Higher verbosity levels may expose sensitive information in error responses. 
+Use DEBUG/INFO only for troubleshooting, not in production environments.
+Disable (set to `null`) after troubleshooting to avoid exposing sensitive data.
 
 ### Lambda Debug Logs
 
