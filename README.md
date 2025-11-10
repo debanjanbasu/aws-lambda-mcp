@@ -72,6 +72,15 @@ gh workflow run pr-environment.yml -f action=deploy
 gh workflow run pr-environment.yml -f action=destroy
 ```
 
+## Automated Dependency Updates
+
+Dependabot automatically creates PRs for:
+- 🦀 **Rust dependencies** - Cargo.toml updates
+- 🏗️ **Terraform providers** - AWS, Azure AD, and other providers
+- ⚙️ **GitHub Actions** - Workflow action updates
+
+Updates are automatically tested and merged when all checks pass.
+
 ## Example: Weather Tool
 
 Included working tool demonstrates the pattern:
