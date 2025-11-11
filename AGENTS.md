@@ -64,6 +64,9 @@ gh workflow run pr-environment.yml -f action=destroy
 
 **Dependency Updates**: Dependabot automatically updates Rust dependencies, Terraform providers, and GitHub Actions. Updates are automatically tested and merged when passing.
 
+**Terraform Provider Versioning**:
+- Always use `>= major.0` for provider versions (e.g., `version = ">= 6.0"`). This ensures compatibility with the latest minor and patch versions within a major release, preventing lock file conflicts in CI/CD.
+
 ### Adding a New Tool
 1. Create model in `src/models/`: `#[derive(Debug, Serialize, Deserialize, JsonSchema)]`
 2. Create tool in `src/tools/`: Use `#[tool(description = "...")]` macro
