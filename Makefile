@@ -1,4 +1,4 @@
-.PHONY: help schema build release test all deploy tf-init tf-plan tf-apply tf-destroy login test-token test-lambda logs clean kill-inspector oauth-config add-redirect-url setup-backend
+.PHONY: help schema build release test all deploy tf-init tf-plan tf-apply tf-destroy login test-token test-lambda logs clean kill-inspector oauth-config add-redirect-url setup-backend update-secrets
 
 AWS_REGION ?= ap-southeast-2
 
@@ -12,7 +12,7 @@ help: ## ✨ Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(setup-backend|deploy|tf-destroy):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1;32mDevelopment Tools:\033[0m"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(test-token|test-lambda|logs|login|clean|kill-inspector|oauth-config|add-redirect-url|remove-redirect-url):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(test-token|test-lambda|logs|login|clean|kill-inspector|oauth-config|add-redirect-url|remove-redirect-url|update-secrets):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1;32mTerraform Commands:\033[0m"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(tf-init|tf-plan|tf-apply):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -121,7 +121,9 @@ setup-backend: ## ⚙️ Create S3/DynamoDB backend for Terraform state
 	echo "region         = \"$(AWS_REGION)\"" >> iac/backend.config; \
 	echo "dynamodb_table = \"$$DYNAMODB_TABLE\"" >> iac/backend.config; \
 	echo "\033[1;32m✅ Backend setup complete!\033[0m"; \
-	echo "Run '\033[1;36mmake tf-init\033[0m' to initialize Terraform with the new backend."
+	echo "Run '\033[1;36mmake tf-init\033[0m' to initialize Terraform with the new backend."; \
+	echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\"" >> .env; \
+	echo "TF_BACKEND_DYNAMODB_TABLE=\"$$DYNAMODB_TABLE\"" >> .env
 
 login: ## 🔑 Authenticate AWS + Azure CLIs
 	@echo "\033[1;34m🔐 Authenticating AWS + Azure CLIs...\033[0m"
@@ -159,5 +161,17 @@ add-redirect-url: ## 🔗 Add custom OAuth redirect URL to terraform.tfvars
 remove-redirect-url: ## 🔗 Remove custom OAuth redirect URL from terraform.tfvars
 	@echo "\033[1;34m🔗 Removing redirect URL from Entra ID app...\033[0m"
 	@cd iac && $(MAKE) remove-redirect-url
+
+update-secrets: ## 🔐 Update GitHub repository secrets from a .env file (for GitHub Actions and Dependabot)
+	@echo "\033[1;34m🔐 Updating GitHub repository secrets from .env file...\033[0m"
+	@if [ ! -f .env ]; then \
+		echo "\033[1;31m❌ .env file not found! Create a .env file with your secrets (e.g., MY_SECRET=value).\033[0m"; \
+		exit 1; \
+	fi
+	@echo "\033[1;34mSetting secrets for GitHub Actions...\033[0m"
+	@gh secret set -f .env --app actions
+	@echo "\033[1;34mSetting secrets for Dependabot...\033[0m"
+	@gh secret set -f .env --app dependabot
+	@echo "\033[1;32m✅ GitHub secrets updated for both GitHub Actions and Dependabot!\033[0m"
 
 .DEFAULT_GOAL := help

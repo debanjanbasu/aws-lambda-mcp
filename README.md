@@ -143,8 +143,22 @@ When using this repository as a GitHub template, you'll need to set up several s
 ### Setting Up Terraform Backend
 
 After configuring AWS authentication:
-1. Run `make setup-backend` locally to create the S3 bucket and DynamoDB table
-2. Set the `TF_BACKEND_BUCKET` and `TF_BACKEND_DYNAMODB_TABLE` secrets with the created resource names
+1. Run `make setup-backend` locally to create the S3 bucket and DynamoDB table. This command will also automatically add the `TF_BACKEND_BUCKET` and `TF_BACKEND_DYNAMODB_TABLE` values to your local `.env` file.
+2. Use `make update-secrets` to push these values to your GitHub repository secrets.
+
+### Updating GitHub Secrets
+
+To update your GitHub repository secrets for **both GitHub Actions and Dependabot**, create a `.env` file in the root of the project with the secrets you wish to update (e.g., `MY_SECRET="myvalue"`). You can use the provided `.env.example` file as a template for the required and optional secrets.
+
+Then, run the following command:
+
+```bash
+make update-secrets
+```
+
+This command will read the `.env` file and use the `gh CLI` to set or update the corresponding repository secrets for both GitHub Actions and Dependabot.
+
+**Important**: Ensure your `.env` file is in your `.gitignore` to prevent accidentally committing sensitive information.
 
 ## Structure
 

@@ -16,9 +16,8 @@ Cargo.lock
 Thumbs.db
 
 # Environment
-.env
-.env.local
-.env.production
+.env*
+!.env.example
 
 # AWS
 *.zip
