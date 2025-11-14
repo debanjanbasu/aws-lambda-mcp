@@ -1,0 +1,37 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.production
+
+# AWS
+*.zip
+bootstrap
+
+# Temp
+/tmp/
+
+# Generated files
+tool_schema.json
+
+# Terraform
+iac/backend.config
+
+.gemini/
+gha-creds-*.json

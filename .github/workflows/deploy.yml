@@ -1,0 +1,104 @@
+name: Deploy AWS Lambda MCP
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+  workflow_dispatch: # Allows manual triggering
+
+env:
+  AWS_REGION: ap-southeast-2 # Default AWS region, can be overridden
+  CARGO_TERM_COLOR: always # Ensure Rust color output is consistent
+
+jobs:
+  deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
+      statuses: write # Required to report status checks
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Rust toolchain
+        id: rust-toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+
+      - name: Install cargo-lambda
+        run: |
+          if ! command -v cargo-lambda &> /dev/null
+          then
+            cargo install cargo-lambda
+          fi
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: latest
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install UPX (for release build compression)
+        run: sudo apt-get update && sudo apt-get install -y upx-ucl
+
+      - name: Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: iac/.terraform
+          key: ${{ runner.os }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest # Use latest Terraform version
+
+      - name: Setup Azure CLI
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true # Allow tenant-level login for Entra ID
+
+      - name: Build Lambda (Release)
+        run: make release
+
+      - name: Terraform Init
+        run: |
+          cd iac && terraform init \
+            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
+            -backend-config="key=aws-lambda-mcp/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DYNAMODB_TABLE }}"
+
+      - name: Terraform Plan
+        run: |
+          cd iac && terraform plan
+
+      - name: Terraform Apply
+        run: cd iac && terraform apply -auto-approve

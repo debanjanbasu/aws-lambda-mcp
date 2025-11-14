@@ -1,0 +1,127 @@
+# .github/workflows/gemini-write-tests.yml
+name: '✍️ Gemini Write Tests'
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_file:
+        description: 'Path to the source file to generate tests for (e.g., src/lib.rs)'
+        required: false # Made optional
+        default: '' # Default to empty string if not provided
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+  workflow_call:
+    inputs:
+      source_file:
+        description: 'Path to the source file to generate tests for (e.g., src/lib.rs)'
+        required: false
+        type: string
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: 'bash'
+
+jobs:
+  write_tests:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'write'
+      pull-requests: 'write'
+      id-token: 'write'
+    steps:
+      - name: 'Mint identity token'
+        id: 'mint_identity_token'
+        uses: 'actions/create-github-app-token@v2'
+        with:
+          app-id: '${{ vars.APP_ID }}'
+          private-key: '${{ secrets.APP_PRIVATE_KEY }}'
+          owner: '${{ github.repository_owner }}'
+
+      - name: 'Set SOURCE_FILE environment variable'
+        id: set_source_file
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" || "${{ github.event_name }}" == "workflow_call" ]]; then
+            echo "SOURCE_FILE=${{ inputs.source_file }}" >> "$GITHUB_ENV"
+          else
+            echo "SOURCE_FILE=" >> "$GITHUB_ENV"
+          fi
+
+      - name: 'Construct Prompt'
+        id: construct_prompt
+        run: |
+          REPOSITORY="${{ github.repository }}"
+          SOURCE_FILE="${{ env.SOURCE_FILE }}"
+          PULL_REQUEST_NUMBER=""
+          if [[ "${{ github.event.pull_request.number }}" != "" ]]; then
+            PULL_REQUEST_NUMBER="${{ github.event.pull_request.number }}"
+          fi
+
+          PROMPT_CONTENT=""
+          PROMPT_CONTENT+="## Role: Autonomous Test Engineer\n\n"
+          PROMPT_CONTENT+="You are an expert AI agent specializing in Rust. Your task is to analyze Rust code, identify functions that lack test coverage, and write new, high-quality unit tests.\n\n"
+          PROMPT_CONTENT+="## Primary Directive\n\n"
+          PROMPT_CONTENT+="Your goal is to improve the test coverage and quality of the repository by adding new tests, creating a pull request with the changes, and ensuring all tests pass.\n\n"
+          PROMPT_CONTENT+="## Input Data\n\n"
+          PROMPT_CONTENT+="- **Repository**: ${REPOSITORY}\n"
+          PROMPT_CONTENT+="- **Source File**: ${SOURCE_FILE} (Provided for workflow_dispatch, empty for pull_request)\n"
+          PROMPT_CONTENT+="- **Pull Request Number**: ${PULL_REQUEST_NUMBER} (Provided for pull_request, empty for workflow_dispatch)\n\n"
+          PROMPT_CONTENT+="## Execution Workflow\n\n"
+          PROMPT_CONTENT+="1.  **Determine Target Files:**\n"
+          PROMPT_CONTENT+="    - If `PULL_REQUEST_NUMBER` is provided:\n"
+          PROMPT_CONTENT+="        - Use `gh pr view ${PULL_REQUEST_NUMBER} --json files` to get the list of changed files in the PR.\n"
+          PROMPT_CONTENT+="        - Filter this list to include only Rust files (`.rs`).\n"
+          PROMPT_CONTENT+="        - These are your target files.\n"
+          PROMPT_CONTENT+="    - If `SOURCE_FILE` is provided:\n"
+          PROMPT_CONTENT+="        - Your target file is `SOURCE_FILE`.\n"
+          PROMPT_CONTENT+="    - If neither is provided (should not happen with current workflow config), then exit with an error.\n\n"
+          PROMPT_CONTENT+="2.  **Create a Branch:**\n"
+          PROMPT_CONTENT+="    - First, check out the `main` branch.\n"
+          PROMPT_CONTENT+="    - Create a new branch for your tests. The branch name should be descriptive:\n"
+          PROMPT_CONTENT+="        - If from a PR: `feat/add-tests-for-pr-${PULL_REQUEST_NUMBER}`\n"
+          PROMPT_CONTENT+="        - If from manual dispatch: `feat/add-tests-for-${SOURCE_FILE}`\n\n"
+          PROMPT_CONTENT+="3.  **Process Each Target File:**\n"
+          PROMPT_CONTENT+="    - For each target file:\n"
+          PROMPT_CONTENT+="        - Read its contents.\n"
+          PROMPT_CONTENT+="        - Identify public functions within this file that lack test coverage.\n"
+          PROMPT_CONTENT+="        - Look for an existing `#[cfg(test)]` module at the bottom of the file.\n"
+          PROMPT_CONTENT+="        - Generate new unit tests for the identified functions. The tests should be meaningful and test both success and failure cases where applicable.\n"
+          PROMPT_CONTENT+="        - Add the new test functions to the `#[cfg(test)]` module. If one doesn't exist, create it.\n"
+          PROMPT_CONTENT+="        - Use the `replace` tool to add the new tests to the file. Be careful to append to the test module without deleting existing tests.\n\n"
+          PROMPT_CONTENT+="4.  **Verify the Tests:**\n"
+          PROMPT_CONTENT+="    - Run `make test` to compile the code and run the entire test suite.\n"
+          PROMPT_CONTENT+="    - This is a critical step. If `make test` fails, you must analyze the error and fix either your new tests or any code you might have inadvertently broken. Do not proceed unless all tests pass.\n\n"
+          PROMPT_CONTENT+="5.  **Commit and Create Pull Request:**\n"
+          PROMPT_CONTENT+="    - Commit your changes. The commit message should be descriptive:\n"
+          PROMPT_CONTENT+="        - If from a PR: `test: add unit tests for changes in PR #${PULL_REQUEST_NUMBER}`\n"
+          PROMPT_CONTENT+="        - If from manual dispatch: `test: add unit tests for ${SOURCE_FILE}`\n"
+          PROMPT_CONTENT+="    - Push the branch to the remote repository.\n"
+          PROMPT_CONTENT+="    - Create a new pull request. The body of the PR should describe the new tests you have added.\n"
+          PROMPT_CONTENT+="        - If from a PR: Link to the original PR.\n"
+          PROMPT_CONTENT+="        - If from manual dispatch: Mention the file for which tests were generated.\n"
+          echo "prompt_output<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$PROMPT_CONTENT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: 'Run Gemini CLI Test Writer Agent'
+        uses: 'google-github-actions/run-gemini-cli@v0.1.14'
+        env:
+          GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token }}'
+          REPOSITORY: '${{ github.repository }}'
+          PULL_REQUEST_NUMBER: '${{ github.event.pull_request.number }}'
+        with:
+          gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
+          gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
+          gcp_workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
+          gcp_service_account: '${{ secrets.SERVICE_ACCOUNT_EMAIL }}'
+          gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
+          gemini_model: '${{ vars.GEMINI_MODEL }}'
+          settings: |-
+            {
+              "telemetry": { "enabled": false }
+            }
+          prompt: '${{ steps.construct_prompt.outputs.prompt_output }}'

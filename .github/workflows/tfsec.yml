@@ -1,0 +1,45 @@
+# .github/workflows/tfsec.yml
+name: "Terraform Security Scan (tfsec)"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '30 2 * * 1' # Match the CodeQL schedule for consistency
+
+permissions:
+  contents: read
+  security-events: write # Required to upload SARIF results to the security tab
+
+jobs:
+  tfsec:
+    name: tfsec scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: List files before tfsec
+        run: ls -R
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          # Point the action to your Terraform code directory
+          working_directory: 'iac'
+          # Pass additional arguments to tfsec to specify SARIF format and output file
+          additional_args: '--format sarif --out tfsec.sarif'
+          soft_fail: true # Do not fail the workflow if tfsec finds issues
+
+      - name: List files after tfsec
+        run: ls -R
+
+      - name: Upload SARIF to Security Tab
+        # Use the official CodeQL action to upload the SARIF file
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          # The path to the SARIF file generated in the previous step
+          sarif_file: 'tfsec.sarif'

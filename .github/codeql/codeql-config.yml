@@ -1,0 +1,14 @@
+# .github/codeql/codeql-config.yml
+name: "CodeQL Configuration"
+
+# This configuration file specifies which files and directories to include or
+# exclude from the CodeQL analysis.
+
+# By default, all files in the repository are analyzed.
+# We can use the 'paths' and 'paths-ignore' properties to customize this.
+
+paths-ignore:
+  - 'target/' # Ignore the Rust build output directory
+  - 'iac/.terraform/' # Ignore Terraform's internal directory
+  - '**/*.test.rs' # Ignore Rust test files
+  - 'tests/' # Ignore the tests directory

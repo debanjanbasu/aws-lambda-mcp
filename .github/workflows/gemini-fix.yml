@@ -1,0 +1,103 @@
+# .github/workflows/gemini-fix.yml
+name: '🤖 Gemini Fix'
+
+on:
+  workflow_call:
+    inputs:
+      pull_request_number:
+        type: 'number'
+        description: 'The number of the pull request to fix'
+        required: true
+      failure_type:
+        type: 'string'
+        description: 'The type of failure (e.g., rust-test, terraform-validate)'
+        required: true
+
+concurrency:
+  group: '${{ github.workflow }}-fix-${{ inputs.pull_request_number }}'
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: 'bash'
+
+jobs:
+  fix:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'write' # Needs write access to push fixes
+      pull-requests: 'write'
+      id-token: 'write'
+    steps:
+      - name: 'Mint identity token'
+        id: 'mint_identity_token'
+        uses: 'actions/create-github-app-token@v2'
+        with:
+          app-id: '${{ vars.APP_ID }}'
+          private-key: '${{ secrets.APP_PRIVATE_KEY }}'
+          owner: '${{ github.repository_owner }}'
+
+      - name: 'Construct Prompt'
+        id: construct_prompt
+        run: |
+          PULL_REQUEST_NUMBER="${{ inputs.pull_request_number }}"
+          REPOSITORY="${{ github.repository }}"
+          FAILURE_TYPE="${{ inputs.failure_type }}"
+
+          PROMPT_CONTENT=""
+          PROMPT_CONTENT+="## Role: Autonomous Fixer Agent\n\n"
+          PROMPT_CONTENT+="You are an expert AI software engineer tasked with automatically fixing a failed build in a GitHub pull request. The failure was triggered by a dependency update from Dependabot.\n\n"
+          PROMPT_CONTENT+="## Primary Directive\n\n"
+          PROMPT_CONTENT+="Your goal is to diagnose the error, write the necessary code changes to fix it, verify the fix, and push the changes back to the pull request branch.\n\n"
+          PROMPT_CONTENT+="## Input Data\n\n"
+          PROMPT_CONTENT+="- **Repository**: ${REPOSITORY}\n"
+          PROMPT_CONTENT+="- **Pull Request Number**: ${PULL_REQUEST_NUMBER}\n"
+          PROMPT_CONTENT+="- **Failure Type**: ${FAILURE_TYPE} (e.g., 'rust-test', 'terraform-validate')\n\n"
+          PROMPT_CONTENT+="## Execution Workflow\n\n"
+          PROMPT_CONTENT+="1.  **Understand the Context:**\n"
+          PROMPT_CONTENT+="    - Use `gh pr checkout ${PULL_REQUEST_NUMBER}` to switch to the correct branch.\n"
+          PROMPT_CONTENT+="    - Use `gh pr view ${PULL_REQUEST_NUMBER}` to read the PR title and body to understand which dependency was updated.\n"
+          PROMPT_CONTENT+="    - Use `gh run list --workflow=\"automerge-dependabot.yml\" --pr ${PULL_REQUEST_NUMBER} --limit 1 --json databaseId` to get the ID of the failed workflow run.\n"
+          PROMPT_CONTENT+="    - Use `gh run view <RUN_ID> --log-failed` to view the exact error messages from the failed test step.\n\n"
+          PROMPT_CONTENT+="2.  **Diagnose the Problem:**\n"
+          PROMPT_CONTENT+="    - Analyze the failed logs.\n"
+          PROMPT_CONTENT+="    - Analyze the dependency that was updated.\n"
+          PROMPT_CONTENT+="    - If necessary, use `google_web_search` to find the changelog or migration guide for the updated dependency (e.g., \"reqwest 0.12 breaking changes\").\n\n"
+          PROMPT_CONTENT+="3.  **Formulate and Apply the Fix:**\n"
+          PROMPT_CONTENT+="    - Based on your diagnosis, determine the required code changes.\n"
+          PROMPT_CONTENT+="    - Use `read_file` and `replace` to modify the necessary source files.\n\n"
+          PROMPT_CONTENT+="4.  **Verify the Fix:**\n"
+          PROMPT_CONTENT+="    - After applying the changes, run the appropriate verification command locally within the Action's environment.\n"
+          PROMPT_CONTENT+="    - If `FAILURE_TYPE` is 'rust-test', run `make test`.\n"
+          PROMPT_CONTENT+="    - If `FAILURE_TYPE` is 'terraform-validate', run `cd iac && terraform init && terraform validate`.\n"
+          PROMPT_CONTENT+="    - If the verification command fails, analyze the new error and attempt to fix it again. This is your chance to self-correct.\n\n"
+          PROMPT_CONTENT+="5.  **Commit and Push:**\n"
+          PROMPT_CONTENT+="    - Once the verification command passes, commit the changes.\n"
+          PROMPT_CONTENT+="    - Use `git config user.name \"gemini-agent\" && git config user.email \"gemini-agent@example.com\"`.\n"
+          PROMPT_CONTENT+="    - Use `git add .` and `git commit -m \"fix(deps): apply automated fix for dependency update\"`.\n"
+          PROMPT_CONTENT+="    - Use `git push origin HEAD` to push the changes to the PR branch.\n\n"
+          PROMPT_CONTENT+="6.  **Report Outcome:**\n"
+          PROMPT_CONTENT+="    - Add a comment to the pull request summarizing the fix you applied. Use `gh pr comment ${PULL_REQUEST_NUMBER} -b \"🤖 Automated Fix Applied: [Your summary here]\"`.\n"
+          PROMPT_CONTENT+="    - If you cannot fix the issue after 2 attempts, add a comment explaining what you tried and why you failed, then exit.\n"
+          echo "prompt_output<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$PROMPT_CONTENT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: 'Run Gemini CLI Fixer Agent'
+        uses: 'google-github-actions/run-gemini-cli@v0.1.14'
+        env:
+          GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token }}'
+          PULL_REQUEST_NUMBER: '${{ inputs.pull_request_number }}'
+          REPOSITORY: '${{ github.repository }}'
+          FAILURE_TYPE: '${{ inputs.failure_type }}'
+        with:
+          gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
+          gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
+          gcp_workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
+          gcp_service_account: '${{ vars.SERVICE_ACCOUNT_EMAIL }}'
+          gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
+          gemini_model: '${{ vars.GEMINI_MODEL }}'
+          settings: |-
+            {
+              "telemetry": { "enabled": false }
+            }
+          prompt: '${{ steps.construct_prompt.outputs.prompt_output }}'
