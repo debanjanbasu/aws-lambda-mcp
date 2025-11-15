@@ -118,7 +118,7 @@ jobs:
           gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
           gcp_workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
           gcp_service_account: '${{ secrets.SERVICE_ACCOUNT_EMAIL }}'
-          gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
+          use_gemini_code_assist: true
           gemini_model: '${{ vars.GEMINI_MODEL }}'
           settings: |-
             {
