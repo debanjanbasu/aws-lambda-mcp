@@ -9,6 +9,10 @@ on:
   schedule:
     - cron: '30 2 * * 1' # Run every Monday at 2:30 AM
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   security-events: write
