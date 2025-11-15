@@ -27,7 +27,7 @@ defaults:
 
 jobs:
   triage:
-    runs-on: 'ubuntu-latest'
+    runs-on: 'ubuntu-slim'
     timeout-minutes: 7
     permissions:
       contents: 'read'
@@ -233,7 +233,7 @@ jobs:
             ```
 
   label:
-    runs-on: 'ubuntu-latest'
+    runs-on: 'ubuntu-slim'
     needs:
       - 'triage'
     if: |-

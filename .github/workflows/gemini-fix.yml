@@ -23,7 +23,7 @@ defaults:
 
 jobs:
   fix:
-    runs-on: 'ubuntu-latest'
+    runs-on: 'ubuntu-24.04-arm'
     permissions:
       contents: 'write' # Needs write access to push fixes
       pull-requests: 'write'

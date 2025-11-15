@@ -24,7 +24,7 @@ jobs:
   automerge:
     # Only run on PRs from dependabot that are not in draft
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     outputs:
       is_rust: ${{ steps.detect_pr_type.outputs.IS_RUST_PR }}
       is_terraform: ${{ steps.detect_pr_type.outputs.IS_TERRAFORM_PR }}

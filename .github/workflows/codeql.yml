@@ -16,7 +16,7 @@ permissions:
 jobs:
   analyze-rust:
     name: Analyze Rust
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       security-events: write
       actions: read

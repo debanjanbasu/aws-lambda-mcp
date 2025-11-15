@@ -28,7 +28,7 @@ env:
 jobs:
   environment:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write
       contents: read
