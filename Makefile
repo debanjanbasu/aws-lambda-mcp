@@ -48,12 +48,12 @@ build: schema ## 🐳 Build Lambda (debug)
 	@cargo lambda build --bin aws-lambda-mcp --color=always
 
 release: schema ## 📦 Build Lambda (release, ARM64) with UPX compression
-	@echo "\033[1;34m🚀 Building release version (ARM64 + UPX)..."; \
-	cargo lambda build --release --arm64 --bin aws-lambda-mcp --color=always; \
-	@echo "\033[1;34m📦 Compressing binary with UPX (--best --lzma)..."; \
-	upx --best --lzma target/lambda/aws-lambda-mcp/bootstrap; \
-	@echo "\033[1;32m📊 Final size:\033[0m"; \
-	ls -lh target/lambda/aws-lambda-mcp/bootstrap
+	@echo "\033[1;34m🚀 Building release version (ARM64 + UPX)...\033[0m"
+	@cargo lambda build --release --arm64 --bin aws-lambda-mcp --color=always
+	@echo "\033[1;34m📦 Compressing binary with UPX (--best --lzma)...\033[0m"
+	@upx --best --lzma target/lambda/aws-lambda-mcp/bootstrap
+	@echo "\033[1;32m📊 Final size:\033[0m"
+	@ls -lh target/lambda/aws-lambda-mcp/bootstrap
 
 test: ## 🧪 Run tests
 	@echo "\033[1;34m🧪 Running tests...\033[0m"
