@@ -18,6 +18,7 @@ on:
         description: 'Path to the source file to generate tests for (e.g., src/lib.rs)'
         required: false
         type: string
+        default: ''
 
 concurrency:
   group: '${{ github.workflow }}-${{ github.ref }}'
@@ -35,6 +36,9 @@ jobs:
       pull-requests: 'write'
       id-token: 'write'
     steps:
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@v4'
+
       - name: 'Mint identity token'
         id: 'mint_identity_token'
         uses: 'actions/create-github-app-token@v2'
@@ -52,71 +56,6 @@ jobs:
             echo "SOURCE_FILE=" >> "$GITHUB_ENV"
           fi
 
-      - name: 'Construct Prompt'
-        id: construct_prompt
-        run: |
-          REPOSITORY="${{ github.repository }}"
-          SOURCE_FILE="${{ env.SOURCE_FILE }}"
-          PULL_REQUEST_NUMBER="${{ github.event.pull_request.number || '' }}"
-
-          PROMPT_CONTENT=$(cat <<EOF
-## Role: Autonomous Test Engineer
-
-You are an expert AI agent specializing in Rust. Your task is to analyze Rust code, identify functions that lack test coverage, and write new, high-quality unit tests.
-
-## Primary Directive
-
-Your goal is to improve the test coverage and quality of the repository by adding new tests, creating a pull request with the changes, and ensuring all tests pass.
-
-## Input Data
-
-- **Repository**: ${REPOSITORY}
-- **Source File**: ${SOURCE_FILE} (Provided for workflow_dispatch, empty for pull_request)
-- **Pull Request Number**: ${PULL_REQUEST_NUMBER} (Provided for pull_request, empty for workflow_dispatch)
-
-## Execution Workflow
-
-1.  **Determine Target Files:**
-    - If PULL_REQUEST_NUMBER is provided:
-        - Use \`gh pr view ${PULL_REQUEST_NUMBER} --json files\` to get the list of changed files in the PR.
-        - Filter this list to include only Rust files (\`.rs\`).
-        - These are your target files.
-    - If \`SOURCE_FILE\` is provided:
-        - Your target file is \`SOURCE_FILE\`.
-    - If neither is provided (should not happen with current workflow config), then exit with an error.
-
-2.  **Create a Branch:**
-    - First, check out the \`main\` branch.
-    - Create a new branch for your tests. The branch name should be descriptive:
-        - If from a PR: \`feat/add-tests-for-pr-${PULL_REQUEST_NUMBER}\`
-        - If from manual dispatch: \`feat/add-tests-for-${SOURCE_FILE}\`
-
-3.  **Process Each Target File:**
-    - For each target file:
-        - Read its contents.
-        - Identify public functions within this file that lack test coverage.
-        - Look for an existing \`#[cfg(test)]\` module at the bottom of the file.
-        - Generate new unit tests for the identified functions. The tests should be meaningful and test both success and failure cases where applicable.
-        - Add the new test functions to the \`#[cfg(test)]\` module. If one doesn't exist, create it.
-        - Use the \`replace\` tool to add the new tests to the file. Be careful to append to the test module without deleting existing tests.
-
-4.  **Verify the Tests:**
-    - Run \`make test\` to compile the code and run the entire test suite.
-    - This is a critical step. If \`make test\` fails, you must analyze the error and fix either your new tests or any code you might have inadvertently broken. Do not proceed unless all tests pass.
-
-5.  **Commit and Create Pull Request:**
-    - Commit your changes. The commit message should be descriptive:
-        - If from a PR: \`test: add unit tests for changes in PR #${PULL_REQUEST_NUMBER}\`
-        - If from manual dispatch: \`test: add unit tests for ${SOURCE_FILE}\`
-    - Push the branch to the remote repository.
-    - Create a new pull request. The body of the PR should describe the new tests you have added.
-        - If from a PR: Link to the original PR.
-        - If from manual dispatch: Mention the file for which tests were generated.
-EOF
-)
-          echo "prompt_output<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$PROMPT_CONTENT" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
       - name: 'Run Gemini CLI Test Writer Agent'
         uses: 'google-github-actions/run-gemini-cli@v0.1.14'
         env:
@@ -134,4 +73,16 @@ EOF
             {
               "telemetry": { "enabled": false }
             }
-          prompt: '${{ steps.construct_prompt.outputs.prompt_output }}'
+          prompt: |
+            You are an expert Rust test engineer. Analyze code, identify untested functions, and write high-quality unit tests.
+            
+            Repository: ${{ github.repository }}
+            Source File: ${{ env.SOURCE_FILE }}
+            PR Number: ${{ github.event.pull_request.number || '' }}
+            
+            Tasks:
+            1. Determine target files (from PR changes or SOURCE_FILE)
+            2. Create branch (feat/add-tests-for-pr-NUM or feat/add-tests-for-FILE)
+            3. For each file: identify untested public functions, add tests to #[cfg(test)] module
+            4. Run make test and fix any failures
+            5. Commit and create PR with descriptive message
