@@ -22,7 +22,7 @@ required-features = ["schema-gen"]
 [dependencies]
 anyhow = "1"
 tokio = { version = "1", features = ["macros"] }
-lambda_runtime = { version = "0.14", features = ["anyhow"] }
+lambda_runtime = { version = "1.0", features = ["anyhow"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
