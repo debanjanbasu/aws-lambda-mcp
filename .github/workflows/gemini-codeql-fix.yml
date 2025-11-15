@@ -72,10 +72,6 @@ jobs:
           REPOSITORY: '${{ github.repository }}'
           ALERT_CONTEXT: '${{ toJSON(matrix.alert) }}'
         with:
-          gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
-          gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
-          gcp_workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
-          gcp_service_account: '${{ vars.SERVICE_ACCOUNT_EMAIL }}'
           gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
           gemini_model: '${{ vars.GEMINI_MODEL }}'
           settings: |-
@@ -99,26 +95,26 @@ jobs:
             ## Execution Workflow
 
             1.  **Parse the Alert:**
-                - The `ALERT_CONTEXT` variable contains a JSON object with the full details of the alert, including the rule, file path, and line numbers.
+                - The \`ALERT_CONTEXT\` variable contains a JSON object with the full details of the alert, including the rule, file path, and line numbers.
 
             2.  **Create a Branch:**
-                - Create a new branch for your fix. The branch name should be descriptive, like `fix/codeql-alert-${{ fromJson(env.ALERT_CONTEXT).number }}`. Use `gh pr create --no-verify` or similar git commands.
+                - Create a new branch for your fix. The branch name should be descriptive, like \`fix/codeql-alert-${{ fromJson(env.ALERT_CONTEXT).number }}\`. Use \`gh pr create --no-verify\` or similar git commands.
 
             3.  **Analyze and Fix the Code:**
                 - Check out the new branch.
                 - Read the contents of the file identified in `file_path`.
                 - Analyze the code in the context of the security rule (`rule_id` and `rule_description`).
-                - Use `read_file` and `replace` to apply a secure patch to the code.
+                - Use \`read_file\` and \`replace\` to modify the necessary source files.
 
             4.  **Verify the Fix:**
-                - Run `make test` to ensure your change has not broken any existing functionality. This is a critical step. Do not skip it.
+                - Run \`make test\` to ensure your change has not broken any existing functionality. This is a critical step. Do not skip it.
 
             5.  **Create a Pull Request:**
-                - Commit your changes with a message like `fix(security): Address CodeQL alert #${{ fromJson(env.ALERT_CONTEXT).number }}`.
+                - Commit your changes with a message like \`fix(security): Address CodeQL alert #${{ fromJson(env.ALERT_CONTEXT).number }}\`.
                 - Push the branch to the remote repository.
-                - Create a new pull request. The body of the PR should clearly state which CodeQL alert it fixes, referencing the alert number. Use `gh pr create --title "..." --body "..."`.
+                - Use \`gh pr create --title "..." --body "..."\`.
 
             6.  **Dismiss the Alert:**
                 - Once the PR is created, use the GitHub CLI to dismiss the original alert as "fixed".
-                - `gh code-scanning alert dismiss ${{ fromJson(env.ALERT_CONTEXT).number }} --reason "fixed" --comment "Fix proposed in PR #[PR_NUMBER]."`
+                - \`gh code-scanning alert dismiss ${{ fromJson(env.ALERT_CONTEXT).number }} --reason "fixed" --comment "Fix proposed in PR #[PR_NUMBER]."\`
                 - You will need to get the `[PR_NUMBER]` from your previous step.
