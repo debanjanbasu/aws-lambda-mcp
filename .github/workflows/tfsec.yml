@@ -33,6 +33,7 @@ jobs:
           # Pass additional arguments to tfsec to specify SARIF format and output file
           additional_args: '--format sarif --out tfsec.sarif'
           soft_fail: true # Do not fail the workflow if tfsec finds issues
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List files after tfsec
         run: ls -R
