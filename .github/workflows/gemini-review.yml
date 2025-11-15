@@ -231,7 +231,7 @@ jobs:
 
             1. **Create Pending Review:** Call \`mcp__github__create_pending_pull_request_review\`. Ignore errors like "can only have one pending review per pull request" and proceed to the next step.
 
-            2. **Add Comments and Suggestions:** For each formulated review comment, call `mcp__github__add_comment_to_pending_review`.
+            2. **Add Comments and Suggestions:** For each formulated review comment, call \`mcp__github__add_comment_to_pending_review\`.
 
                 2a. When there is a code suggestion (preferred), structure the comment payload using this exact template:
 
@@ -249,7 +249,7 @@ jobs:
                     {{SEVERITY}} {{COMMENT_TEXT}}
                     </COMMENT>
 
-            3. **Submit Final Review:** Call `mcp__github__submit_pending_pull_request_review` with a summary comment and event type "COMMENT". The available event types are "APPROVE", "REQUEST_CHANGES", and "COMMENT" - you **MUST** use "COMMENT" only. **DO NOT** use "APPROVE" or "REQUEST_CHANGES" event types. The summary comment **MUST** use this exact markdown format:
+            3. **Submit Final Review:** Call \`mcp__github__submit_pending_pull_request_review\` with a summary comment and event type \`"COMMENT"\`. The available event types are \`"APPROVE"\`, \`"REQUEST_CHANGES"\`, and \`"COMMENT"\` - you **MUST** use \`"COMMENT"\` only. **DO NOT** use \`"APPROVE"\` or \`"REQUEST_CHANGES"\` event types. The summary comment **MUST** use this exact markdown format:
 
                 <SUMMARY>
                 ## 📋 Review Summary

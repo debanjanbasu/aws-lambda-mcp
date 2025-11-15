@@ -79,17 +79,10 @@ jobs:
           ISSUE_BODY: '${{ github.event.issue.body }}'
           AVAILABLE_LABELS: '${{ steps.get_labels.outputs.available_labels }}'
         with:
-          gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
-          gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
-          gcp_service_account: '${{ vars.SERVICE_ACCOUNT_EMAIL }}'
-          gcp_workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
           gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
           gemini_cli_version: '${{ vars.GEMINI_CLI_VERSION }}'
           gemini_debug: '${{ fromJSON(vars.DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}'
           gemini_model: '${{ vars.GEMINI_MODEL }}'
-          google_api_key: '${{ secrets.GOOGLE_API_KEY }}'
-          use_gemini_code_assist: '${{ vars.GOOGLE_GENAI_USE_GCA }}'
-          use_vertex_ai: '${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}'
           settings: |-
             {
               "model": {
@@ -119,29 +112,29 @@ jobs:
             - You can choose multiple labels to apply.
             - If the issue is about writing tests, identify the files that need tests.
             - If the issue is a feature request, set `IS_FEATURE_REQUEST` to `true` and generate an `INVOKE_PROMPT` for the `invoke` workflow.
-            - When generating shell commands, you **MUST NOT** use command substitution with `$(...)`, `<(...)`, or `>(...)`. This is a security measure to prevent unintended command execution.
+            - When generating shell commands, you **MUST NOT** use command substitution with \`$(\...)\`, \`<\(\.\.\.\)\`, or \`>\(\.\.\.\)\`. This is a security measure to prevent unintended command execution.
 
             ## Input Data
 
             **Available Labels** (comma-separated):
-            ```
+            \`\`\`
             ${{ env.AVAILABLE_LABELS }}
-            ```
+            \`\`\`
 
             **Issue Title**:
-            ```
+            \`\`\`
             ${{ env.ISSUE_TITLE }}
-            ```
+            \`\`\`
 
             **Issue Body**:
-            ```
+            \`\`\`
             ${{ env.ISSUE_BODY }}
-            ```
+            \`\`\`
 
             **Output File Path**:
-            ```
+            \`\`\`
             ${{ env.GITHUB_ENV }}
-            ```
+            \`\`\`
 
             ## Steps
 
@@ -151,25 +144,25 @@ jobs:
 
             3. Convert the list of appropriate labels into a comma-separated list (CSV). If there are no appropriate labels, use the empty string.
 
-            4. Use the "echo" shell command to append the CSV labels to the output file path provided above:
+            - Use the "echo" shell command to append the CSV labels to the output file path provided above:
 
-                ```
+                \`\`\`
                 echo "SELECTED_LABELS=[APPROPRIATE_LABELS_AS_CSV]" >> "[filepath_for_env]"
-                ```
+                \`\`\`
 
-            5. If the issue is about writing tests, identify the files that need tests. You can use the `list_directory` tool to explore the repository.
+            - If the issue is about writing tests, identify the files that need tests. You can use the \`list_directory\` tool to explore the repository.
 
             6. Convert the list of files to test into a JSON array of strings. If there are no files to test, use an empty array.
 
             7. Use the "echo" shell command to append the JSON array to the output file path provided above:
 
-                ```
+                \`\`\`
                 echo "FILES_TO_TEST=[ \"file1.rs\", \"file2.rs\" ]" >> "[filepath_for_env]"
-                ```
+                \`\`\`
 
             8. If the issue is a feature request, set `IS_FEATURE_REQUEST` to `true` and generate an `INVOKE_PROMPT` for the `invoke` workflow.
 
-            9. Use the "echo" shell command to append `IS_FEATURE_REQUEST=true` and `INVOKE_PROMPT="[PROMPT]"` to the output file path provided above.
+            9. Use the "echo" shell command to append \`IS_FEATURE_REQUEST=true\` and \`INVOKE_PROMPT="[PROMPT]"\` to the output file path provided above.
 
 
 
