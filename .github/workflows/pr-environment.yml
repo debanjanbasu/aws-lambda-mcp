@@ -190,7 +190,7 @@ jobs:
 
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
-        run: cd iac && terraform apply -auto-approve -lock=false -var-file=pr-environment.tfvars
+        run: cd iac && terraform apply -auto-approve -var-file=pr-environment.tfvars
 
       - name: Post Deployment Comment
         if: env.ACTION == 'deploy'
