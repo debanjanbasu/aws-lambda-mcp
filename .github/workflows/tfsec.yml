@@ -4,8 +4,14 @@ name: "Terraform Security Scan (tfsec)"
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'iac/**'
+      - '.github/workflows/tfsec.yml'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'iac/**'
+      - '.github/workflows/tfsec.yml'
   schedule:
     - cron: '30 2 * * 1' # Match the CodeQL schedule for consistency
 
