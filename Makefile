@@ -95,7 +95,7 @@ check-backend-config:
 		echo ""; \
 		echo "This will:"; \
 		echo "  1. Create an S3 bucket for Terraform state"; \
-		echo "  2. Create a DynamoDB table for state locking"; \
+		echo "  2. Enable native S3 state locking (Terraform 1.10+)"; \
 		echo "  3. Generate the iac/backend.config file"; \
 		echo ""; \
 		echo "After setup, run '$(CYAN)make tf-init$(RESET)' to initialize Terraform."; \
@@ -161,7 +161,7 @@ tf-destroy: ## 🧨 Destroy Terraform resources (requires backend config)
 	@cd iac && terraform destroy -auto-approve
 
 # Infrastructure Commands
-setup-backend: ## ⚙️ Create S3/DynamoDB backend for Terraform state
+setup-backend: ## ⚙️ Create S3 backend for Terraform state (native locking)
 	@echo "$(BLUE)⚙️  Setting up Terraform backend...$(RESET)"
 	@command -v aws >/dev/null 2>&1 || (echo "$(RED)❌ AWS CLI not found. Install: https://aws.amazon.com/cli/$(RESET)" && exit 1)
 	@aws sts get-caller-identity >/dev/null 2>&1 || (echo "$(RED)❌ AWS CLI not configured. Run: aws configure$(RESET)" && exit 1)
@@ -170,28 +170,20 @@ setup-backend: ## ⚙️ Create S3/DynamoDB backend for Terraform state
 		echo "$(RED)❌ Bucket name cannot be empty.$(RESET)"; \
 		exit 1; \
 	fi; \
-	DYNAMODB_TABLE="terraform-state-lock-mcp"; \
 	echo "$(BLUE)▶️ Creating S3 bucket '$$BUCKET_NAME' in region $(AWS_REGION)...$(RESET)"; \
 	aws s3api create-bucket --bucket $$BUCKET_NAME --region $(AWS_REGION) --create-bucket-configuration LocationConstraint=$(AWS_REGION) > /dev/null; \
-		echo "$(BLUE)▶️ Enabling versioning and encryption for '$$BUCKET_NAME'...$(RESET)"; \
+	echo "$(BLUE)▶️ Enabling versioning and encryption for '$$BUCKET_NAME'...$(RESET)"; \
 	aws s3api put-bucket-versioning --bucket $$BUCKET_NAME --versioning-configuration Status=Enabled > /dev/null; \
 	aws s3api put-bucket-encryption --bucket $$BUCKET_NAME --server-side-encryption-configuration '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}' > /dev/null; \
-		echo "$(BLUE)▶️ Creating DynamoDB table '$$DYNAMODB_TABLE' for state locking...$(RESET)"; \
-	aws dynamodb create-table \
-		--table-name $$DYNAMODB_TABLE \
-		--attribute-definitions AttributeName=LockID,AttributeType=S \
-		--key-schema AttributeName=LockID,KeyType=HASH \
-		--provisioned-throughput ReadCapacityUnits=1,WriteCapacityUnits=1 \
-			--region $(AWS_REGION) > /dev/null || echo "$(YELLOW)⚠️ DynamoDB table may already exist. That's okay.$(RESET)"; \
-		echo "$(BLUE)▶️ Creating 'iac/backend.config' for local use...$(RESET)"; \
+	echo "$(BLUE)▶️ Creating 'iac/backend.config' for local use...$(RESET)"; \
 	echo "bucket         = \"$$BUCKET_NAME\"" > iac/backend.config; \
 	echo "key            = \"aws-lambda-mcp/terraform.tfstate\"" >> iac/backend.config; \
 	echo "region         = \"$(AWS_REGION)\"" >> iac/backend.config; \
-	echo "dynamodb_table = \"$$DYNAMODB_TABLE\"" >> iac/backend.config; \
+	echo "use_lockfile   = true" >> iac/backend.config; \
 	echo "$(GREEN)✅ Backend setup complete!$(RESET)"; \
+	echo "$(CYAN)ℹ️  Using native S3 state locking (Terraform 1.10+)$(RESET)"; \
 	echo "Run '$(CYAN)make tf-init$(RESET)' to initialize Terraform with the new backend."; \
-	echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\"" >> .env; \
-	echo "TF_BACKEND_DYNAMODB_TABLE=\"$$DYNAMODB_TABLE\"" >> .env
+	echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\"" >> .env
 
 login: ## 🔑 Authenticate AWS + Azure CLIs
 	@echo "$(BLUE)🔐 Authenticating AWS + Azure CLIs...$(RESET)"
