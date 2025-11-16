@@ -101,9 +101,5 @@ jobs:
             -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DYNAMODB_TABLE }}" \
             -reconfigure
 
-      - name: Terraform Plan
-        run: |
-          cd iac && terraform plan
-
       - name: Terraform Apply
         run: cd iac && terraform apply -auto-approve
