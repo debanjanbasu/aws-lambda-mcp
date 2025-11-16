@@ -173,7 +173,7 @@ jobs:
 
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
-        run: cd iac && terraform apply -auto-approve -var-file=pr-environment.tfvars
+        run: cd iac && terraform apply -auto-approve -lock=false -var-file=pr-environment.tfvars
 
       - name: Post Deployment Comment
         if: env.ACTION == 'deploy'
@@ -300,7 +300,7 @@ jobs:
         run: |
           cd iac
           terraform init -backend-config=backend-pr.tfvars -reconfigure
-          terraform destroy -auto-approve -var-file=pr-environment.tfvars
+            terraform destroy -auto-approve -lock=false -var-file=pr-environment.tfvars
 
       - name: Cleanup Terraform State File
         if: env.ACTION == 'destroy'
