@@ -102,4 +102,4 @@ jobs:
             -reconfigure
 
       - name: Terraform Apply
-        run: cd iac && terraform apply -auto-approve -lock=false
+        run: cd iac && terraform apply -auto-approve

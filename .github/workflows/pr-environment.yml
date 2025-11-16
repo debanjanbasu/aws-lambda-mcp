@@ -50,6 +50,7 @@ jobs:
           fi
 
       - name: Setup Rust toolchain
+        if: env.ACTION == 'deploy'
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
@@ -57,6 +58,7 @@ jobs:
           targets: aarch64-unknown-linux-gnu
 
       - name: Cache Rust dependencies
+        if: env.ACTION == 'deploy'
         uses: actions/cache@v4
         with:
           path: |
@@ -70,13 +72,16 @@ jobs:
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
       - name: Cache cargo-lambda
+        if: env.ACTION == 'deploy'
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-lambda
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-lambda-
+
       - name: Install cargo-lambda
+        if: env.ACTION == 'deploy'
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
@@ -84,6 +89,7 @@ jobs:
           fi
 
       - name: Setup Zig
+        if: env.ACTION == 'deploy'
         uses: mlugg/setup-zig@v2
         with:
           version: latest
@@ -95,6 +101,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Install UPX (for release build compression)
+        if: env.ACTION == 'deploy'
         run: sudo apt-get update && sudo apt-get install -y upx-ucl
 
       - name: Cache Terraform plugins
@@ -152,6 +159,7 @@ jobs:
            fi
 
       - name: Build Lambda (Release)
+        if: env.ACTION == 'deploy'
         run: make release
 
       - name: Determine action
@@ -169,11 +177,12 @@ jobs:
       - name: Terraform Init (Environment)
         if: env.ACTION == 'deploy'
         run: |
-          cd iac && terraform init -backend-config=backend-pr.tfvars -reconfigure
+          cd iac
+          terraform init -backend-config=backend-pr.tfvars -reconfigure
 
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
-        run: cd iac && terraform apply -auto-approve -lock=false -var-file=pr-environment.tfvars
+        run: cd iac && terraform apply -auto-approve -var-file=pr-environment.tfvars
 
       - name: Post Deployment Comment
         if: env.ACTION == 'deploy'
@@ -300,7 +309,7 @@ jobs:
         run: |
           cd iac
           terraform init -backend-config=backend-pr.tfvars -reconfigure
-            terraform destroy -auto-approve -lock=false -var-file=pr-environment.tfvars
+          terraform destroy -auto-approve -var-file=pr-environment.tfvars
 
       - name: Cleanup Terraform State File
         if: env.ACTION == 'destroy'
