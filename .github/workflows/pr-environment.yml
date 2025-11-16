@@ -171,43 +171,9 @@ jobs:
         run: |
           cd iac && terraform init -backend-config=backend-pr.tfvars -reconfigure
 
-      - name: Terraform Plan (Environment)
-        if: env.ACTION == 'deploy'
-        run: |
-          cd iac
-          # Retry logic for lock contention (up to 3 attempts with exponential backoff)
-          for attempt in 1 2 3; do
-            echo "Terraform plan attempt $attempt/3"
-            if terraform plan -var-file=pr-environment.tfvars; then
-              break
-            elif [ $attempt -eq 3 ]; then
-              echo "Terraform plan failed after 3 attempts"
-              exit 1
-            else
-              sleep_time=$((2 ** (attempt - 1) * 30))
-              echo "Retrying in $sleep_time seconds..."
-              sleep $sleep_time
-            fi
-          done
-
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
-        run: |
-          cd iac
-          # Retry logic for lock contention (up to 3 attempts with exponential backoff)
-          for attempt in 1 2 3; do
-            echo "Terraform apply attempt $attempt/3"
-            if terraform apply -auto-approve -var-file=pr-environment.tfvars; then
-              break
-            elif [ $attempt -eq 3 ]; then
-              echo "Terraform apply failed after 3 attempts"
-              exit 1
-            else
-              sleep_time=$((2 ** (attempt - 1) * 30))
-              echo "Retrying in $sleep_time seconds..."
-              sleep $sleep_time
-            fi
-          done
+        run: cd iac && terraform apply -auto-approve -var-file=pr-environment.tfvars
 
       - name: Post Deployment Comment
         if: env.ACTION == 'deploy'
@@ -334,20 +300,7 @@ jobs:
         run: |
           cd iac
           terraform init -backend-config=backend-pr.tfvars -reconfigure
-          # Retry logic for lock contention (up to 3 attempts with exponential backoff)
-          for attempt in 1 2 3; do
-            echo "Terraform destroy attempt $attempt/3"
-            if terraform destroy -auto-approve -var-file=pr-environment.tfvars; then
-              break
-            elif [ $attempt -eq 3 ]; then
-              echo "Terraform destroy failed after 3 attempts, continuing with cleanup..."
-              break
-            else
-              sleep_time=$((2 ** (attempt - 1) * 30))
-              echo "Retrying in $sleep_time seconds..."
-              sleep $sleep_time
-            fi
-          done
+          terraform destroy -auto-approve -var-file=pr-environment.tfvars
 
       - name: Cleanup Terraform State File
         if: env.ACTION == 'destroy'
