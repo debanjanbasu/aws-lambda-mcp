@@ -35,6 +35,11 @@ resource "aws_lambda_function" "bedrock_agent_gateway" {
       var.additional_env_vars
     )
   }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.lambda_basic,
+    aws_cloudwatch_log_group.lambda_logs,
+  ]
 }
 
 # CloudWatch Log Group
