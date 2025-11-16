@@ -143,11 +143,7 @@ jobs:
            echo "region         = \"${{ env.AWS_REGION }}\"" >> iac/backend-pr.tfvars
             echo "dynamodb_table = \"${{ secrets.TF_BACKEND_DYNAMODB_TABLE }}\"" >> iac/backend-pr.tfvars
 
-      - name: Cache Terraform plugins
-        uses: actions/cache@v4
-        with:
-          path: iac/.terraform
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
+
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -160,6 +156,24 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
+
+      - name: Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: iac/.terraform
+          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
+
+      - name: Determine action
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ github.event.action }}" = "closed" ]; then
+              echo "ACTION=destroy" >> $GITHUB_ENV
+            else
+              echo "ACTION=deploy" >> $GITHUB_ENV
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
+          fi
 
       - name: Terraform Init (Environment)
         if: env.ACTION == 'deploy'
