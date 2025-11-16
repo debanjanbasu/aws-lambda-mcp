@@ -158,6 +158,7 @@ jobs:
             echo "bucket         = \"${{ secrets.TF_BACKEND_BUCKET }}\"" > iac/backend-pr.tfvars
             echo "key            = \"aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate\"" >> iac/backend-pr.tfvars
             echo "region         = \"${{ env.AWS_REGION }}\"" >> iac/backend-pr.tfvars
+            echo "dynamodb_table = \"${{ secrets.TF_BACKEND_DYNAMODB_TABLE }}\"" >> iac/backend-pr.tfvars
             echo "use_lockfile   = true" >> iac/backend-pr.tfvars
 
 
@@ -206,7 +207,11 @@ jobs:
 
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
-        run: cd iac && terraform apply -auto-approve -var-file=pr-environment.tfvars
+        run: |
+          cd iac
+          # Remove stale Azure AD app if it exists in state but not in Azure
+          terraform state rm azuread_application.agentcore_app 2>/dev/null || true
+          terraform apply -auto-approve -var-file=pr-environment.tfvars
 
       - name: Post Deployment Comment
         if: env.ACTION == 'deploy'
