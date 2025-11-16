@@ -113,8 +113,8 @@ resource "azuread_application" "agentcore_app" {
 resource "time_sleep" "wait_for_app_propagation" {
   depends_on = [azuread_application.agentcore_app]
 
-  create_duration  = "15s"
-  destroy_duration = "5s"
+  create_duration  = "30s"
+  destroy_duration = "10s"
 }
 
 # Set application identifier URI - api://{client_id}
