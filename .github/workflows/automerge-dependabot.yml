@@ -55,7 +55,7 @@ jobs:
 
       # Rust Dependency Updates
       - name: Setup Rust toolchain
-        if: env.IS_RUST_PR == 'true'
+        if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
@@ -63,7 +63,7 @@ jobs:
           targets: aarch64-unknown-linux-gnu
 
       - name: Cache Rust dependencies
-        if: env.IS_RUST_PR == 'true'
+        if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -77,7 +77,7 @@ jobs:
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
       - name: Install cargo-lambda
-        if: env.IS_RUST_PR == 'true'
+        if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
@@ -85,32 +85,32 @@ jobs:
           fi
 
       - name: Setup Zig
-        if: env.IS_RUST_PR == 'true'
+        if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         uses: mlugg/setup-zig@v2
         with:
           version: latest
 
       # Terraform Dependency Updates
       - name: Setup Terraform
-        if: env.IS_TERRAFORM_PR == 'true'
+        if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: latest # Use latest Terraform version for dependency updates
 
       - name: Cache Terraform plugins
-        if: env.IS_TERRAFORM_PR == 'true'
+        if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
         uses: actions/cache@v4
         with:
           path: iac/.terraform
           key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
 
       - name: Terraform Init
-        if: env.IS_TERRAFORM_PR == 'true'
+        if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
         run: |
           cd iac && terraform init
 
       - name: Terraform Validate
-        if: env.IS_TERRAFORM_PR == 'true'
+        if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
         run: |
           cd iac && terraform validate
 
@@ -118,18 +118,18 @@ jobs:
       - name: Run Tests
         # For Dependabot PRs, we only run tests to verify compatibility
         run: |
-          if [ "${{ env.IS_RUST_PR }}" = "true" ]; then
-            echo "Running Rust tests with latest dependencies..."
-            make test || (echo "Rust tests failed - this may indicate breaking changes in dependencies" && exit 1)
-          elif [ "${{ env.IS_TERRAFORM_PR }}" = "true" ]; then
-            echo "Validating Terraform configuration..."
-            cd iac && terraform validate
-            # For Terraform updates, we rely on terraform validate
-          else
-            # Fallback to running all tests
-            echo "Running all tests..."
-            make test || (echo "Tests failed - this may indicate breaking changes" && exit 1)
-          fi
+           if [ "${{ steps.detect_pr_type.outputs.IS_RUST_PR }}" = "true" ]; then
+             echo "Running Rust tests with latest dependencies..."
+             make test || (echo "Rust tests failed - this may indicate breaking changes in dependencies" && exit 1)
+           elif [ "${{ steps.detect_pr_type.outputs.IS_TERRAFORM_PR }}" = "true" ]; then
+             echo "Validating Terraform configuration..."
+             cd iac && terraform validate
+             # For Terraform updates, we rely on terraform validate
+           else
+             # Fallback to running all tests
+             echo "Running all tests..."
+             make test || (echo "Tests failed - this may indicate breaking changes" && exit 1)
+           fi
 
       - name: Approve and Merge
         if: success() # Only run if tests pass
@@ -158,14 +158,14 @@ jobs:
           2. If the agent is successful, the tests will be re-run automatically.
           3. If the agent fails, manual intervention will be required. Review the workflow logs to identify the specific failure."
           
-          # Also add a comment with more specific troubleshooting steps
-          if [ "${{ env.IS_RUST_PR }}" = "true" ]; then
+           # Also add a comment with more specific troubleshooting steps
+           if [ "${{ steps.detect_pr_type.outputs.IS_RUST_PR }}" = "true" ]; then
             gh pr comment "$PR_URL" --body "For Rust dependency updates:
             - Check the dependency's release notes for breaking changes
             - Run \`cargo check\` locally with the updated dependencies
             - Update the code as needed to work with the new API
             - Run \`make test\` to ensure all tests pass"
-          elif [ "${{ env.IS_TERRAFORM_PR }}" = "true" ]; then
+          elif [ "${{ steps.detect_pr_type.outputs.IS_TERRAFORM_PR }}" = "true" ]; then
             gh pr comment "$PR_URL" --body "For Terraform provider updates:
             - Check the provider's changelog for breaking changes
             - Run \`cd iac && terraform init\` and \`terraform validate\` locally
