@@ -47,10 +47,12 @@ init: ## Initialize Terraform
 plan: init ## Show deployment changes
 	@echo "📋 Planning infrastructure changes..."
 	@terraform plan
+	@echo "✅ Plan complete! Review the output above."
 
 apply: init ## Apply changes
 	@echo "🚀 Applying infrastructure changes..."
 	@terraform apply -auto-approve
+	@echo "✅ Infrastructure changes applied successfully!"
 
 deploy: init apply ## Deploy infrastructure (init + apply)
 	@echo "✅ Infrastructure deployed successfully!"

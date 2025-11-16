@@ -12,7 +12,7 @@ pub enum TemperatureUnit {
 
 impl TemperatureUnit {
     /// Determines temperature unit based on country code (case-insensitive)
-    /// 
+    ///
     /// Countries using Fahrenheit: US, Liberia, Myanmar
     #[must_use]
     pub fn from_country_code(country_code: &str) -> Self {

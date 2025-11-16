@@ -2,6 +2,27 @@
 
 Production-ready Model Context Protocol server implementation using Amazon Bedrock AgentCore Gateway. Secure, OAuth-authenticated bridge between Bedrock AI agents and custom tools.
 
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Features](#features)
+- [One-Time Backend Setup](#one-time-backend-setup)
+- [Quick Start](#quick-start)
+- [Ephemeral Pull Request Environments](#ephemeral-pull-request-environments)
+- [Automated Dependency Updates](#automated-dependency-updates)
+- [Example: Weather Tool](#example-weather-tool)
+- [Prerequisites](#prerequisites)
+- [Initial Setup for GitHub Template Repositories](#initial-setup-for-github-template-repositories)
+- [Structure](#structure)
+- [Usage](#usage)
+- [Troubleshooting](#troubleshooting)
+- [Commands](#commands)
+- [Schema Generation](#schema-generation)
+- [Adding Tools](#adding-tools)
+- [Configuration](#configuration)
+- [Coding Standards](#coding-standards)
+- [Contributing](#contributing)
+
 ## Architecture
 
 ```

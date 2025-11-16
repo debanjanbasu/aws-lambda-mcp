@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
+use rmcp::tool;
 use std::time::Duration;
 use tracing::{debug, instrument};
-use rmcp::tool;
 
 use crate::http::HTTP_CLIENT;
 use crate::models::{
