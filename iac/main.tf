@@ -2,10 +2,11 @@
 # Main infrastructure resources for AWS Lambda and Amazon Bedrock AgentCore integration
 
 # Create zip file from Lambda binary
+# Use a conditional expression to avoid evaluating filemd5 when the file doesn't exist
 data "archive_file" "lambda_zip" {
   type        = "zip"
   source_file = local.lambda_binary_path
-  output_path = "${path.module}/.terraform/lambda-${filemd5(local.lambda_binary_path)}.zip"
+  output_path = "${path.module}/.terraform/lambda.zip"
 }
 
 # Lambda Function
