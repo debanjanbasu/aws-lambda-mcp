@@ -152,11 +152,11 @@ resource "aws_bedrockagentcore_gateway" "main" {
   # Uses OIDC discovery URL to validate tokens against Entra ID
   authorizer_configuration {
     custom_jwt_authorizer {
-      discovery_url    = local.entra_discovery_url
+      discovery_url = local.entra_discovery_url
       allowed_audience = [
-    "api://${azuread_application.agentcore_app.client_id}",
-    azuread_application.agentcore_app.client_id
-  ]
+        "api://${azuread_application.agentcore_app.client_id}",
+        azuread_application.agentcore_app.client_id
+      ]
     }
   }
 
@@ -167,10 +167,10 @@ resource "aws_bedrockagentcore_gateway" "main" {
   # - WARN:  Warning messages about potential issues
   # - ERROR: Only error messages
   # - null:  Minimal error information (default for security)
-  # 
+  #
   # Security consideration: Higher verbosity levels may expose sensitive information
   # in error responses. Use DEBUG/INFO only for troubleshooting, not production.
-  # 
+  #
   # Reference: https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway#exception_level-1
   exception_level = var.gateway_exception_level
 

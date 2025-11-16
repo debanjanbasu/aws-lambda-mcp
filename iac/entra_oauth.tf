@@ -37,7 +37,7 @@ resource "azuread_application" "agentcore_app" {
   # Web application configuration - supports client credentials with secret
   web {
     redirect_uris = local.combined_redirect_uris
-    
+
     implicit_grant {
       access_token_issuance_enabled = false
       id_token_issuance_enabled     = false
@@ -109,22 +109,22 @@ resource "azuread_application" "agentcore_app" {
 }
 
 # Set application identifier URI - api://{client_id}
-# 
+#
 # Why needed for PKCE OAuth 2.0?
 # - PKCE is the authentication flow, but this defines your API's identity
 # - Required because we expose our own API scope (oauth2_permission_scope)
 # - Enables clients to request tokens specifically for YOUR API
 # - Used by Amazon Bedrock AgentCore Gateway for JWT validation
-# 
+#
 # Gateway validation:
 #   allowed_audience = ["api://{client_id}", "{client_id}"]
 #   ↑ Validates token's "aud" claim matches your app
-# 
+#
 # Without this:
 # - oauth2_permission_scope won't work properly
 # - Clients can't request scope: api://{client_id}/access_as_user
 # - Gateway JWT authorization will fail
-# 
+#
 # Managed separately because it depends on the application's client_id
 # which is only known after the application is created (chicken-and-egg)
 resource "azuread_application_identifier_uri" "agentcore_app" {
@@ -133,14 +133,14 @@ resource "azuread_application_identifier_uri" "agentcore_app" {
 }
 
 # Service Principal - Required for organization-wide admin consent automation
-# 
+#
 # Why needed for PKCE public client?
 # - PKCE itself doesn't require a service principal
 # - However, to grant admin consent for all Enterprise Group users via Terraform,
 #   we need a service principal as the consent target
 # - Without this, each user would see individual consent prompts
 # - Alternative: Admin manually clicks "Grant admin consent" in Azure Portal
-# 
+#
 # Configuration:
 # - app_role_assignment_required = false: All org users can access without assignment
 # - This enables seamless SSO for all Enterprise users
@@ -168,7 +168,7 @@ resource "azuread_application_password" "oauth_client" {
   application_id = azuread_application.agentcore_app.id
   display_name   = "OAuth 2.0 Confidential Client"
   end_date       = timeadd(timestamp(), "17520h") # 2 years
-  
+
   lifecycle {
     ignore_changes = [end_date]
   }

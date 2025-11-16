@@ -26,7 +26,7 @@ locals {
   ], var.entra_redirect_uris))
 
   # Generate display name and descriptions from project name
-  project_display_name     = title(replace(var.project_name, "-", " "))
+  project_display_name = title(replace(var.project_name, "-", " "))
 
   # Generate Entra app tags from project type
   entra_app_tags = ["agentcore-gateway", "oauth2", "pkce", "terraform-managed"]
