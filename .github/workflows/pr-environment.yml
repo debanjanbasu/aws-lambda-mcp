@@ -103,17 +103,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Download Lambda build artifacts
-        if: env.ACTION == 'deploy'
-        uses: actions/download-artifact@v4
-        with:
-          name: pr-lambda-build
-          path: .
-
-      - name: Verify Lambda binary
-        if: env.ACTION == 'deploy'
-        run: ls -la target/lambda/aws-lambda-mcp/bootstrap
-
       - name: Set environment variables
         run: |
           # Set environment name based on PR number or run number
@@ -124,6 +113,29 @@ jobs:
             echo "ENVIRONMENT_NAME=manual-${{ github.run_number }}" >> $GITHUB_ENV
             echo "PR_NUMBER=manual" >> $GITHUB_ENV
           fi
+
+      - name: Determine action
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ github.event.action }}" = "closed" ]; then
+              echo "ACTION=destroy" >> $GITHUB_ENV
+            else
+              echo "ACTION=deploy" >> $GITHUB_ENV
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
+          fi
+
+      - name: Download Lambda build artifacts
+        if: env.ACTION == 'deploy'
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-lambda-build
+          path: .
+
+      - name: Verify Lambda binary
+        if: env.ACTION == 'deploy'
+        run: ls -la target/lambda/aws-lambda-mcp/bootstrap
 
       - name: Prepare environment-specific variables
         run: |
