@@ -108,6 +108,16 @@ resource "azuread_application" "agentcore_app" {
   }
 }
 
+# Wait for Azure AD to propagate the application creation
+# Azure AD has eventual consistency issues where newly created applications
+# may not be immediately available for subsequent operations
+resource "time_sleep" "wait_for_app_propagation" {
+  depends_on = [azuread_application.agentcore_app]
+
+  create_duration  = "15s"
+  destroy_duration = "5s"
+}
+
 # Set application identifier URI - api://{client_id}
 #
 # Why needed for PKCE OAuth 2.0?
@@ -128,6 +138,8 @@ resource "azuread_application" "agentcore_app" {
 # Managed separately because it depends on the application's client_id
 # which is only known after the application is created (chicken-and-egg)
 resource "azuread_application_identifier_uri" "agentcore_app" {
+  depends_on = [time_sleep.wait_for_app_propagation]
+
   application_id = azuread_application.agentcore_app.id
   identifier_uri = "api://${azuread_application.agentcore_app.client_id}"
 }
@@ -145,6 +157,8 @@ resource "azuread_application_identifier_uri" "agentcore_app" {
 # - app_role_assignment_required = false: All org users can access without assignment
 # - This enables seamless SSO for all Enterprise users
 resource "azuread_service_principal" "agentcore_app" {
+  depends_on = [time_sleep.wait_for_app_propagation]
+
   client_id = azuread_application.agentcore_app.client_id
 
   # Allow all org users to access without individual assignment
@@ -165,6 +179,8 @@ resource "azuread_service_principal_delegated_permission_grant" "graph_permissio
 # Client secret for OAuth 2.0 confidential clients
 # 2 year expiry - minimum practical duration for Entra ID
 resource "azuread_application_password" "oauth_client" {
+  depends_on = [time_sleep.wait_for_app_propagation]
+
   application_id = azuread_application.agentcore_app.id
   display_name   = "OAuth 2.0 Confidential Client"
   end_date       = timeadd(timestamp(), "17520h") # 2 years
