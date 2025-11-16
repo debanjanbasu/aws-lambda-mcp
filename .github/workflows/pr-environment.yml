@@ -127,7 +127,7 @@ jobs:
           fi
 
       - name: Download Lambda build artifacts
-        if: env.ACTION == 'deploy'
+        if: env.ACTION == 'deploy' && needs.build-lambda.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: pr-lambda-build
@@ -206,7 +206,11 @@ jobs:
 
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
-        run: cd iac && terraform apply -auto-approve -var-file=pr-environment.tfvars
+        run: |
+          cd iac
+          # Remove stale lock file if exists
+          aws s3 rm "s3://${{ secrets.TF_BACKEND_BUCKET }}/aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate.lock" 2>/dev/null || true
+          terraform apply -auto-approve -var-file=pr-environment.tfvars
 
       - name: Post Deployment Comment
         if: env.ACTION == 'deploy'
