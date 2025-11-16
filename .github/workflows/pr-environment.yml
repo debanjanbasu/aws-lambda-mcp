@@ -161,7 +161,6 @@ jobs:
             echo "use_lockfile   = true" >> iac/backend-pr.tfvars
 
 
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
