@@ -49,10 +49,7 @@ fn main() {
 
 // Generates a schema in Amazon Bedrock format for the given type
 fn generate_bedrock_schema<T: JsonSchema>() -> Value {
-    let mut schema = serde_json::to_value(schema_for!(T)).unwrap_or_else(|e| {
-        eprintln!("Failed to serialize schema: {e}");
-        std::process::exit(1);
-    });
+    let mut schema = serde_json::to_value(schema_for!(T)).expect("Failed to serialize schema");
 
     // Clean up schema to conform to Amazon Bedrock AgentCore format
     if let Some(obj) = schema.as_object_mut() {
@@ -107,13 +104,7 @@ fn write_schema(tools: &[Tool]) {
         })
         .collect();
 
-    let json = serde_json::to_string_pretty(&schemas).unwrap_or_else(|e| {
-        eprintln!("Failed to serialize schema: {e}");
-        std::process::exit(1);
-    });
+    let json = serde_json::to_string_pretty(&schemas).expect("Failed to serialize schema");
 
-    fs::write("tool_schema.json", json).unwrap_or_else(|e| {
-        eprintln!("Failed to write tool_schema.json: {e}");
-        std::process::exit(1);
-    });
+    fs::write("tool_schema.json", json).expect("Failed to write tool_schema.json");
 }
