@@ -110,11 +110,9 @@ jobs:
           name: pr-lambda-build
           path: .
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+      - name: Verify Lambda binary
+        if: env.ACTION == 'deploy'
+        run: ls -la target/lambda/aws-lambda-mcp/bootstrap
 
       - name: Set environment variables
         run: |
