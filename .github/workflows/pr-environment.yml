@@ -109,6 +109,12 @@ jobs:
           name: pr-lambda-build
           path: .
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Set environment variables
         run: |
           # Set environment name based on PR number or run number
@@ -138,10 +144,10 @@ jobs:
            echo "}" >> iac/pr-environment.tfvars
 
            # Update backend key to be environment-specific
-           echo "bucket         = \"${{ secrets.TF_BACKEND_BUCKET }}\"" > iac/backend-pr.tfvars
-           echo "key            = \"aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate\"" >> iac/backend-pr.tfvars
-           echo "region         = \"${{ env.AWS_REGION }}\"" >> iac/backend-pr.tfvars
-            echo "dynamodb_table = \"${{ secrets.TF_BACKEND_DYNAMODB_TABLE }}\"" >> iac/backend-pr.tfvars
+            echo "bucket         = \"${{ secrets.TF_BACKEND_BUCKET }}\"" > iac/backend-pr.tfvars
+            echo "key            = \"aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate\"" >> iac/backend-pr.tfvars
+            echo "region         = \"${{ env.AWS_REGION }}\"" >> iac/backend-pr.tfvars
+            echo "use_lockfile   = true" >> iac/backend-pr.tfvars
 
 
 
