@@ -206,11 +206,7 @@ jobs:
 
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
-        run: |
-          cd iac
-          # Remove stale Azure AD app if it exists in state but not in Azure
-          terraform state rm azuread_application.agentcore_app 2>/dev/null || true
-          terraform apply -auto-approve -var-file=pr-environment.tfvars
+        run: cd iac && terraform apply -auto-approve -var-file=pr-environment.tfvars
 
       - name: Post Deployment Comment
         if: env.ACTION == 'deploy'
