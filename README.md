@@ -120,14 +120,6 @@ When using this repository as a GitHub template, you'll need to set up several s
 | `TF_BACKEND_BUCKET` | S3 Bucket name for Terraform state storage | Run `make setup-backend` after setting AWS credentials |
 | `TF_BACKEND_DYNAMODB_TABLE` | DynamoDB Table name for Terraform state locking | Run `make setup-backend` after setting AWS credentials |
 
-### Optional GitHub Secrets (for Gemini workflows)
-
-| Secret Name | Description | Setup Instructions |
-|-------------|-------------|--------------------|
-| `GEMINI_API_KEY` | Google Gemini API Key for AI-powered workflows | [Google AI Studio](https://aistudio.google.com/) |
-| `GOOGLE_API_KEY` | Google API Key for additional Google services | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
-| `APP_PRIVATE_KEY` | GitHub App Private Key for advanced workflows | [GitHub App Setup](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps) |
-
 ### Setting Up AWS Authentication
 
 1. Follow [GitHub's documentation](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services) to configure OIDC between GitHub and AWS

@@ -171,12 +171,3 @@ jobs:
             - Run \`cd iac && terraform init\` and \`terraform validate\` locally
             - Update the Terraform configuration as needed"
           fi
-
-  invoke-fixer:
-    needs: [automerge]
-    if: failure() && (needs.automerge.outputs.is_rust == 'true' || needs.automerge.outputs.is_terraform == 'true')
-    uses: ./.github/workflows/gemini-fix.yml
-    with:
-      pull_request_number: ${{ github.event.pull_request.number }}
-      failure_type: ${{ needs.automerge.outputs.is_rust == 'true' && 'rust-test' || 'terraform-validate' }}
-    secrets: inherit
