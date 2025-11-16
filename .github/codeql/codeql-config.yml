@@ -10,5 +10,3 @@ name: "CodeQL Configuration"
 paths-ignore:
   - 'target/' # Ignore the Rust build output directory
   - 'iac/.terraform/' # Ignore Terraform's internal directory
-  - '**/*.test.rs' # Ignore Rust test files
-  - 'tests/' # Ignore the tests directory

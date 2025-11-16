@@ -431,7 +431,6 @@ When this repository is used as a GitHub template, several secrets need to be co
 
 ### Optional GitHub Secrets
 
-- `GEMINI_API_KEY` - Google Gemini API Key for AI-powered workflows
 
 ### Setup Process
 
