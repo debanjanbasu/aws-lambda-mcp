@@ -26,28 +26,15 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  environment:
+  build-lambda:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-24.04-arm
     permissions:
-      id-token: write
       contents: read
-      pull-requests: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Set environment variables
-        run: |
-          # Set environment name based on PR number or run number
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "ENVIRONMENT_NAME=pr-${{ github.event.number }}" >> $GITHUB_ENV
-            echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
-          else
-            echo "ENVIRONMENT_NAME=manual-${{ github.run_number }}" >> $GITHUB_ENV
-            echo "PR_NUMBER=manual" >> $GITHUB_ENV
-          fi
 
       - name: Setup Rust toolchain
         id: rust-toolchain
@@ -78,7 +65,6 @@ jobs:
             ${{ runner.os }}-cargo-lambda-
 
       - name: Install cargo-lambda
-        if: env.ACTION == 'deploy'
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
@@ -86,38 +72,53 @@ jobs:
           fi
 
       - name: Setup Zig
-        if: env.ACTION == 'deploy'
         uses: mlugg/setup-zig@v2
         with:
           version: latest
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
       - name: Install UPX (for release build compression)
-        if: env.ACTION == 'deploy'
         run: sudo apt-get update && sudo apt-get install -y upx-ucl
 
-      - name: Cache Terraform plugins
-        uses: actions/cache@v4
-        with:
-          path: iac/.terraform
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
+      - name: Build Lambda (Release)
+        run: make release
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - name: Upload Lambda build artifacts
+        uses: actions/upload-artifact@v4
         with:
-          terraform_version: latest
+          name: pr-lambda-build
+          path: |
+            target/lambda/
+            tool_schema.json
 
-      - name: Setup Azure CLI
-        uses: azure/login@v2
+  deploy-environment:
+    needs: build-lambda
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Download Lambda build artifacts
+        uses: actions/download-artifact@v4
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
+          name: pr-lambda-build
+          path: .
+
+      - name: Set environment variables
+        run: |
+          # Set environment name based on PR number or run number
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ENVIRONMENT_NAME=pr-${{ github.event.number }}" >> $GITHUB_ENV
+            echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT_NAME=manual-${{ github.run_number }}" >> $GITHUB_ENV
+            echo "PR_NUMBER=manual" >> $GITHUB_ENV
+          fi
 
       - name: Prepare environment-specific variables
         run: |
