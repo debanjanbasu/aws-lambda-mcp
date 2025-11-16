@@ -31,59 +31,58 @@ help: ## ✨ Show this help
 # Tool Prerequisites Check
 check-tools:
 	@echo "$(BLUE)🔧 Checking required tools...$(RESET)"
-	@command -v cargo >/dev/null 2>&1 || (echo "$(RED)❌ cargo not found. Installing Rust nightly...$(RESET)" && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y && source $$HOME/.cargo/env && rustup component add rust-src && rustup target add aarch64-unknown-linux-gnu && echo "$(GREEN)✅ Rust nightly installed$(RESET)")
-	@command -v zig >/dev/null 2>&1 || ( \
-		echo "$(BLUE)📦 Installing Zig...$(RESET)" && \
-		if command -v brew >/dev/null 2>&1; then \
-			brew install zig; \
-		elif command -v apt >/dev/null 2>&1; then \
-			sudo apt update && sudo apt install -y zig; \
-		else \
-			echo "$(BLUE)📦 Downloading Zig...$(RESET)" && \
-			curl -L https://ziglang.org/download/latest/zig-linux-x86_64.tar.xz | tar -xJ -C /tmp && \
-			sudo mv /tmp/zig-linux-x86_64*/zig /usr/local/bin/ && \
-			sudo mv /tmp/zig-linux-x86_64*/lib /usr/local/lib/zig && \
-			rm -rf /tmp/zig-linux-x86_64*; \
-		fi && \
-		echo "$(GREEN)✅ Zig installed$(RESET)" \
-	)
-	@command -v cargo-lambda >/dev/null 2>&1 || (echo "$(BLUE)📦 Installing cargo-lambda...$(RESET)" && cargo install cargo-lambda && echo "$(GREEN)✅ cargo-lambda installed$(RESET)")
-	@command -v upx >/dev/null 2>&1 || ( \
-		echo "$(BLUE)📦 Installing UPX...$(RESET)" && \
-		if command -v brew >/dev/null 2>&1; then \
-			brew install upx; \
-		elif command -v apt >/dev/null 2>&1; then \
-			sudo apt update && sudo apt install -y upx-ucl; \
-		else \
-			echo "$(RED)❌ UPX not found and no package manager detected. Install manually: brew install upx (macOS) or apt install upx-ucl (Linux)$(RESET)" && exit 1; \
-		fi && \
-		echo "$(GREEN)✅ UPX installed$(RESET)" \
-	)
-	@command -v terraform >/dev/null 2>&1 || ( \
-		echo "$(BLUE)📦 Installing Terraform...$(RESET)" && \
-		if command -v brew >/dev/null 2>&1; then \
-			brew install terraform; \
-		elif command -v apt >/dev/null 2>&1; then \
-			sudo apt update && sudo apt install -y terraform; \
-		else \
+	@if [ -z "$$CI" ]; then \
+		command -v cargo >/dev/null 2>&1 || (echo "$(RED)❌ cargo not found. Installing Rust nightly...$(RESET)" && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y && source $$HOME/.cargo/env && rustup component add rust-src && rustup target add aarch64-unknown-linux-gnu && echo "$(GREEN)✅ Rust nightly installed$(RESET)"); \
+		command -v zig >/dev/null 2>&1 || ( \
+			echo "$(BLUE)📦 Installing Zig...$(RESET)" && \
+			if command -v brew >/dev/null 2>&1; then \
+				brew install zig; \
+			elif command -v apt >/dev/null 2>&1; then \
+				sudo apt update && sudo apt install -y zig; \
+			else \
+				echo "$(BLUE)📦 Downloading Zig...$(RESET)" && \
+				curl -L https://ziglang.org/download/latest/zig-linux-x86_64.tar.xz | tar -xJ -C /tmp && \
+				sudo mv /tmp/zig-linux-x86_64*/zig /usr/local/bin/ && \
+				sudo mv /tmp/zig-linux-x86_64*/lib /usr/local/lib/zig && \
+				rm -rf /tmp/zig-linux-x86_64*; \
+			fi && \
+			echo "$(GREEN)✅ Zig installed$(RESET)" \
+		); \
+		command -v cargo-lambda >/dev/null 2>&1 || (echo "$(BLUE)📦 Installing cargo-lambda...$(RESET)" && cargo install cargo-lambda && echo "$(GREEN)✅ cargo-lambda installed$(RESET)"); \
+		command -v upx >/dev/null 2>&1 || ( \
+			echo "$(BLUE)📦 Installing UPX...$(RESET)" && \
+			if command -v brew >/dev/null 2>&1; then \
+				brew install upx; \
+			elif command -v apt >/dev/null 2>&1; then \
+				sudo apt update && sudo apt install -y upx-ucl; \
+			else \
+				echo "$(RED)❌ UPX not found and no package manager detected. Install manually: brew install upx (macOS) or apt install upx-ucl (Linux)$(RESET)" && exit 1; \
+			fi && \
+			echo "$(GREEN)✅ UPX installed$(RESET)" \
+		); \
+		command -v jq >/dev/null 2>&1 || ( \
+			echo "$(BLUE)📦 Installing jq...$(RESET)" && \
+			if command -v brew >/dev/null 2>&1; then \
+				brew install jq; \
+			elif command -v apt >/dev/null 2>&1; then \
+				sudo apt update && sudo apt install -y jq; \
+			else \
+				echo "$(RED)❌ jq not found and no package manager detected. Install manually: brew install jq (macOS) or apt install jq (Linux)$(RESET)" && exit 1; \
+			fi && \
+			echo "$(GREEN)✅ jq installed$(RESET)" \
+		); \
+		command -v terraform >/dev/null 2>&1 || ( \
 			echo "$(BLUE)📦 Downloading Terraform...$(RESET)" && \
-			curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
-			echo "deb [arch=$$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $$(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null && \
-			sudo apt-get update && sudo apt-get install -y terraform; \
-		fi && \
-		echo "$(GREEN)✅ Terraform installed$(RESET)" \
-	)
-	@command -v jq >/dev/null 2>&1 || ( \
-		echo "$(BLUE)📦 Installing jq...$(RESET)" && \
-		if command -v brew >/dev/null 2>&1; then \
-			brew install jq; \
-		elif command -v apt >/dev/null 2>&1; then \
-			sudo apt update && sudo apt install -y jq; \
-		else \
-			echo "$(RED)❌ jq not found and no package manager detected. Install manually: brew install jq (macOS) or apt install jq (Linux)$(RESET)" && exit 1; \
-		fi && \
-		echo "$(GREEN)✅ jq installed$(RESET)" \
-	)
+			curl -fsSL https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_arm64.zip -o /tmp/terraform.zip && \
+			unzip -o /tmp/terraform.zip -d /tmp && \
+			sudo mv /tmp/terraform /usr/local/bin/terraform && \
+			sudo chmod +x /usr/local/bin/terraform && \
+			rm /tmp/terraform.zip && \
+			echo "$(GREEN)✅ Terraform installed$(RESET)" \
+		); \
+	else \
+		echo "$(YELLOW)⚠️  Skipping tool installation (in CI). Tools installed by workflow.$(RESET)"; \
+	fi
 	@echo "$(GREEN)✅ All required tools ready$(RESET)"
 
 # Smart Backend Configuration Check
