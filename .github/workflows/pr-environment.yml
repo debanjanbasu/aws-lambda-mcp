@@ -326,7 +326,8 @@ jobs:
         if: env.ACTION == 'destroy'
         run: |
           cd iac
-          terraform init -backend-config=backend-pr.tfvars -reconfigure
+          # For destroy operations, we can work with existing state
+          # This avoids validating the entire configuration including the Lambda binary
           terraform destroy -auto-approve -var-file=pr-environment.tfvars
 
       - name: Cleanup Terraform State File
