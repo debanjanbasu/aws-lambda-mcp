@@ -196,8 +196,10 @@ jobs:
         if: env.ACTION == 'deploy'
         run: |
           cd iac
-          # Remove stale lock file if exists
-          aws s3 rm "s3://${{ secrets.TF_BACKEND_BUCKET }}/aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate.lock" 2>/dev/null || true
+          # Initialize with backend config
+          terraform init -backend-config=backend-pr.tfvars -reconfigure
+          
+          # Attempt to apply - let Terraform handle locking naturally
           terraform apply -auto-approve -var-file=pr-environment.tfvars
 
       - name: Post Deployment Comment
