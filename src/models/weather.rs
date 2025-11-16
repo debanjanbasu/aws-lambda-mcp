@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Temperature unit for weather measurements
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum TemperatureUnit {
     #[default]
@@ -29,6 +29,29 @@ impl TemperatureUnit {
             Self::C => celsius,
             Self::F => celsius * 1.8 + 32.0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_country_code() {
+        assert_eq!(TemperatureUnit::from_country_code("US"), TemperatureUnit::F);
+        assert_eq!(TemperatureUnit::from_country_code("us"), TemperatureUnit::F);
+        assert_eq!(TemperatureUnit::from_country_code("LR"), TemperatureUnit::F);
+        assert_eq!(TemperatureUnit::from_country_code("MM"), TemperatureUnit::F);
+        assert_eq!(TemperatureUnit::from_country_code("AU"), TemperatureUnit::C);
+        assert_eq!(TemperatureUnit::from_country_code(""), TemperatureUnit::C);
+    }
+
+    #[test]
+    fn test_convert_from_celsius() {
+        assert!((TemperatureUnit::C.convert_from_celsius(20.0) - 20.0).abs() < f64::EPSILON);
+        assert!((TemperatureUnit::F.convert_from_celsius(20.0) - 68.0).abs() < f64::EPSILON);
+        assert!((TemperatureUnit::F.convert_from_celsius(0.0) - 32.0).abs() < f64::EPSILON);
+        assert!((TemperatureUnit::F.convert_from_celsius(-40.0) - (-40.0)).abs() < f64::EPSILON);
     }
 }
 
