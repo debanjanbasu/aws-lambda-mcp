@@ -124,8 +124,13 @@ Included working tool demonstrates the pattern:
 - **Rust** (edition 2024)
 - **cargo-lambda**: `cargo install cargo-lambda`
 - **UPX**: `brew install upx` (macOS) | `apt install upx-ucl` (Linux)
+- **Zig**: `brew install zig` (macOS) | `apt install zig` (Linux)
+- **jq**: `brew install jq` (macOS) | `apt install jq` (Linux)
+- **Terraform** (latest)
 - **AWS CLI** (configured)
 - **Azure CLI** (configured)
+
+**Note**: Running `make release` will automatically install missing tools locally.
 
 ## Initial Setup for GitHub Template Repositories
 
