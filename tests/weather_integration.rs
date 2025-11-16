@@ -1,5 +1,5 @@
 use aws_lambda_mcp::models::weather::{TemperatureUnit, WeatherRequest};
-use aws_lambda_mcp::tools::weather::get_weather;
+use aws_lambda_mcp::tools::get_weather;
 use anyhow::Result;
 
 #[tokio::test]
