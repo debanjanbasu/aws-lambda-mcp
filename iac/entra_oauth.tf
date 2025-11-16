@@ -10,7 +10,6 @@ resource "random_uuid" "oauth_scope" {}
 # Create Entra ID Application Registration for AgentCore Gateway
 resource "azuread_application" "agentcore_app" {
   display_name     = var.project_name
-  owners           = [data.azuread_client_config.current.object_id]
   sign_in_audience = var.entra_sign_in_audience
 
   # Expose API with default scope for our app to receive tokens with correct audience
