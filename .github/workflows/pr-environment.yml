@@ -326,8 +326,12 @@ jobs:
         if: env.ACTION == 'destroy'
         run: |
           cd iac
-          # For destroy operations, we can work with existing state
-          # This avoids validating the entire configuration including the Lambda binary
+          # Create a dummy Lambda binary for validation during destroy
+          mkdir -p ../target/lambda/aws-lambda-mcp
+          echo "dummy-content-for-destroy-operations" > ../target/lambda/aws-lambda-mcp/bootstrap
+          # Initialize Terraform with backend config (without reconfigure to avoid validation)
+          terraform init -backend-config=backend-pr.tfvars
+          # Destroy infrastructure
           terraform destroy -auto-approve -var-file=pr-environment.tfvars
 
       - name: Cleanup Terraform State File
