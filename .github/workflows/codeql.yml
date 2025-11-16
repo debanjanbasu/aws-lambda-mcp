@@ -4,8 +4,20 @@ name: "CodeQL Security Analysis"
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'iac/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/codeql.yml'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'iac/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/codeql.yml'
   schedule:
     - cron: '30 2 * * 1' # Run every Monday at 2:30 AM
 
