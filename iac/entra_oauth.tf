@@ -102,10 +102,23 @@ resource "azuread_application" "agentcore_app" {
   tags = local.entra_app_tags
 }
 
+# Introduce a delay to wait for the application to replicate in Azure AD
+resource "time_sleep" "wait_for_ad_replication" {
+  create_duration = "30s"
+
+  depends_on = [
+    azuread_application.agentcore_app
+  ]
+}
+
 # Service principal for the AgentCore Gateway application
 resource "azuread_service_principal" "agentcore_sp" {
   client_id = azuread_application.agentcore_app.client_id
   owners    = [data.azuread_client_config.current.object_id]
+
+  depends_on = [
+    time_sleep.wait_for_ad_replication
+  ]
 }
 
 # Grant organization-wide admin consent for Microsoft Graph permissions using app role assignments

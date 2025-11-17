@@ -204,9 +204,7 @@ jobs:
           name: pr-lambda-build
           path: .
 
-      - name: ✅ Verify Lambda binary
-        if: env.ACTION == 'deploy'
-        run: ls -la target/lambda/aws-lambda-mcp/bootstrap
+
 
       - name: ⚙️ Prepare environment-specific variables
         run: |
