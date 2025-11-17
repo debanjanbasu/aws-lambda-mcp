@@ -31,37 +31,54 @@ jobs:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install opencode
-        run: curl -fsSL https://opencode.ai/install | bash
-
-      - name: 🚀 Run opencode triage
+      - name: 🚀 Run opencode fix
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
             ISSUE_NUM=${{ github.event.issue.number }}
             ISSUE_BODY="${{ github.event.issue.body }}"
-            PROMPT="Plan methodically to triage and fix this issue: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             ISSUE_NUM=${{ github.event.inputs.issue_number }}
             ISSUE_BODY=$(gh issue view $ISSUE_NUM --json body -q .body)
-            PROMPT="Plan methodically to triage and fix this issue: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
           else
             ISSUE_NUM=""
             ISSUE_BODY=""
-            PROMPT=""
           fi
 
           if [ "${{ github.event_name }}" = "issues" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ -n "$ISSUE_NUM" ]; then
-              opencode run --agent build -m opencode/grok-code "$PROMPT" > triage_output.txt
-              if [ -s triage_output.txt ]; then
-                gh issue comment $ISSUE_NUM --body "$(cat triage_output.txt)"
-              else
-                gh issue comment $ISSUE_NUM --body "Opencode triage completed but no output generated."
-              fi
+              # Create fake event for opencode action
+              cat <<EOF > fake_event.json
+          {
+            "action": "created",
+            "issue": {
+              "number": $ISSUE_NUM
+            },
+            "comment": {
+              "body": "/oc Plan methodically and fix this issue: $ISSUE_BODY",
+              "user": {
+                "type": "User"
+              }
+            },
+            "repository": {
+              "name": "${{ github.event.repository.name }}",
+              "owner": {
+                "login": "${{ github.event.repository.owner.login }}"
+              }
+            }
+          }
+          EOF
+              export GITHUB_EVENT_PATH=fake_event.json
             fi
           elif [ "${{ github.event.workflow_run.conclusion }}" = "failure" ]; then
             # For workflow failures, create an issue
             gh issue create --title "Workflow Failure: ${{ github.event.workflow_run.name }}" --body "Investigate and fix this workflow failure. Logs: ${{ github.event.workflow_run.html_url }}"
           fi
+
+      - name: 🚀 Run opencode
+        if: (github.event_name == 'issues' || github.event_name == 'workflow_dispatch') && env.GITHUB_EVENT_PATH
+        uses: sst/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_EVENT_PATH: fake_event.json
+        with:
+          model: opencode/grok-code
