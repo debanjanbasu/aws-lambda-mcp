@@ -200,7 +200,7 @@ jobs:
           terraform untaint azuread_service_principal.agentcore_app || true
           
           # Attempt to apply - let Terraform handle locking naturally
-          terraform apply -auto-approve -var-file=pr-environment.tfvars
+          terraform apply -auto-approve -var-file=pr-environment.tfvars -replace="azuread_application_identifier_uri.agentcore_app" -replace="azuread_service_principal_delegated_permission_grant.graph_permissions"
 
       - name: Post Deployment Comment
         if: env.ACTION == 'deploy'
