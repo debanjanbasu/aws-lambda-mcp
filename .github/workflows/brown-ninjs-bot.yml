@@ -52,7 +52,7 @@ jobs:
 
           if [ "${{ github.event_name }}" = "issues" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ -n "$ISSUE_NUM" ]; then
-              opencode run "$PROMPT" > triage_output.txt
+              opencode run --agent build -m opencode/grok-code "$PROMPT" > triage_output.txt
               if [ -s triage_output.txt ]; then
                 gh issue comment $ISSUE_NUM --body "$(cat triage_output.txt)"
               else
@@ -64,5 +64,4 @@ jobs:
             gh issue create --title "Workflow Failure: ${{ github.event.workflow_run.name }}" --body "Investigate and fix this workflow failure. Logs: ${{ github.event.workflow_run.html_url }}"
           fi
         env:
-          MODEL: opencode/grok-code
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
