@@ -122,7 +122,9 @@ resource "azuread_application" "agentcore_app" {
 # - app_role_assignment_required = false: All org users can access without assignment
 # - This enables seamless SSO for all Enterprise users
 resource "azuread_service_principal" "agentcore_app" {
-  client_id = azuread_application.agentcore_app.client_id
+  depends_on = [azuread_application.agentcore_app]
+  
+  client_id  = azuread_application.agentcore_app.client_id
 
   # Allow all org users to access without individual assignment
   app_role_assignment_required = false
