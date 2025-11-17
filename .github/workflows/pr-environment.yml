@@ -204,8 +204,6 @@ jobs:
           name: pr-lambda-build
           path: .
 
-
-
       - name: ⚙️ Prepare environment-specific variables
         run: |
            # Create environment-specific tfvars file
