@@ -6,6 +6,12 @@ on:
   workflow_run:
     workflows: ["*"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to triage (optional)'
+        required: false
+        type: string
 
 jobs:
   triage:
@@ -29,7 +35,20 @@ jobs:
       - name: 🚀 Trigger opencode triage
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
-            gh issue comment ${{ github.event.issue.number }} --body "/oc Plan methodically: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: ${{ github.event.issue.body }}"
+            ISSUE_NUM=${{ github.event.issue.number }}
+            ISSUE_BODY="${{ github.event.issue.body }}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ISSUE_NUM=${{ github.event.inputs.issue_number }}
+            ISSUE_BODY=$(gh issue view $ISSUE_NUM --json body -q .body)
+          else
+            ISSUE_NUM=""
+            ISSUE_BODY=""
+          fi
+
+          if [ "${{ github.event_name }}" = "issues" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "$ISSUE_NUM" ]; then
+              gh issue comment $ISSUE_NUM --body "/oc Plan methodically: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
+            fi
           elif [ "${{ github.event.workflow_run.conclusion }}" = "failure" ]; then
             # For workflow failures, create an issue or comment
             gh issue create --title "Workflow Failure: ${{ github.event.workflow_run.name }}" --body "/oc Investigate and fix this workflow failure. Logs: ${{ github.event.workflow_run.html_url }}"
