@@ -3,6 +3,8 @@ name: 🥷 Brown Ninjs Bot - Auto Triage & Fix
 on:
   issues:
     types: [opened]
+  issue_comment:
+    types: [created]
   workflow_run:
     workflows: ["*"]
     types: [completed]
@@ -14,10 +16,24 @@ on:
         type: string
 
 jobs:
+  auto_comment:
+    name: 🤖 Auto Comment on Issues
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Post triage comment
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "/oc Plan methodically and fix this issue: ${{ github.event.issue.body }}"
+
   triage:
     name: 🤖 Auto Triage & Fix Issues
     if: |
-      github.event_name == 'issues' ||
+      github.event_name == 'issue_comment' ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
     runs-on: ubuntu-24.04-arm
     permissions:
@@ -32,19 +48,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 🚀 Run opencode fix
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
         run: |
-          if [ "${{ github.event_name }}" = "issues" ]; then
-            ISSUE_NUM=${{ github.event.issue.number }}
-            ISSUE_BODY="${{ github.event.issue.body }}"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             ISSUE_NUM=${{ github.event.inputs.issue_number }}
             ISSUE_BODY=$(gh issue view $ISSUE_NUM --json body -q .body)
-          else
-            ISSUE_NUM=""
-            ISSUE_BODY=""
-          fi
-
-          if [ "${{ github.event_name }}" = "issues" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ -n "$ISSUE_NUM" ]; then
               # Create fake event for opencode action
               cat <<EOF > fake_event.json
@@ -75,10 +83,9 @@ jobs:
           fi
 
       - name: 🚀 Run opencode
-        if: (github.event_name == 'issues' || github.event_name == 'workflow_dispatch') && env.GITHUB_EVENT_PATH
+        if: (github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch') && env.GITHUB_EVENT_PATH
         uses: sst/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          GITHUB_EVENT_PATH: fake_event.json
         with:
           model: opencode/grok-code
