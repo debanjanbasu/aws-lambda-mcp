@@ -1,6 +1,8 @@
 name: 🔧 Opencode AI Assistant
 
 on:
+  issues:
+    types: [opened]
   issue_comment:
     types: [created]
 
@@ -8,6 +10,7 @@ jobs:
   opencode:
     name: 🤖 AI Code Assistant
     if: |
+      github.event_name == 'issues' ||
       contains(github.event.comment.body, ' /oc') ||
       startsWith(github.event.comment.body, '/oc') ||
       contains(github.event.comment.body, ' /opencode') ||
@@ -17,14 +20,27 @@ jobs:
       id-token: write
       contents: read
       pull-requests: read
-      issues: read
+      issues: write
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install opencode
+        run: curl -fsSL https://opencode.ai/install | bash
+
       - name: 🚀 Run opencode
-        uses: sst/opencode/github@latest
+        id: opencode
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            opencode "Triage and fix this issue: ${{ github.event.issue.body }}" > opencode_output.txt
+          else
+            opencode github run
+          fi
         env:
+          MODEL: opencode/grok-code
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-        with:
-          model: opencode/grok-code
+
+      - name: 📝 Comment on issue (if auto-triggered)
+        if: github.event_name == 'issues'
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "$(cat opencode_output.txt)"
