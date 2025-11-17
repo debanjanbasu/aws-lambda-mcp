@@ -1,11 +1,23 @@
 # .github/workflows/codeql.yml
-name: "CodeQL Security Analysis"
+name: "🔍 CodeQL Security Analysis"
 
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'iac/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/codeql.yml'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'iac/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/codeql.yml'
   schedule:
     - cron: '30 2 * * 1' # Run every Monday at 2:30 AM
 
@@ -19,25 +31,46 @@ permissions:
 
 jobs:
   analyze-rust:
-    name: Analyze Rust
-    runs-on: ubuntu-slim
+    name: 🦀 Analyze Rust
+    runs-on: ubuntu-24.04-arm
     permissions:
       security-events: write
       actions: read
       contents: read
     steps:
-      - name: Checkout repository
+      - name: 📦 Checkout repository
         uses: actions/checkout@v5
 
-      - name: Initialize CodeQL
+      - name: 🚀 Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: 'rust'
           queries: security-extended
           config-file: ./.github/codeql/codeql-config.yml
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
+      - name: ⚙️ Setup Rust toolchain
+        id: rust-toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+          targets: aarch64-unknown-linux-gnu
 
-      - name: Perform CodeQL Analysis
+      - name: 💾 Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+
+      - name: 🛠️ Build Project
+        run: |
+          cargo build --release --workspace
+
+      - name: 🔍 Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

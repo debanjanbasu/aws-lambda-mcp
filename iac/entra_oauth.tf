@@ -37,7 +37,7 @@ resource "azuread_application" "agentcore_app" {
   # Web application configuration - supports client credentials with secret
   web {
     redirect_uris = local.combined_redirect_uris
-    
+
     implicit_grant {
       access_token_issuance_enabled = false
       id_token_issuance_enabled     = false
@@ -59,10 +59,10 @@ resource "azuread_application" "agentcore_app" {
   required_resource_access {
     resource_app_id = local.microsoft_graph_app_id
 
-    # User.Read - basic profile access
+    # User.Read.All - basic profile access (app role version)
     resource_access {
-      id   = local.microsoft_graph_user_read_scope_id
-      type = "Scope"
+      id   = local.microsoft_graph_user_read_all_app_role_id
+      type = "Role"
     }
 
     # openid - OpenID Connect authentication
@@ -100,66 +100,6 @@ resource "azuread_application" "agentcore_app" {
   }
 
   tags = local.entra_app_tags
-
-  # Prevent Terraform from reverting identifier_uris changes
-  # The identifier URI is set by azuread_application_identifier_uri resource
-  lifecycle {
-    ignore_changes = [identifier_uris]
-  }
-}
-
-# Set application identifier URI - api://{client_id}
-# 
-# Why needed for PKCE OAuth 2.0?
-# - PKCE is the authentication flow, but this defines your API's identity
-# - Required because we expose our own API scope (oauth2_permission_scope)
-# - Enables clients to request tokens specifically for YOUR API
-# - Used by Amazon Bedrock AgentCore Gateway for JWT validation
-# 
-# Gateway validation:
-#   allowed_audience = ["api://{client_id}", "{client_id}"]
-#   ↑ Validates token's "aud" claim matches your app
-# 
-# Without this:
-# - oauth2_permission_scope won't work properly
-# - Clients can't request scope: api://{client_id}/access_as_user
-# - Gateway JWT authorization will fail
-# 
-# Managed separately because it depends on the application's client_id
-# which is only known after the application is created (chicken-and-egg)
-resource "azuread_application_identifier_uri" "agentcore_app" {
-  application_id = azuread_application.agentcore_app.id
-  identifier_uri = "api://${azuread_application.agentcore_app.client_id}"
-}
-
-# Service Principal - Required for organization-wide admin consent automation
-# 
-# Why needed for PKCE public client?
-# - PKCE itself doesn't require a service principal
-# - However, to grant admin consent for all Enterprise Group users via Terraform,
-#   we need a service principal as the consent target
-# - Without this, each user would see individual consent prompts
-# - Alternative: Admin manually clicks "Grant admin consent" in Azure Portal
-# 
-# Configuration:
-# - app_role_assignment_required = false: All org users can access without assignment
-# - This enables seamless SSO for all Enterprise users
-resource "azuread_service_principal" "agentcore_app" {
-  client_id = azuread_application.agentcore_app.client_id
-
-  # Allow all org users to access without individual assignment
-  app_role_assignment_required = false
-
-  tags = local.entra_app_tags
-}
-
-# Grant organization-wide admin consent for Microsoft Graph permissions
-# This pre-approves the required scopes so users don't see consent prompts
-# Scopes: User.Read (profile), openid, profile (name claims), email
-resource "azuread_service_principal_delegated_permission_grant" "graph_permissions" {
-  service_principal_object_id          = azuread_service_principal.agentcore_app.object_id
-  resource_service_principal_object_id = data.azuread_service_principal.microsoft_graph.object_id
-  claim_values                         = ["User.Read", "openid", "profile", "email"]
 }
 
 # Client secret for OAuth 2.0 confidential clients
@@ -168,7 +108,7 @@ resource "azuread_application_password" "oauth_client" {
   application_id = azuread_application.agentcore_app.id
   display_name   = "OAuth 2.0 Confidential Client"
   end_date       = timeadd(timestamp(), "17520h") # 2 years
-  
+
   lifecycle {
     ignore_changes = [end_date]
   }
@@ -178,5 +118,3 @@ resource "azuread_application_password" "oauth_client" {
 data "azuread_service_principal" "microsoft_graph" {
   client_id = local.microsoft_graph_app_id
 }
-
-

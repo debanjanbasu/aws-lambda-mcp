@@ -17,8 +17,7 @@ This repository uses GitHub Actions for CI/CD. When used as a template repositor
 - `AWS_IAM_ROLE_ARN` - AWS IAM Role for GitHub Actions OIDC authentication
 - `AZURE_CLIENT_ID` - Entra ID App Registration Client ID
 - `AZURE_TENANT_ID` - Entra ID Tenant ID
-- `TF_BACKEND_BUCKET` - S3 Bucket for Terraform state storage
-- `TF_BACKEND_DYNAMODB_TABLE` - DynamoDB Table for Terraform state locking
+- `TF_BACKEND_BUCKET` - S3 Bucket for Terraform state storage (uses native S3 locking)
 
 Configure these secrets in your repository's Settings > Secrets and variables > Actions.
 

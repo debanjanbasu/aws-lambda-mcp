@@ -1,4 +1,4 @@
-name: Deploy AWS Lambda MCP
+name: 🚀 Deploy AWS Lambda MCP
 
 on:
   push:
@@ -11,33 +11,32 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   AWS_REGION: ap-southeast-2 # Default AWS region, can be overridden
   CARGO_TERM_COLOR: always # Ensure Rust color output is consistent
 
 jobs:
-  deploy:
+  build-lambda:
+    name: 🧱 Build Lambda
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     permissions:
-      id-token: write # Required for OIDC
       contents: read
-      statuses: write # Required to report status checks
 
     steps:
-      - name: Checkout code
+      - name: 📦 Checkout code
         uses: actions/checkout@v5
 
-      - name: Setup Rust toolchain
+      - name: ⚙️ Setup Rust toolchain
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
           targets: aarch64-unknown-linux-gnu
 
-      - name: Cache Rust dependencies
+      - name: 💾 Cache Rust dependencies
         uses: actions/cache@v4
         with:
           path: |
@@ -50,66 +49,90 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
-      - name: Cache cargo-lambda
+      - name: 💾 Cache cargo-lambda
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-lambda
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-lambda-
-      - name: Install cargo-lambda
+
+      - name: 🔧 Install cargo-lambda
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
             cargo install cargo-lambda
           fi
 
-      - name: Setup Zig
+      - name: 🔧 Setup Zig
         uses: mlugg/setup-zig@v2
         with:
           version: latest
 
-      - name: Configure AWS Credentials
+      - name: 📦 Install UPX (for release build compression)
+        run: sudo apt-get update && sudo apt-get install -y upx-ucl
+
+      - name: 🛠️ Build Lambda (Release)
+        run: make release
+
+      - name: ☁️ Upload Lambda build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-build
+          path: |
+            target/lambda/
+            tool_schema.json
+
+  deploy-infra:
+    name: 🌐 Deploy Infrastructure
+    needs: build-lambda
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: 📦 Checkout code
+        uses: actions/checkout@v5
+
+      - name: ☁️ Download Lambda build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-build
+          path: .
+
+      - name: 🔐 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install UPX (for release build compression)
-        run: sudo apt-get update && sudo apt-get install -y upx-ucl
-
-      - name: Cache Terraform plugins
+      - name: 💾 Cache Terraform plugins
         uses: actions/cache@v4
         with:
           path: iac/.terraform
           key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
 
-      - name: Setup Terraform
+      - name: 🏗️ Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: latest # Use latest Terraform version
+          terraform_version: latest
 
-      - name: Setup Azure CLI
+      - name: 🔐 Setup Azure CLI
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true # Allow tenant-level login for Entra ID
+          allow-no-subscriptions: true
 
-      - name: Build Lambda (Release)
-        run: make release
-
-      - name: Terraform Init
+      - name: 🚀 Terraform Init
         run: |
           cd iac && terraform init \
             -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
             -backend-config="key=aws-lambda-mcp/terraform.tfstate" \
             -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DYNAMODB_TABLE }}"
+            -backend-config="use_lockfile=true"
 
-      - name: Terraform Plan
-        run: |
-          cd iac && terraform plan
-
-      - name: Terraform Apply
+      - name: 🚀 Terraform Apply
         run: cd iac && terraform apply -auto-approve

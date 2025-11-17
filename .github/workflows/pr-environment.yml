@@ -1,4 +1,4 @@
-name: Ephemeral PR Environment
+name: 🌱 Ephemeral PR Environment
 
 on:
   pull_request:
@@ -26,37 +26,78 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  environment:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+  build-lambda:
+    name: 🧱 Build Lambda
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.action != 'closed')
     runs-on: ubuntu-24.04-arm
     permissions:
-      id-token: write
       contents: read
-      pull-requests: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set environment variables
+      - name: Check if Rust files changed
+        id: rust_changes
         run: |
-          # Set environment name based on PR number or run number
+          # Check if any Rust-related files have changed
+          # We compare against the base branch (main) to detect changes
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "ENVIRONMENT_NAME=pr-${{ github.event.number }}" >> $GITHUB_ENV
-            echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
+            # For pull requests, check what files changed in the PR
+            git fetch origin main:main
+            # Handle case where there's no merge base
+            if CHANGED_FILES=$(git diff --name-only main...HEAD 2>/dev/null); then
+              echo "Using three-dot diff"
+            else
+              echo "Fallback to two-dot diff"
+              CHANGED_FILES=$(git diff --name-only main..HEAD)
+            fi
           else
-            echo "ENVIRONMENT_NAME=manual-${{ github.run_number }}" >> $GITHUB_ENV
-            echo "PR_NUMBER=manual" >> $GITHUB_ENV
+            # For workflow_dispatch, check last commit
+            CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
           fi
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Check if any Rust-related files changed
+          RUST_CHANGED=false
+          while read -r file; do
+            if [[ "$file" == src/* ]] || [[ "$file" == *.rs ]] || [[ "$file" == Cargo.toml ]] || [[ "$file" == Cargo.lock ]] || [[ "$file" == Makefile ]] || [[ "$file" == .cargo/* ]]; then
+              RUST_CHANGED=true
+              echo "Rust-related file changed: $file"
+              break
+            fi
+          done <<< "$CHANGED_FILES"
+          
+          # If no files changed at all (shouldn't happen), assume no change needed
+          if [ -z "$CHANGED_FILES" ]; then
+            RUST_CHANGED=false
+          fi
+          
+          echo "rust_changed=$RUST_CHANGED" >> $GITHUB_OUTPUT
+          echo "Rust files changed: $RUST_CHANGED"
+
+      - name: Cache Lambda build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            target/lambda/
+            tool_schema.json
+          key: ${{ runner.os }}-${{ runner.arch }}-lambda-build-${{ hashFiles('src/**', 'Cargo.toml', 'Cargo.lock', 'Makefile', '.cargo/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-lambda-build-
 
       - name: Setup Rust toolchain
         id: rust-toolchain
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
           targets: aarch64-unknown-linux-gnu
 
       - name: Cache Rust dependencies
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -70,13 +111,16 @@ jobs:
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
       - name: Cache cargo-lambda
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-lambda
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-lambda-
+
       - name: Install cargo-lambda
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
@@ -84,38 +128,83 @@ jobs:
           fi
 
       - name: Setup Zig
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: mlugg/setup-zig@v2
         with:
           version: latest
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
       - name: Install UPX (for release build compression)
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         run: sudo apt-get update && sudo apt-get install -y upx-ucl
 
-      - name: Cache Terraform plugins
-        uses: actions/cache@v4
-        with:
-          path: iac/.terraform
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
+      - name: Build Lambda (Release)
+        if: steps.rust_changes.outputs.rust_changed == 'true'
+        run: make release
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: latest
+      - name: Verify Lambda artifacts exist
+        run: |
+          # Check if artifacts exist (either from build or cache)
+          if [ ! -f "target/lambda/aws-lambda-mcp/bootstrap" ] || [ ! -f "tool_schema.json" ]; then
+            echo "ERROR: Required Lambda artifacts not found!"
+            ls -la target/lambda/aws-lambda-mcp/ 2>/dev/null || echo "Directory not found"
+            ls -la tool_schema.json 2>/dev/null || echo "tool_schema.json not found"
+            exit 1
+          fi
+          echo "Lambda artifacts verified successfully"
 
-      - name: Setup Azure CLI
-        uses: azure/login@v2
+      - name: Upload Lambda build artifacts
+        uses: actions/upload-artifact@v4
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
+          name: pr-lambda-build
+          path: |
+            target/lambda/
+            tool_schema.json
 
-      - name: Prepare environment-specific variables
+  deploy-environment:
+    name: 🌐 Deploy Environment
+    needs: build-lambda
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
+    runs-on: ubuntu-slim
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: 📦 Checkout code
+        uses: actions/checkout@v5
+
+      - name: ⚙️ Set environment variables
+        run: |
+          # Set environment name based on PR number or run number
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ENVIRONMENT_NAME=pr-${{ github.event.number }}" >> $GITHUB_ENV
+            echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT_NAME=manual-${{ github.run_number }}" >> $GITHUB_ENV
+            echo "PR_NUMBER=manual" >> $GITHUB_ENV
+          fi
+
+      - name: 🎯 Determine action
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ github.event.action }}" = "closed" ]; then
+              echo "ACTION=destroy" >> $GITHUB_ENV
+            else
+              echo "ACTION=deploy" >> $GITHUB_ENV
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
+          fi
+
+      - name: ☁️ Download Lambda build artifacts
+        if: env.ACTION == 'deploy' && needs.build-lambda.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-lambda-build
+          path: .
+
+      - name: ⚙️ Prepare environment-specific variables
         run: |
            # Create environment-specific tfvars file
            echo "project_name = \"aws-agentcore-gateway-pr-${{ env.ENVIRONMENT_NAME }}\"" > iac/pr-environment.tfvars
@@ -133,81 +222,49 @@ jobs:
            echo "}" >> iac/pr-environment.tfvars
 
            # Update backend key to be environment-specific
-           echo "bucket         = \"${{ secrets.TF_BACKEND_BUCKET }}\"" > iac/backend-pr.tfvars
-           echo "key            = \"aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate\"" >> iac/backend-pr.tfvars
-           echo "region         = \"${{ env.AWS_REGION }}\"" >> iac/backend-pr.tfvars
-           echo "dynamodb_table = \"${{ secrets.TF_BACKEND_DYNAMODB_TABLE }}\"" >> iac/backend-pr.tfvars
+            echo "bucket         = \"${{ secrets.TF_BACKEND_BUCKET }}\"" > iac/backend-pr.tfvars
+            echo "key            = \"aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate\"" >> iac/backend-pr.tfvars
+            echo "region         = \"${{ env.AWS_REGION }}\"" >> iac/backend-pr.tfvars
+            echo "use_lockfile   = true" >> iac/backend-pr.tfvars
 
-      - name: Cleanup existing state for reopened PRs
-        if: env.ACTION == 'deploy' && env.PR_NUMBER != 'manual' && github.event.action == 'reopened'
-        run: |
-           # Clean up any existing state file when PR is reopened to prevent conflicts
-           STATE_KEY="aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate"
-           echo "Checking for existing state file: s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY"
-           if aws s3 ls "s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY" >/dev/null 2>&1; then
-             echo "Removing existing state file for reopened PR"
-             aws s3 rm "s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY" || echo "Failed to remove existing state, continuing..."
-           else
-             echo "No existing state file found for reopened PR"
-           fi
 
-      - name: Build Lambda (Release)
-        run: make release
+      - name: 🏗️ Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
 
-      - name: Determine action
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if [ "${{ github.event.action }}" = "closed" ]; then
-              echo "ACTION=destroy" >> $GITHUB_ENV
-            else
-              echo "ACTION=deploy" >> $GITHUB_ENV
-            fi
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
-          fi
+      - name: 🔐 Setup Azure CLI
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
 
-      - name: Terraform Init (Environment)
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 💾 Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: iac/.terraform
+          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
+
+      - name: 🚀 Terraform Init (Environment)
         if: env.ACTION == 'deploy'
         run: |
-           cd iac && terraform init -backend-config=backend-pr.tfvars
+          cd iac
+          terraform init -backend-config=backend-pr.tfvars
 
-      - name: Terraform Plan (Environment)
+      - name: 🚀 Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
         run: |
-           # Retry logic for lock contention (up to 3 attempts with exponential backoff)
-           for attempt in 1 2 3; do
-             echo "Terraform plan attempt $attempt/3"
-             if cd iac && terraform plan -var-file=pr-environment.tfvars; then
-               break
-             elif [ $attempt -eq 3 ]; then
-               echo "Terraform plan failed after 3 attempts"
-               exit 1
-             else
-               sleep_time=$((2 ** (attempt - 1) * 10))
-               echo "Retrying in $sleep_time seconds..."
-               sleep $sleep_time
-             fi
-           done
+          cd iac
+          terraform apply -auto-approve -var-file=pr-environment.tfvars
 
-      - name: Terraform Apply (Environment)
-        if: env.ACTION == 'deploy'
-        run: |
-           # Retry logic for lock contention (up to 3 attempts with exponential backoff)
-           for attempt in 1 2 3; do
-             echo "Terraform apply attempt $attempt/3"
-             if cd iac && terraform apply -auto-approve -var-file=pr-environment.tfvars; then
-               break
-             elif [ $attempt -eq 3 ]; then
-               echo "Terraform apply failed after 3 attempts"
-               exit 1
-             else
-               sleep_time=$((2 ** (attempt - 1) * 10))
-               echo "Retrying in $sleep_time seconds..."
-               sleep $sleep_time
-             fi
-           done
-
-      - name: Post Deployment Comment
+      - name: 💬 Post Deployment Comment
         if: env.ACTION == 'deploy'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -274,7 +331,7 @@ jobs:
             gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
           fi
 
-      - name: Update Comment with Final Details
+      - name: 💬 Update Comment with Final Details
         if: env.ACTION == 'deploy' && success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -327,34 +384,27 @@ jobs:
             fi
           fi
 
-      - name: Terraform Destroy (Environment)
+      - name: 💣 Terraform Destroy (Environment)
         if: env.ACTION == 'destroy'
         run: |
-           cd iac && terraform init -backend-config=backend-pr.tfvars
-           # Retry logic for lock contention (up to 3 attempts with exponential backoff)
-           for attempt in 1 2 3; do
-             echo "Terraform destroy attempt $attempt/3"
-             if cd iac && terraform destroy -auto-approve -var-file=pr-environment.tfvars; then
-               break
-             elif [ $attempt -eq 3 ]; then
-               echo "Terraform destroy failed after 3 attempts, continuing with cleanup..."
-               break
-             else
-               sleep_time=$((2 ** (attempt - 1) * 10))
-               echo "Retrying in $sleep_time seconds..."
-               sleep $sleep_time
-             fi
-           done
+          cd iac
+          # Create a dummy Lambda binary for validation during destroy
+          mkdir -p ../target/lambda/aws-lambda-mcp
+          echo "dummy-content-for-destroy-operations" > ../target/lambda/aws-lambda-mcp/bootstrap
+          # Initialize Terraform with backend config (without reconfigure to avoid validation)
+          terraform init -backend-config=backend-pr.tfvars
+          # Destroy infrastructure
+          terraform destroy -auto-approve -var-file=pr-environment.tfvars
 
-      - name: Cleanup Terraform State File
+      - name: 🧹 Cleanup Terraform State File
         if: env.ACTION == 'destroy'
         run: |
-           # Remove the state file from S3 to prevent accumulation
-           STATE_KEY="aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate"
-           echo "Cleaning up Terraform state file: s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY"
-           aws s3 rm "s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY" || echo "State file cleanup may have failed, continuing..."
+          # Remove the state file from S3 to prevent accumulation
+          STATE_KEY="aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate"
+          echo "Cleaning up Terraform state file: s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY"
+          aws s3 rm "s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY" || echo "State file cleanup may have failed, continuing..."
 
-      - name: Notify Environment Destruction
+      - name: 💬 Notify Environment Destruction
         if: env.ACTION == 'destroy'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
