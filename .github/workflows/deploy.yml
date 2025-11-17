@@ -10,9 +10,6 @@ on:
       - 'Cargo.lock'
       - 'Makefile'
       - 'iac/**'
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
   workflow_dispatch: # Allows manual triggering
 
 concurrency:
