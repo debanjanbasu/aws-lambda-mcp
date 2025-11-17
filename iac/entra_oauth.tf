@@ -99,39 +99,9 @@ resource "azuread_application" "agentcore_app" {
   }
 
   tags = local.entra_app_tags
-
-  # Prevent Terraform from reverting identifier_uris changes
-  # The identifier URI is set by azuread_application_identifier_uri resource
-  lifecycle {
-    ignore_changes = [identifier_uris]
-  }
 }
 
-# Set application identifier URI - api://{client_id}
-#
-# Why needed for PKCE OAuth 2.0?
-# - PKCE is the authentication flow, but this defines your API's identity
-# - Required because we expose our own API scope (oauth2_permission_scope)
-# - Enables clients to request tokens specifically for YOUR API
-# - Used by Amazon Bedrock AgentCore Gateway for JWT validation
-#
-# Gateway validation:
-#   allowed_audience = ["api://{client_id}", "{client_id}"]
-#   ↑ Validates token's "aud" claim matches your app
-#
-# Without this:
-# - oauth2_permission_scope won't work properly
-# - Clients can't request scope: api://{client_id}/access_as_user
-# - Gateway JWT authorization will fail
-#
-# Managed separately because it depends on the application's client_id
-# which is only known after the application is created (chicken-and-egg)
-resource "azuread_application_identifier_uri" "agentcore_app" {
-  depends_on = [azuread_application.agentcore_app]
 
-  application_id = azuread_application.agentcore_app.id
-  identifier_uri = "api://${azuread_application.agentcore_app.client_id}"
-}
 
 # Service Principal - Required for organization-wide admin consent automation
 #
