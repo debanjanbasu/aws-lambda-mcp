@@ -25,6 +25,9 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
       - name: Post triage comment
         run: |
           gh issue comment ${{ github.event.issue.number }} --body "/oc Plan methodically and fix this issue: ${{ github.event.issue.body }}"
