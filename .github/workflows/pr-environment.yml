@@ -191,16 +191,17 @@ jobs:
           cd iac
           terraform init -backend-config=backend-pr.tfvars -migrate-state -force-copy
 
+      - name: Terraform Destroy (Pre-Apply)
+        if: env.ACTION == 'deploy'
+        run: |
+          cd iac
+          terraform destroy -auto-approve -var-file=pr-environment.tfvars || true
+
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
         run: |
           cd iac
-          
-          # Untaint the service principal to prevent recreation due to external changes
-          terraform untaint azuread_service_principal.agentcore_app || true
-          
-          # Attempt to apply - let Terraform handle locking naturally
-          terraform apply -auto-approve -var-file=pr-environment.tfvars -replace="azuread_application_identifier_uri.agentcore_app" -replace="azuread_service_principal_delegated_permission_grant.graph_permissions"
+          terraform apply -auto-approve -var-file=pr-environment.tfvars
 
       - name: Post Deployment Comment
         if: env.ACTION == 'deploy'
