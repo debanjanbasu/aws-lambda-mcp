@@ -49,7 +49,7 @@ jobs:
 
           if [ "${{ github.event_name }}" = "issues" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ -n "$ISSUE_NUM" ]; then
-              gh issue comment $ISSUE_NUM --body "/oc Plan methodically: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
+              gh issue comment $ISSUE_NUM --body "/bot-oc Plan methodically: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
             fi
           elif [ "${{ github.event.workflow_run.conclusion }}" = "failure" ]; then
             # For workflow failures, create an issue or comment
