@@ -162,28 +162,42 @@ tf-destroy: ## 🧨 Destroy Terraform resources (requires backend config)
 
 # Infrastructure Commands
 setup-backend: ## ⚙️ Create S3 backend for Terraform state (native locking)
-	@echo "$(BLUE)⚙️  Setting up Terraform backend...$(RESET)"
-	@command -v aws >/dev/null 2>&1 || (echo "$(RED)❌ AWS CLI not found. Install: https://aws.amazon.com/cli/$(RESET)" && exit 1)
-	@aws sts get-caller-identity >/dev/null 2>&1 || (echo "$(RED)❌ AWS CLI not configured. Run: aws configure$(RESET)" && exit 1)
-	@read -p "Enter a globally unique S3 bucket name for Terraform state: " BUCKET_NAME; \
+	@bash -c ' \
+	set -e; \
+	echo -e "$(BLUE)⚙️  Setting up Terraform backend...$(RESET)"; \
+	if [ -f iac/backend.config ]; then \
+		echo -e "$(YELLOW)⚠️  A backend configuration already exists:$(RESET)"; \
+		echo ""; \
+		cat iac/backend.config | sed "s/^/  /"; \
+		echo ""; \
+		read -p "Do you want to proceed and create a new backend? (y/N): " CONFIRM; \
+		if [ "$$CONFIRM" != "y" ] && [ "$$CONFIRM" != "Y" ]; then \
+			echo -e "$(GREEN)✅ Aborted. Existing backend preserved.$(RESET)"; \
+			exit 0; \
+		fi; \
+	fi; \
+	command -v aws >/dev/null 2>&1 || (echo -e "$(RED)❌ AWS CLI not found. Install: https://aws.amazon.com/cli/$(RESET)" && exit 1); \
+	aws sts get-caller-identity >/dev/null 2>&1 || (echo -e "$(RED)❌ AWS CLI not configured. Run: aws configure$(RESET)" && exit 1); \
+	read -p "Enter a globally unique S3 bucket name for Terraform state: " BUCKET_NAME; \
 	if [ -z "$$BUCKET_NAME" ]; then \
-		echo "$(RED)❌ Bucket name cannot be empty.$(RESET)"; \
+		echo -e "$(RED)❌ Bucket name cannot be empty.$(RESET)"; \
 		exit 1; \
 	fi; \
-	echo "$(BLUE)▶️ Creating S3 bucket '$$BUCKET_NAME' in region $(AWS_REGION)...$(RESET)"; \
+	echo -e "$(BLUE)▶️ Creating S3 bucket '\''$$BUCKET_NAME'\'' in region $(AWS_REGION)...$(RESET)"; \
 	aws s3api create-bucket --bucket $$BUCKET_NAME --region $(AWS_REGION) --create-bucket-configuration LocationConstraint=$(AWS_REGION) > /dev/null; \
-	echo "$(BLUE)▶️ Enabling versioning and encryption for '$$BUCKET_NAME'...$(RESET)"; \
+	echo -e "$(BLUE)▶️ Enabling versioning and encryption for '\''$$BUCKET_NAME'\''...$(RESET)"; \
 	aws s3api put-bucket-versioning --bucket $$BUCKET_NAME --versioning-configuration Status=Enabled > /dev/null; \
-	aws s3api put-bucket-encryption --bucket $$BUCKET_NAME --server-side-encryption-configuration '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}' > /dev/null; \
-	echo "$(BLUE)▶️ Creating 'iac/backend.config' for local use...$(RESET)"; \
+	aws s3api put-bucket-encryption --bucket $$BUCKET_NAME --server-side-encryption-configuration '\''{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'\'' > /dev/null; \
+	echo -e "$(BLUE)▶️ Creating '\''iac/backend.config'\'' for local use...$(RESET)"; \
 	echo "bucket         = \"$$BUCKET_NAME\"" > iac/backend.config; \
 	echo "key            = \"aws-lambda-mcp/terraform.tfstate\"" >> iac/backend.config; \
 	echo "region         = \"$(AWS_REGION)\"" >> iac/backend.config; \
 	echo "use_lockfile   = true" >> iac/backend.config; \
-	echo "$(GREEN)✅ Backend setup complete!$(RESET)"; \
-	echo "$(CYAN)ℹ️  Using native S3 state locking (Terraform 1.10+)$(RESET)"; \
-	echo "Run '$(CYAN)make tf-init$(RESET)' to initialize Terraform with the new backend."; \
-	echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\"" >> .env
+	echo -e "$(GREEN)✅ Backend setup complete!$(RESET)"; \
+	echo -e "$(CYAN)ℹ️  Using native S3 state locking (Terraform 1.10+)$(RESET)"; \
+	echo "Run '\''$(CYAN)make tf-init$(RESET)'\'' to initialize Terraform with the new backend."; \
+	echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\"" >> .env \
+	'
 
 login: ## 🔑 Authenticate AWS + Azure CLIs
 	@echo "$(BLUE)🔐 Authenticating AWS + Azure CLIs...$(RESET)"
