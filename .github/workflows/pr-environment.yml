@@ -44,7 +44,13 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             # For pull requests, check what files changed in the PR
             git fetch origin main:main
-            CHANGED_FILES=$(git diff --name-only main...HEAD)
+            # Handle case where there's no merge base
+            if CHANGED_FILES=$(git diff --name-only main...HEAD 2>/dev/null); then
+              echo "Using three-dot diff"
+            else
+              echo "Fallback to two-dot diff"
+              CHANGED_FILES=$(git diff --name-only main..HEAD)
+            fi
           else
             # For workflow_dispatch, check last commit
             CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
@@ -113,7 +119,7 @@ jobs:
             ${{ runner.os }}-cargo-lambda-
 
       - name: Install cargo-lambda
-        if: steps.rust_changes.outputs.rust_changed == 'true' && !hashFiles('~/.cargo/bin/cargo-lambda')
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
@@ -136,10 +142,11 @@ jobs:
 
       - name: Verify Lambda artifacts exist
         run: |
+          # Check if artifacts exist (either from build or cache)
           if [ ! -f "target/lambda/aws-lambda-mcp/bootstrap" ] || [ ! -f "tool_schema.json" ]; then
             echo "ERROR: Required Lambda artifacts not found!"
-            ls -la target/lambda/aws-lambda-mcp/
-            ls -la tool_schema.json || echo "tool_schema.json not found"
+            ls -la target/lambda/aws-lambda-mcp/ 2>/dev/null || echo "Directory not found"
+            ls -la tool_schema.json 2>/dev/null || echo "tool_schema.json not found"
             exit 1
           fi
           echo "Lambda artifacts verified successfully"
