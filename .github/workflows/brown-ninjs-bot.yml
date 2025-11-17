@@ -52,8 +52,12 @@ jobs:
 
           if [ "${{ github.event_name }}" = "issues" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ -n "$ISSUE_NUM" ]; then
-              opencode "$PROMPT" > triage_output.txt
-              gh issue comment $ISSUE_NUM --body "$(cat triage_output.txt)"
+              opencode run "$PROMPT" > triage_output.txt
+              if [ -s triage_output.txt ]; then
+                gh issue comment $ISSUE_NUM --body "$(cat triage_output.txt)"
+              else
+                gh issue comment $ISSUE_NUM --body "Opencode triage completed but no output generated."
+              fi
             fi
           elif [ "${{ github.event.workflow_run.conclusion }}" = "failure" ]; then
             # For workflow failures, create an issue
