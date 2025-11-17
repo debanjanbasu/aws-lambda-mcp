@@ -1,0 +1,36 @@
+name: 🥷 Brown Ninjs Bot - Auto Triage & Fix
+
+on:
+  issues:
+    types: [opened]
+  workflow_run:
+    workflows: ["*"]
+    types: [completed]
+
+jobs:
+  triage:
+    name: 🤖 Auto Triage & Fix Issues
+    if: |
+      github.event_name == 'issues' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install opencode
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: 🚀 Trigger opencode triage
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            gh issue comment ${{ github.event.issue.number }} --body "/oc Plan methodically: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: ${{ github.event.issue.body }}"
+          elif [ "${{ github.event.workflow_run.conclusion }}" = "failure" ]; then
+            # For workflow failures, create an issue or comment
+            gh issue create --title "Workflow Failure: ${{ github.event.workflow_run.name }}" --body "/oc Investigate and fix this workflow failure. Logs: ${{ github.event.workflow_run.html_url }}"
+          fi
