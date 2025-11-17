@@ -28,7 +28,7 @@ jobs:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Post triage comment
+      - name: 💬 Post triage comment
         run: |
           gh issue comment ${{ github.event.issue.number }} --body "/oc Plan methodically and fix this issue: ${{ github.event.issue.body }}"
 
