@@ -48,14 +48,14 @@ jobs:
           queries: security-extended
           config-file: ./.github/codeql/codeql-config.yml
 
-      - name: Setup Rust toolchain
+      - name: ⚙️ Setup Rust toolchain
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
           targets: aarch64-unknown-linux-gnu
 
-      - name: Cache Rust dependencies
+      - name: 💾 Cache Rust dependencies
         uses: actions/cache@v4
         with:
           path: |
