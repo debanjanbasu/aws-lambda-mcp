@@ -99,6 +99,13 @@ resource "azuread_application" "agentcore_app" {
   }
 
   tags = local.entra_app_tags
+
+  timeouts {
+    create = "20m"
+    read   = "20m"
+    update = "20m"
+    delete = "20m"
+  }
 }
 
 
@@ -124,7 +131,10 @@ resource "azuread_service_principal" "agentcore_app" {
   tags = local.entra_app_tags
 
   timeouts {
-    create = "15m"
+    create = "30m"
+    read   = "10m"
+    update = "10m"
+    delete = "10m"
   }
 }
 
