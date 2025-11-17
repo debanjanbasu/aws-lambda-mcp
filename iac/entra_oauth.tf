@@ -107,12 +107,6 @@ resource "azuread_application" "agentcore_app" {
   }
 }
 
-resource "time_sleep" "wait_for_ad_replication" {
-  depends_on = [azuread_application.agentcore_app]
-
-  create_duration = "60s"
-}
-
 # Set application identifier URI - api://{client_id}
 #
 # Why needed for PKCE OAuth 2.0?
@@ -133,10 +127,7 @@ resource "time_sleep" "wait_for_ad_replication" {
 # Managed separately because it depends on the application's client_id
 # which is only known after the application is created (chicken-and-egg)
 resource "azuread_application_identifier_uri" "agentcore_app" {
-  depends_on = [
-    azuread_application.agentcore_app,
-    time_sleep.wait_for_ad_replication
-  ]
+  depends_on = [azuread_application.agentcore_app]
 
   application_id = azuread_application.agentcore_app.id
   identifier_uri = "api://${azuread_application.agentcore_app.client_id}"
@@ -155,10 +146,7 @@ resource "azuread_application_identifier_uri" "agentcore_app" {
 # - app_role_assignment_required = false: All org users can access without assignment
 # - This enables seamless SSO for all Enterprise users
 resource "azuread_service_principal" "agentcore_app" {
-  depends_on = [
-    azuread_application.agentcore_app,
-    time_sleep.wait_for_ad_replication
-  ]
+  depends_on = [azuread_application.agentcore_app]
 
   client_id = azuread_application.agentcore_app.client_id
 
