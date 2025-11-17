@@ -53,10 +53,52 @@ mod tests {
         assert!((TemperatureUnit::F.convert_from_celsius(0.0) - 32.0).abs() < f64::EPSILON);
         assert!((TemperatureUnit::F.convert_from_celsius(-40.0) - (-40.0)).abs() < f64::EPSILON);
     }
+
+    #[test]
+    fn test_temperature_unit_serialization() {
+        let c: TemperatureUnit = serde_json::from_str("\"C\"").unwrap();
+        assert_eq!(c, TemperatureUnit::C);
+
+        let f: TemperatureUnit = serde_json::from_str("\"F\"").unwrap();
+        assert_eq!(f, TemperatureUnit::F);
+
+        assert_eq!(serde_json::to_string(&TemperatureUnit::C).unwrap(), "\"C\"");
+        assert_eq!(serde_json::to_string(&TemperatureUnit::F).unwrap(), "\"F\"");
+    }
+
+    #[test]
+    fn test_weather_request_serialization() {
+        let request = WeatherRequest {
+            location: "Sydney".to_string(),
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: WeatherRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.location, "Sydney");
+    }
+
+    #[test]
+    fn test_weather_response_serialization() {
+        let response = WeatherResponse {
+            location: "Sydney".to_string(),
+            temperature: 25.0,
+            temperature_unit: TemperatureUnit::C,
+            weather_code: 0,
+            wind_speed: 10.5,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: WeatherResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.location, "Sydney");
+        assert!((deserialized.temperature - 25.0).abs() < f64::EPSILON);
+        assert_eq!(deserialized.temperature_unit, TemperatureUnit::C);
+        assert_eq!(deserialized.weather_code, 0);
+        assert!((deserialized.wind_speed - 10.5).abs() < f64::EPSILON);
+    }
 }
 
 /// Request for weather information
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct WeatherRequest {
     #[schemars(description = "Location name (city, address, or place)")]
@@ -64,7 +106,7 @@ pub struct WeatherRequest {
 }
 
 /// Response containing weather information
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct WeatherResponse {
     #[schemars(description = "Location name")]

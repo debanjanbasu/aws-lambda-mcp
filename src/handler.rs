@@ -108,12 +108,44 @@ pub async fn function_handler(event: LambdaEvent<Value>) -> Result<Value, Diagno
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lambda_runtime::Context;
+    use serde_json::json;
 
     #[test]
     fn test_strip_gateway_prefix() {
-        assert_eq!(strip_gateway_prefix("gateway-123___get_weather"), "get_weather");
+        assert_eq!(
+            strip_gateway_prefix("gateway-123___get_weather"),
+            "get_weather"
+        );
         assert_eq!(strip_gateway_prefix("get_weather"), "get_weather");
         assert_eq!(strip_gateway_prefix(""), "");
         assert_eq!(strip_gateway_prefix("no_prefix"), "no_prefix");
+    }
+
+    #[test]
+    fn test_extract_tool_name_from_event_name() {
+        let event_payload = json!({"name": "get_weather"});
+        let context = Context::default();
+
+        let tool_name = extract_tool_name(&event_payload, &context);
+        assert_eq!(tool_name, "get_weather");
+    }
+
+    #[test]
+    fn test_extract_tool_name_fallback() {
+        let event_payload = json!({});
+        let context = Context::default();
+
+        let tool_name = extract_tool_name(&event_payload, &context);
+        assert_eq!(tool_name, "unknown");
+    }
+
+    #[tokio::test]
+    async fn test_route_tool_unknown() {
+        let result = route_tool("unknown_tool", json!({})).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error_type, "UnknownTool");
+        assert!(err.error_message.contains("Unknown tool: unknown_tool"));
     }
 }

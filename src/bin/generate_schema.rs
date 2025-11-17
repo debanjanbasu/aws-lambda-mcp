@@ -108,3 +108,58 @@ fn write_schema(tools: &[Tool]) {
 
     fs::write("tool_schema.json", json).expect("Failed to write tool_schema.json");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aws_lambda_mcp::models::{WeatherRequest, WeatherResponse};
+
+    #[test]
+    fn test_generate_bedrock_schema_weather_request() {
+        let schema = generate_bedrock_schema::<WeatherRequest>();
+        assert!(schema.is_object());
+
+        let obj = schema.as_object().unwrap();
+        assert!(obj.contains_key("type"));
+        assert_eq!(obj["type"], "object");
+        assert!(obj.contains_key("properties"));
+
+        let properties = obj["properties"].as_object().unwrap();
+        assert!(properties.contains_key("location"));
+    }
+
+    #[test]
+    fn test_generate_bedrock_schema_weather_response() {
+        let schema = generate_bedrock_schema::<WeatherResponse>();
+        assert!(schema.is_object());
+
+        let obj = schema.as_object().unwrap();
+        assert!(obj.contains_key("type"));
+        assert_eq!(obj["type"], "object");
+        assert!(obj.contains_key("properties"));
+
+        let properties = obj["properties"].as_object().unwrap();
+        assert!(properties.contains_key("location"));
+        assert!(properties.contains_key("temperature"));
+        assert!(properties.contains_key("temperature_unit"));
+        assert!(properties.contains_key("weather_code"));
+        assert!(properties.contains_key("wind_speed"));
+    }
+
+    #[test]
+    fn test_tool_entry_creation() {
+        // This tests the macro indirectly by checking the tool structure
+        let attr = aws_lambda_mcp::tools::weather::get_weather_tool_attr();
+        let tool = Tool {
+            name: attr.name.into(),
+            description: attr.description.unwrap_or_default().into(),
+            input_schema: generate_bedrock_schema::<WeatherRequest>(),
+            output_schema: generate_bedrock_schema::<WeatherResponse>(),
+        };
+
+        assert_eq!(tool.name, "get_weather");
+        assert!(tool.description.contains("weather"));
+        assert!(tool.input_schema.is_object());
+        assert!(tool.output_schema.is_object());
+    }
+}
