@@ -189,14 +189,14 @@ jobs:
         if: env.ACTION == 'deploy'
         run: |
           cd iac
-          terraform init -backend-config=backend-pr.tfvars -reconfigure
+          terraform init -backend-config=backend-pr.tfvars -migrate-state -force-copy
 
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
         run: |
           cd iac
           # Initialize with backend config
-          terraform init -backend-config=backend-pr.tfvars -reconfigure
+          terraform init -backend-config=backend-pr.tfvars -migrate-state -force-copy
           
           # Attempt to apply - let Terraform handle locking naturally
           terraform apply -auto-approve -var-file=pr-environment.tfvars

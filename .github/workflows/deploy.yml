@@ -131,7 +131,7 @@ jobs:
             -backend-config="key=aws-lambda-mcp/terraform.tfstate" \
             -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="use_lockfile=true" \
-            -reconfigure
+            -migrate-state -force-copy
 
       - name: Terraform Apply
         run: cd iac && terraform apply -auto-approve
