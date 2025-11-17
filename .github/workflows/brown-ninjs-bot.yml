@@ -34,24 +34,31 @@ jobs:
       - name: Install opencode
         run: curl -fsSL https://opencode.ai/install | bash
 
-      - name: 🚀 Trigger opencode triage
+      - name: 🚀 Run opencode triage
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
             ISSUE_NUM=${{ github.event.issue.number }}
             ISSUE_BODY="${{ github.event.issue.body }}"
+            PROMPT="Plan methodically to triage and fix this issue: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             ISSUE_NUM=${{ github.event.inputs.issue_number }}
             ISSUE_BODY=$(gh issue view $ISSUE_NUM --json body -q .body)
+            PROMPT="Plan methodically to triage and fix this issue: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
           else
             ISSUE_NUM=""
             ISSUE_BODY=""
+            PROMPT=""
           fi
 
           if [ "${{ github.event_name }}" = "issues" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ -n "$ISSUE_NUM" ]; then
-              gh issue comment $ISSUE_NUM --body "/bot-oc Plan methodically: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
+              opencode "$PROMPT" > triage_output.txt
+              gh issue comment $ISSUE_NUM --body "$(cat triage_output.txt)"
             fi
           elif [ "${{ github.event.workflow_run.conclusion }}" = "failure" ]; then
-            # For workflow failures, create an issue or comment
-            gh issue create --title "Workflow Failure: ${{ github.event.workflow_run.name }}" --body "/oc Investigate and fix this workflow failure. Logs: ${{ github.event.workflow_run.html_url }}"
+            # For workflow failures, create an issue
+            gh issue create --title "Workflow Failure: ${{ github.event.workflow_run.name }}" --body "Investigate and fix this workflow failure. Logs: ${{ github.event.workflow_run.html_url }}"
           fi
+        env:
+          MODEL: opencode/grok-code
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
