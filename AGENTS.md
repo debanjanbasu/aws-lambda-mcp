@@ -20,7 +20,7 @@
 - **Async**: Use `async/await` everywhere, no blocking I/O, `#[instrument]` for tracing
 - **Security**: No unsafe code, no hardcoded secrets, environment variables only
 - **Performance**: Prefer `&str` over `String`, minimize allocations, `LazyLock` for globals
-- **Makefiles**: When using `echo` in `bash -c` scripts, use `echo -e` to interpret ANSI color codes (e.g., `echo -e "$(BLUE)Message$(RESET)"`)
+- **Makefiles**: Use `@printf` instead of `@echo` for colored output to properly interpret ANSI color codes (e.g., `@printf "$(BLUE)Message$(RESET)\n"`)
 
 **Deployment Commands:**
 - `make deploy` - Build and deploy Lambda to AWS (requires backend config)
