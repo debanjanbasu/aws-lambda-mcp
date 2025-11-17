@@ -17,11 +17,10 @@ fn extract_tool_name(event_payload: &Value, context: &Context) -> String {
         .client_context
         .as_ref()
         .and_then(|cc| cc.custom.get("bedrockAgentCoreToolName"))
-        .map_or_else(|| {
-            event_payload["name"]
-                .as_str()
-                .unwrap_or("unknown")
-        }, String::as_str);
+        .map_or_else(
+            || event_payload["name"].as_str().unwrap_or("unknown"),
+            String::as_str,
+        );
 
     strip_gateway_prefix(tool_name)
 }
@@ -91,16 +90,30 @@ async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, Diag
 /// - `SerializationError`: Failed to serialize the tool response back to JSON
 /// - `UnknownTool`: The requested tool name was not recognized
 #[instrument(skip(event), fields(req_id = %event.context.request_id))]
-pub async fn function_handler(
-    event: LambdaEvent<Value>,
-) -> Result<Value, Diagnostic> {
+pub async fn function_handler(event: LambdaEvent<Value>) -> Result<Value, Diagnostic> {
     // No point in trying to log event or context, they're obfuscated for privacy
     let (event_payload, context) = event.into_parts();
 
-    info!(event_size = event_payload.to_string().len(), "Lambda invocation started");
+    info!(
+        event_size = event_payload.to_string().len(),
+        "Lambda invocation started"
+    );
 
     let tool_name = extract_tool_name(&event_payload, &context);
     info!(tool_name = %tool_name, "Routing to tool handler");
 
     route_tool(&tool_name, event_payload).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_gateway_prefix() {
+        assert_eq!(strip_gateway_prefix("gateway-123___get_weather"), "get_weather");
+        assert_eq!(strip_gateway_prefix("get_weather"), "get_weather");
+        assert_eq!(strip_gateway_prefix(""), "");
+        assert_eq!(strip_gateway_prefix("no_prefix"), "no_prefix");
+    }
 }

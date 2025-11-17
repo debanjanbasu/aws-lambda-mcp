@@ -2,6 +2,27 @@
 
 Production-ready Model Context Protocol server implementation using Amazon Bedrock AgentCore Gateway. Secure, OAuth-authenticated bridge between Bedrock AI agents and custom tools.
 
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Features](#features)
+- [One-Time Backend Setup](#one-time-backend-setup)
+- [Quick Start](#quick-start)
+- [Ephemeral Pull Request Environments](#ephemeral-pull-request-environments)
+- [Automated Dependency Updates](#automated-dependency-updates)
+- [Example: Weather Tool](#example-weather-tool)
+- [Prerequisites](#prerequisites)
+- [Initial Setup for GitHub Template Repositories](#initial-setup-for-github-template-repositories)
+- [Structure](#structure)
+- [Usage](#usage)
+- [Troubleshooting](#troubleshooting)
+- [Commands](#commands)
+- [Schema Generation](#schema-generation)
+- [Adding Tools](#adding-tools)
+- [Configuration](#configuration)
+- [Coding Standards](#coding-standards)
+- [Contributing](#contributing)
+
 ## Architecture
 
 ```
@@ -41,7 +62,7 @@ This command will:
 1. Prompt you for a unique S3 bucket name
 2. Create the S3 bucket for Terraform state storage
 3. Enable versioning and encryption on the bucket
-4. Create a DynamoDB table for state locking
+4. Configure native S3 state locking (Terraform 1.10+)
 5. Generate the `iac/backend.config` file
 
 After setup, you can deploy your infrastructure with:
@@ -54,7 +75,7 @@ make deploy
 ## Quick Start
 
 ```bash
-make setup-backend # One-time backend setup (S3 + DynamoDB)
+make setup-backend # One-time backend setup (S3 with native locking)
 make deploy        # Build and deploy to AWS
 make test-token    # Get OAuth token + launch MCP Inspector
 ```
@@ -103,8 +124,13 @@ Included working tool demonstrates the pattern:
 - **Rust** (edition 2024)
 - **cargo-lambda**: `cargo install cargo-lambda`
 - **UPX**: `brew install upx` (macOS) | `apt install upx-ucl` (Linux)
+- **Zig**: `brew install zig` (macOS) | `apt install zig` (Linux)
+- **jq**: `brew install jq` (macOS) | `apt install jq` (Linux)
+- **Terraform** (latest)
 - **AWS CLI** (configured)
 - **Azure CLI** (configured)
+
+**Note**: Running `make release` will automatically install missing tools locally.
 
 ## Initial Setup for GitHub Template Repositories
 
@@ -118,12 +144,11 @@ When using this repository as a GitHub template, you'll need to set up several s
 | `AZURE_CLIENT_ID` | Entra ID App Registration Client ID | [Azure GitHub Actions Setup](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-azure) |
 | `AZURE_TENANT_ID` | Entra ID Tenant ID | [Azure GitHub Actions Setup](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-azure) |
 | `TF_BACKEND_BUCKET` | S3 Bucket name for Terraform state storage | Run `make setup-backend` after setting AWS credentials |
-| `TF_BACKEND_DYNAMODB_TABLE` | DynamoDB Table name for Terraform state locking | Run `make setup-backend` after setting AWS credentials |
 
 ### Setting Up AWS Authentication
 
 1. Follow [GitHub's documentation](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services) to configure OIDC between GitHub and AWS
-2. Create an IAM role with the necessary permissions for Lambda, API Gateway, S3, and DynamoDB
+2. Create an IAM role with the necessary permissions for Lambda, API Gateway, and S3
 3. Set the `AWS_IAM_ROLE_ARN` secret to the ARN of this role
 
 ### Setting Up Entra ID Authentication
@@ -135,8 +160,10 @@ When using this repository as a GitHub template, you'll need to set up several s
 ### Setting Up Terraform Backend
 
 After configuring AWS authentication:
-1. Run `make setup-backend` locally to create the S3 bucket and DynamoDB table. This command will also automatically add the `TF_BACKEND_BUCKET` and `TF_BACKEND_DYNAMODB_TABLE` values to your local `.env` file.
+1. Run `make setup-backend` locally to create the S3 bucket. This command will also automatically add the `TF_BACKEND_BUCKET` value to your local `.env` file.
 2. Use `make update-secrets` to push these values to your GitHub repository secrets.
+
+
 
 ### Updating GitHub Secrets
 

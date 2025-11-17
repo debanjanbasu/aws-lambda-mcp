@@ -103,3 +103,15 @@ variable "gateway_exception_level" {
     error_message = "Exception level must be one of: DEBUG, INFO, WARN, ERROR, or null."
   }
 }
+
+# Infrastructure Operation Mode
+variable "operation_mode" {
+  description = "Operation mode for infrastructure. 'deploy' creates all resources, 'destroy' handles cleanup."
+  type        = string
+  default     = "deploy"
+
+  validation {
+    condition     = contains(["deploy", "destroy"], var.operation_mode)
+    error_message = "Operation mode must be either 'deploy' or 'destroy'."
+  }
+}

@@ -4,6 +4,9 @@ locals {
   # Microsoft Graph API identifiers (well-known GUIDs)
   microsoft_graph_app_id             = "00000003-0000-0000-c000-000000000000"
   microsoft_graph_user_read_scope_id = "e1fe6dd8-ba31-4d61-89e7-88639da4683d"
+  
+  # Microsoft Graph App Role IDs (for application permissions)
+  microsoft_graph_user_read_all_app_role_id = "df021288-bdef-4463-88db-98f22de89214"
 
   # OpenID Connect scope IDs for Microsoft Graph
   openid_scope_id  = "37f7f235-527c-4136-accd-4a02d197296e"
@@ -26,7 +29,7 @@ locals {
   ], var.entra_redirect_uris))
 
   # Generate display name and descriptions from project name
-  project_display_name     = title(replace(var.project_name, "-", " "))
+  project_display_name = title(replace(var.project_name, "-", " "))
 
   # Generate Entra app tags from project type
   entra_app_tags = ["agentcore-gateway", "oauth2", "pkce", "terraform-managed"]
