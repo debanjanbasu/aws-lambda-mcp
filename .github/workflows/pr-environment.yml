@@ -274,37 +274,37 @@ jobs:
           if [ "$GATEWAY_URL" != "unavailable" ]; then
             if [ "${{ env.PR_NUMBER }}" != "manual" ]; then
               COMMENT="## 🌱 Ephemeral Environment Deployed
-            
+
               Your PR environment has been deployed successfully!
-            
+
               🔗 **Gateway URL**: $GATEWAY_URL
-            
+
               🧪 **Testing Instructions**:
-              1. Run \`make -C iac test-token\` to generate an OAuth token
+              1. Run \`make test-token\` to generate an OAuth token
               2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
               3. Use the token to authenticate in the Inspector UI
-            
+
               📋 **Environment Details**:
               - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
               - Branch: \`${{ github.head_ref }}\`
-            
+
               ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
             else
               COMMENT="## 🌱 Manual Environment Deployed
-            
+
               Your manual environment has been deployed successfully!
-            
+
               🔗 **Gateway URL**: $GATEWAY_URL
-            
+
               🧪 **Testing Instructions**:
-              1. Run \`make -C iac test-token\` to generate an OAuth token
+              1. Run \`make test-token\` to generate an OAuth token
               2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
               3. Use the token to authenticate in the Inspector UI
-            
+
               📋 **Environment Details**:
               - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
               - Run Number: \`${{ github.run_number }}\`
-            
+
               ⚠️ **Manual Cleanup Required**: Destroy this environment manually when no longer needed:
               \`\`\`
               gh workflow run pr-environment.yml -f action=destroy
@@ -341,37 +341,37 @@ jobs:
           if [ "$GATEWAY_URL" != "unavailable" ]; then
             if [ "${{ env.PR_NUMBER }}" != "manual" ]; then
               COMMENT="## 🌱 Ephemeral Environment Deployed ✅
-            
+
               Your PR environment has been deployed successfully!
-            
+
               🔗 **Gateway URL**: $GATEWAY_URL
-            
+
               🧪 **Testing Instructions**:
-              1. Run \`make -C iac test-token\` to generate an OAuth token
+              1. Run \`make test-token\` to generate an OAuth token
               2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
               3. Use the token to authenticate in the Inspector UI
-            
+
               📋 **Environment Details**:
               - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
               - Branch: \`${{ github.head_ref }}\`
-            
+
               ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
             else
               COMMENT="## 🌱 Manual Environment Deployed ✅
-            
+
               Your manual environment has been deployed successfully!
-            
+
               🔗 **Gateway URL**: $GATEWAY_URL
-            
+
               🧪 **Testing Instructions**:
-              1. Run \`make -C iac test-token\` to generate an OAuth token
+              1. Run \`make test-token\` to generate an OAuth token
               2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
               3. Use the token to authenticate in the Inspector UI
-            
+
               📋 **Environment Details**:
               - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
               - Run Number: \`${{ github.run_number }}\`
-            
+
               ⚠️ **Manual Cleanup Required**: Destroy this environment manually when no longer needed:
               \`\`\`
               gh workflow run pr-environment.yml -f action=destroy
