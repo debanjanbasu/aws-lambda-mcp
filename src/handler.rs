@@ -111,7 +111,10 @@ mod tests {
 
     #[test]
     fn test_strip_gateway_prefix() {
-        assert_eq!(strip_gateway_prefix("gateway-123___get_weather"), "get_weather");
+        assert_eq!(
+            strip_gateway_prefix("gateway-123___get_weather"),
+            "get_weather"
+        );
         assert_eq!(strip_gateway_prefix("get_weather"), "get_weather");
         assert_eq!(strip_gateway_prefix(""), "");
         assert_eq!(strip_gateway_prefix("no_prefix"), "no_prefix");
