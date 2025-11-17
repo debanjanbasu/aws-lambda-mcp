@@ -162,7 +162,7 @@ jobs:
   deploy-environment:
     needs: build-lambda
     if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
-    runs-on: ubuntu-lite
+    runs-on: ubuntu-slim
     permissions:
       id-token: write
       contents: read
