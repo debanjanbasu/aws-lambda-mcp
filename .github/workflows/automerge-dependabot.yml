@@ -1,5 +1,5 @@
 # .github/workflows/automerge-dependabot.yml
-name: Dependabot Auto-merge
+name: 🤖 Dependabot Auto-merge
 
 on:
   pull_request:
@@ -26,6 +26,7 @@ env:
 
 jobs:
   automerge:
+    name: 🔄 Auto-merge Dependabot PRs
     # Only run on PRs from dependabot that are not in draft
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
     runs-on: ubuntu-24.04-arm
@@ -33,10 +34,10 @@ jobs:
       is_rust: ${{ steps.detect_pr_type.outputs.IS_RUST_PR }}
       is_terraform: ${{ steps.detect_pr_type.outputs.IS_TERRAFORM_PR }}
     steps:
-      - name: Checkout PR code
+      - name: 📦 Checkout PR code
         uses: actions/checkout@v5
 
-      - name: Detect PR type
+      - name: 🕵️ Detect PR type
         id: detect_pr_type
         run: |
           # Determine if this is a Terraform PR based on changed files
@@ -54,7 +55,7 @@ jobs:
           fi
 
       # Rust Dependency Updates
-      - name: Setup Rust toolchain
+      - name: ⚙️ Setup Rust toolchain
         if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
@@ -62,7 +63,7 @@ jobs:
           components: rust-src
           targets: aarch64-unknown-linux-gnu
 
-      - name: Cache Rust dependencies
+      - name: 💾 Cache Rust dependencies
         if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         uses: actions/cache@v4
         with:
@@ -76,7 +77,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
-      - name: Install cargo-lambda
+      - name: 🔧 Install cargo-lambda
         if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         run: |
           if ! command -v cargo-lambda &> /dev/null
@@ -84,38 +85,38 @@ jobs:
             cargo install cargo-lambda
           fi
 
-      - name: Setup Zig
+      - name: ⚙️ Setup Zig
         if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         uses: mlugg/setup-zig@v2
         with:
           version: latest
 
       # Terraform Dependency Updates
-      - name: Setup Terraform
+      - name: 🏗️ Setup Terraform
         if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: latest # Use latest Terraform version for dependency updates
 
-      - name: Cache Terraform plugins
+      - name: 💾 Cache Terraform plugins
         if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
         uses: actions/cache@v4
         with:
           path: iac/.terraform
           key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
 
-      - name: Terraform Init
+      - name: 🚀 Terraform Init
         if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
         run: |
           cd iac && terraform init
 
-      - name: Terraform Validate
+      - name: ✅ Terraform Validate
         if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
         run: |
           cd iac && terraform validate
 
       # Run appropriate tests based on PR type
-      - name: Run Tests
+      - name: 🧪 Run Tests
         # For Dependabot PRs, we only run tests to verify compatibility
         run: |
            if [ "${{ steps.detect_pr_type.outputs.IS_RUST_PR }}" = "true" ]; then
@@ -131,7 +132,7 @@ jobs:
              make test || (echo "Tests failed - this may indicate breaking changes" && exit 1)
            fi
 
-      - name: Approve and Merge
+      - name: ✅ Approve and Merge
         if: success() # Only run if tests pass
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -140,7 +141,7 @@ jobs:
           gh pr review --approve "$PR_URL"
           gh pr merge --auto --merge "$PR_URL"
 
-      - name: Handle Failure
+      - name: 🚨 Handle Failure
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

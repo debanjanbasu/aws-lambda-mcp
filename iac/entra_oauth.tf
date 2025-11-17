@@ -107,9 +107,10 @@ resource "azuread_application" "agentcore_app" {
 # NOTE: Converting delegated permissions to app roles
 # App roles are typically used for application-only permissions, not user-delegated ones
 # Only User.Read has an app role equivalent (User.Read.All), others (openid, profile, email) are OIDC scopes only
+# Skip this assignment if running with limited permissions
 resource "azuread_app_role_assignment" "graph_permissions" {
   app_role_id         = local.microsoft_graph_user_read_all_app_role_id
-  principal_object_id = data.azuread_client_config.current.object_id
+  principal_object_id = azuread_application.agentcore_app.object_id
   resource_object_id  = data.azuread_service_principal.microsoft_graph.object_id
 }
 
