@@ -116,8 +116,6 @@ resource "azuread_application" "agentcore_app" {
 # - app_role_assignment_required = false: All org users can access without assignment
 # - This enables seamless SSO for all Enterprise users
 resource "azuread_service_principal" "agentcore_app" {
-  depends_on = [azuread_application.agentcore_app]
-
   client_id = azuread_application.agentcore_app.client_id
 
   # Allow all org users to access without individual assignment
@@ -142,8 +140,6 @@ resource "azuread_service_principal_delegated_permission_grant" "graph_permissio
 # Client secret for OAuth 2.0 confidential clients
 # 2 year expiry - minimum practical duration for Entra ID
 resource "azuread_application_password" "oauth_client" {
-  depends_on = [azuread_application.agentcore_app]
-
   application_id = azuread_application.agentcore_app.id
   display_name   = "OAuth 2.0 Confidential Client"
   end_date       = timeadd(timestamp(), "17520h") # 2 years
