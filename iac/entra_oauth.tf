@@ -101,14 +101,12 @@ resource "azuread_application" "agentcore_app" {
   tags = local.entra_app_tags
 
   timeouts {
-    create = "20m"
+    create = "30m"
     read   = "20m"
     update = "20m"
     delete = "20m"
   }
 }
-
-
 
 # Service Principal - Required for organization-wide admin consent automation
 #
@@ -132,9 +130,9 @@ resource "azuread_service_principal" "agentcore_app" {
 
   timeouts {
     create = "30m"
-    read   = "10m"
-    update = "10m"
-    delete = "10m"
+    read   = "20m"
+    update = "20m"
+    delete = "20m"
   }
 }
 
@@ -145,6 +143,12 @@ resource "azuread_service_principal_delegated_permission_grant" "graph_permissio
   service_principal_object_id          = azuread_service_principal.agentcore_app.object_id
   resource_service_principal_object_id = data.azuread_service_principal.microsoft_graph.object_id
   claim_values                         = ["User.Read", "openid", "profile", "email"]
+
+  timeouts {
+    create = "20m"
+    read   = "20m"
+    delete = "20m"
+  }
 }
 
 # Client secret for OAuth 2.0 confidential clients
