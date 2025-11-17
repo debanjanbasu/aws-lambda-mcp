@@ -1,4 +1,4 @@
-name: opencode
+name: 🔧 Opencode AI Assistant
 
 on:
   issue_comment:
@@ -6,6 +6,7 @@ on:
 
 jobs:
   opencode:
+    name: 🤖 AI Code Assistant
     if: |
       contains(github.event.comment.body, ' /oc') ||
       startsWith(github.event.comment.body, '/oc') ||
@@ -18,10 +19,10 @@ jobs:
       pull-requests: read
       issues: read
     steps:
-      - name: Checkout repository
+      - name: 📦 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run opencode
+      - name: 🚀 Run opencode
         uses: sst/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
