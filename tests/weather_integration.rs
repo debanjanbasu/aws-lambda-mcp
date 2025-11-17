@@ -1,6 +1,6 @@
+use anyhow::Result;
 use aws_lambda_mcp::models::weather::{TemperatureUnit, WeatherRequest};
 use aws_lambda_mcp::tools::get_weather;
-use anyhow::Result;
 
 #[tokio::test]
 async fn test_get_weather_integration() -> Result<()> {
