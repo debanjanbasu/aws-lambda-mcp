@@ -195,8 +195,9 @@ jobs:
         if: env.ACTION == 'deploy'
         run: |
           cd iac
-          # Initialize with backend config
-          terraform init -backend-config=backend-pr.tfvars -migrate-state -force-copy
+          
+          # Untaint the service principal to prevent recreation due to external changes
+          terraform untaint azuread_service_principal.agentcore_app || true
           
           # Attempt to apply - let Terraform handle locking naturally
           terraform apply -auto-approve -var-file=pr-environment.tfvars
