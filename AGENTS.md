@@ -5,9 +5,11 @@
 - `make release` - ARM64 production build with UPX compression
 - `make test` - Run all tests
 - `cargo test <test_name>` - Run single test
-- `cargo clippy -- -D warnings` - Lint with strict warnings
+- `cargo clippy` - Run clippy with strict lints (denies unsafe code, unwrap, panic, etc.)
 - `cargo fmt` - Format code
 - `make schema` - Generate tool schemas
+- `make check-tools` - Install/check required tools (Rust, Zig, cargo-lambda, UPX, jq, Terraform)
+- `make help` - Show all available make commands
 
 **Code Style Guidelines:**
 - **Error Handling**: Return `Result<T>`, use `?` with `.context()`, no `unwrap/expect/panic`
@@ -18,3 +20,30 @@
 - **Async**: Use `async/await` everywhere, no blocking I/O, `#[instrument]` for tracing
 - **Security**: No unsafe code, no hardcoded secrets, environment variables only
 - **Performance**: Prefer `&str` over `String`, minimize allocations, `LazyLock` for globals
+
+**Deployment Commands:**
+- `make deploy` - Build and deploy Lambda to AWS (requires backend config)
+- `make release` - Build optimized ARM64 Lambda binary with UPX compression
+
+**Infrastructure Setup:**
+- `make setup-backend` - Create S3 backend for Terraform state with native locking
+- `make check-backend-config` - Verify backend configuration exists
+
+**Development Tools:**
+- `make login` - Authenticate AWS and Azure CLIs
+- `make test-token` - Get OAuth token and launch MCP Inspector
+- `make test-lambda` - Test Lambda directly (bypass API Gateway)
+- `make logs` - Tail Lambda CloudWatch logs
+- `make clean` - Remove tokens and backups
+- `make kill-inspector` - Kill running MCP Inspector processes
+- `make oauth-config` - Display OAuth configuration
+- `make add-redirect-url` - Add OAuth redirect URL to Entra ID app
+- `make remove-redirect-url` - Remove OAuth redirect URL from Entra ID app
+- `make update-secrets` - Update GitHub secrets from .env file
+- `make update-deps` - Update all Rust and Terraform dependencies
+
+**Terraform Commands:**
+- `make tf-init` - Initialize Terraform with backend config
+- `make tf-plan` - Plan Terraform changes (builds Lambda first)
+- `make tf-apply` - Apply Terraform changes (builds Lambda first)
+- `make tf-destroy` - Destroy Terraform resources
