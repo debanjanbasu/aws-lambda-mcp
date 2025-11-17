@@ -48,8 +48,9 @@ jobs:
           queries: security-extended
           config-file: ./.github/codeql/codeql-config.yml
 
-      - name: 🛠️ Autobuild
-        uses: github/codeql-action/autobuild@v4
+      - name: 🛠️ Build Project
+        run: |
+          cargo build --release --workspace
 
       - name: 🔍 Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
