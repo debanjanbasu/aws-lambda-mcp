@@ -163,6 +163,8 @@ After configuring AWS authentication:
 1. Run `make setup-backend` locally to create the S3 bucket. This command will also automatically add the `TF_BACKEND_BUCKET` value to your local `.env` file.
 2. Use `make update-secrets` to push these values to your GitHub repository secrets.
 
+
+
 ### Updating GitHub Secrets
 
 To update your GitHub repository secrets for **both GitHub Actions and Dependabot**, create a `.env` file in the root of the project with the secrets you wish to update (e.g., `MY_SECRET="myvalue"`). You can use the provided `.env.example` file as a template for the required and optional secrets.
