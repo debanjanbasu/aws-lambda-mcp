@@ -154,6 +154,10 @@ resource "azuread_service_principal" "agentcore_app" {
   app_role_assignment_required = false
 
   tags = local.entra_app_tags
+
+  timeouts {
+    create = "15m"
+  }
 }
 
 # Grant organization-wide admin consent for Microsoft Graph permissions
