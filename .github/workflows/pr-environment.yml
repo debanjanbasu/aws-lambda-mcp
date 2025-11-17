@@ -36,14 +36,61 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Check if Rust files changed
+        id: rust_changes
+        run: |
+          # Check if any Rust-related files have changed
+          # We compare against the base branch (main) to detect changes
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For pull requests, check what files changed in the PR
+            git fetch origin main:main
+            CHANGED_FILES=$(git diff --name-only main...HEAD)
+          else
+            # For workflow_dispatch, check last commit
+            CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
+          fi
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Check if any Rust-related files changed
+          RUST_CHANGED=false
+          while read -r file; do
+            if [[ "$file" == src/* ]] || [[ "$file" == *.rs ]] || [[ "$file" == Cargo.toml ]] || [[ "$file" == Cargo.lock ]] || [[ "$file" == Makefile ]] || [[ "$file" == .cargo/* ]]; then
+              RUST_CHANGED=true
+              echo "Rust-related file changed: $file"
+              break
+            fi
+          done <<< "$CHANGED_FILES"
+          
+          # If no files changed at all (shouldn't happen), assume no change needed
+          if [ -z "$CHANGED_FILES" ]; then
+            RUST_CHANGED=false
+          fi
+          
+          echo "rust_changed=$RUST_CHANGED" >> $GITHUB_OUTPUT
+          echo "Rust files changed: $RUST_CHANGED"
+
+      - name: Cache Lambda build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            target/lambda/
+            tool_schema.json
+          key: ${{ runner.os }}-${{ runner.arch }}-lambda-build-${{ hashFiles('src/**', 'Cargo.toml', 'Cargo.lock', 'Makefile', '.cargo/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-lambda-build-
+
       - name: Setup Rust toolchain
         id: rust-toolchain
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
           targets: aarch64-unknown-linux-gnu
 
       - name: Cache Rust dependencies
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -57,6 +104,7 @@ jobs:
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
       - name: Cache cargo-lambda
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-lambda
@@ -65,6 +113,7 @@ jobs:
             ${{ runner.os }}-cargo-lambda-
 
       - name: Install cargo-lambda
+        if: steps.rust_changes.outputs.rust_changed == 'true' && !hashFiles('~/.cargo/bin/cargo-lambda')
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
@@ -72,15 +121,28 @@ jobs:
           fi
 
       - name: Setup Zig
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: mlugg/setup-zig@v2
         with:
           version: latest
 
       - name: Install UPX (for release build compression)
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         run: sudo apt-get update && sudo apt-get install -y upx-ucl
 
       - name: Build Lambda (Release)
+        if: steps.rust_changes.outputs.rust_changed == 'true'
         run: make release
+
+      - name: Verify Lambda artifacts exist
+        run: |
+          if [ ! -f "target/lambda/aws-lambda-mcp/bootstrap" ] || [ ! -f "tool_schema.json" ]; then
+            echo "ERROR: Required Lambda artifacts not found!"
+            ls -la target/lambda/aws-lambda-mcp/
+            ls -la tool_schema.json || echo "tool_schema.json not found"
+            exit 1
+          fi
+          echo "Lambda artifacts verified successfully"
 
       - name: Upload Lambda build artifacts
         uses: actions/upload-artifact@v4
