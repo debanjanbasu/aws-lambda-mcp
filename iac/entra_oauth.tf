@@ -59,10 +59,10 @@ resource "azuread_application" "agentcore_app" {
   required_resource_access {
     resource_app_id = local.microsoft_graph_app_id
 
-    # User.Read - basic profile access
+    # User.Read.All - basic profile access (app role version)
     resource_access {
-      id   = local.microsoft_graph_user_read_scope_id
-      type = "Scope"
+      id   = local.microsoft_graph_user_read_all_app_role_id
+      type = "Role"
     }
 
     # openid - OpenID Connect authentication
@@ -100,58 +100,17 @@ resource "azuread_application" "agentcore_app" {
   }
 
   tags = local.entra_app_tags
-
-  timeouts {
-    create = "30m"
-    read   = "20m"
-    update = "20m"
-    delete = "20m"
-  }
 }
 
-# Service Principal - Required for organization-wide admin consent automation
-#
-# Why needed for PKCE public client?
-# - PKCE itself doesn't require a service principal
-# - However, to grant admin consent for all Enterprise Group users via Terraform,
-#   we need a service principal as the consent target
-# - Without this, each user would see individual consent prompts
-# - Alternative: Admin manually clicks "Grant admin consent" in Azure Portal
-#
-# Configuration:
-# - app_role_assignment_required = false: All org users can access without assignment
-# - This enables seamless SSO for all Enterprise users
-resource "azuread_service_principal" "agentcore_app" {
-  depends_on = [azuread_application.agentcore_app]
-  
-  client_id  = azuread_application.agentcore_app.client_id
-
-  # Allow all org users to access without individual assignment
-  app_role_assignment_required = false
-
-  tags = local.entra_app_tags
-
-  timeouts {
-    create = "30m"
-    read   = "20m"
-    update = "20m"
-    delete = "20m"
-  }
-}
-
-# Grant organization-wide admin consent for Microsoft Graph permissions
-# This pre-approves the required scopes so users don't see consent prompts
-# Scopes: User.Read (profile), openid, profile (name claims), email
-resource "azuread_service_principal_delegated_permission_grant" "graph_permissions" {
-  service_principal_object_id          = azuread_service_principal.agentcore_app.object_id
-  resource_service_principal_object_id = data.azuread_service_principal.microsoft_graph.object_id
-  claim_values                         = ["User.Read", "openid", "profile", "email"]
-
-  timeouts {
-    create = "20m"
-    read   = "20m"
-    delete = "20m"
-  }
+# Grant organization-wide admin consent for Microsoft Graph permissions using app role assignments
+# This pre-approves the required app roles so users don't see consent prompts
+# NOTE: Converting delegated permissions to app roles
+# App roles are typically used for application-only permissions, not user-delegated ones
+# Only User.Read has an app role equivalent (User.Read.All), others (openid, profile, email) are OIDC scopes only
+resource "azuread_app_role_assignment" "graph_permissions" {
+  app_role_id         = local.microsoft_graph_user_read_all_app_role_id
+  principal_object_id = data.azuread_client_config.current.object_id
+  resource_object_id  = data.azuread_service_principal.microsoft_graph.object_id
 }
 
 # Client secret for OAuth 2.0 confidential clients
