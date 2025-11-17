@@ -143,7 +143,7 @@ deploy: ## 🚀 Build and deploy to AWS (requires backend config)
 tf-init: ## ⚙️ Initialize Terraform (requires backend config)
 	@make check-backend-config
 	@echo "$(BLUE)⚙️  Initializing Terraform...$(RESET)"
-	@cd iac && terraform init -backend-config=backend.config -migrate-state -force-copy
+	@cd iac && terraform init -backend-config=backend.config
 
 tf-plan: release ## 📋 Plan Terraform changes (builds Lambda first, requires backend config)
 	@make check-backend-config

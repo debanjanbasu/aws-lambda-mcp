@@ -189,13 +189,7 @@ jobs:
         if: env.ACTION == 'deploy'
         run: |
           cd iac
-          terraform init -backend-config=backend-pr.tfvars -migrate-state -force-copy
-
-      - name: Terraform Destroy (Pre-Apply)
-        if: env.ACTION == 'deploy'
-        run: |
-          cd iac
-          terraform destroy -auto-approve -var-file=pr-environment.tfvars || true
+          terraform init -backend-config=backend-pr.tfvars
 
       - name: Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
