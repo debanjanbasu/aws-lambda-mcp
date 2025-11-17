@@ -25,6 +25,8 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
