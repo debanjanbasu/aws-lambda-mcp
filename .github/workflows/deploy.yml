@@ -130,8 +130,7 @@ jobs:
             -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
             -backend-config="key=aws-lambda-mcp/terraform.tfstate" \
             -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="use_lockfile=true" \
-            -migrate-state -force-copy
+            -backend-config="use_lockfile=true"
 
       - name: Terraform Apply
         run: cd iac && terraform apply -auto-approve
