@@ -12,25 +12,25 @@ BOLD := \033[1m
 RESET := \033[0m
 
 help: ## ✨ Show this help
-	@printf "$(CYAN)$(BOLD)AWS Lambda MCP - Developer Commands$(RESET)"\n"
+	@echo "$(CYAN)$(BOLD)AWS Lambda MCP - Developer Commands$(RESET)"
 	@echo ""
-	@printf "$(GREEN)Build & Test:$(RESET)"\n"
+	@echo "$(GREEN)Build & Test:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(check-tools|schema|build|release|test|all|update-deps):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
-	@printf "$(GREEN)Deployment:$(RESET)"\n"
+	@echo "$(GREEN)Deployment:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(check-backend-config|setup-backend|deploy|tf-destroy):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
-	@printf "$(GREEN)Development Tools:$(RESET)"\n"
+	@echo "$(GREEN)Development Tools:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(login|test-token|test-lambda|logs|clean|kill-inspector|oauth-config|add-redirect-url|remove-redirect-url|update-secrets):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
-	@printf "$(GREEN)Terraform Commands:$(RESET)"\n"
+	@echo "$(GREEN)Terraform Commands:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(tf-init|tf-plan|tf-apply):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
-	@printf "$(GREEN)For full infrastructure commands:$(RESET) $(YELLOW)cd iac && make help$(RESET)"\n"
+	@echo "$(GREEN)For full infrastructure commands:$(RESET) $(YELLOW)cd iac && make help$(RESET)"
 
 # Tool Prerequisites Check
 check-tools:
-	@printf "$(BLUE)🔧 Checking required tools...$(RESET)"\n"
+	@echo "$(BLUE)🔧 Checking required tools...$(RESET)"
 	@if [ -z "$$CI" ]; then \
 		command -v cargo >/dev/null 2>&1 || (echo "$(RED)❌ cargo not found. Installing Rust nightly...$(RESET)" && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y && source $$HOME/.cargo/env && rustup component add rust-src && rustup target add aarch64-unknown-linux-gnu && echo "$(GREEN)✅ Rust nightly installed$(RESET)"); \
 		command -v zig >/dev/null 2>&1 || ( \
@@ -83,7 +83,7 @@ check-tools:
 	else \
 		echo "$(YELLOW)⚠️  Skipping tool installation (in CI). Tools installed by workflow.$(RESET)"; \
 	fi
-	@printf "$(GREEN)✅ All required tools ready$(RESET)"\n"
+	@echo "$(GREEN)✅ All required tools ready$(RESET)"
 
 # Smart Backend Configuration Check
 check-backend-config:
@@ -106,58 +106,58 @@ check-backend-config:
 
 # Build Commands
 schema: ## 📄 Generate tool_schema.json
-	@printf "$(BLUE)📄 Generating tool schemas...$(RESET)"\n"
+	@echo "$(BLUE)📄 Generating tool schemas...$(RESET)"
 	@cargo run --bin generate-schema --features schema-gen --color=always
 
 build: schema ## 🐳 Build Lambda (debug)
-	@printf "$(BLUE)🔨 Building debug version...$(RESET)"\n"
+	@echo "$(BLUE)🔨 Building debug version...$(RESET)"
 	@cargo lambda build --bin aws-lambda-mcp --color=always
 
 release: schema check-tools ## 📦 Build Lambda (release, ARM64) with UPX compression
-	@printf "$(BLUE)🚀 Building release version (ARM64 + UPX)...$(RESET)"\n"
+	@echo "$(BLUE)🚀 Building release version (ARM64 + UPX)...$(RESET)"
 	@cargo lambda build --release --arm64 --bin aws-lambda-mcp --color=always
-	@printf "$(BLUE)📦 Compressing binary with UPX (--best --lzma)...$(RESET)"\n"
+	@echo "$(BLUE)📦 Compressing binary with UPX (--best --lzma)...$(RESET)"
 	@upx --best --lzma target/lambda/aws-lambda-mcp/bootstrap
-	@printf "$(GREEN)📊 Final size:$(RESET)"\n"
+	@echo "$(GREEN)📊 Final size:$(RESET)"
 	@ls -lh target/lambda/aws-lambda-mcp/bootstrap
 
 test: ## 🧪 Run tests
-	@printf "$(BLUE)🧪 Running tests...$(RESET)"\n"
+	@echo "$(BLUE)🧪 Running tests...$(RESET)"
 	@cargo test --color=always
 
 update-deps: ## ⬆️ Update all dependencies to their latest versions
-	@printf "$(BLUE)📦 Updating dependencies...$(RESET)"\n"
+	@echo "$(BLUE)📦 Updating dependencies...$(RESET)"
 	@cargo update
 	@cd iac && terraform init -upgrade
-	@printf "$(GREEN)✅ Dependencies updated!$(RESET)"\n"
+	@echo "$(GREEN)✅ Dependencies updated!$(RESET)"
 
 all: test release ## ✨ Run tests and build release
 
 # Deployment Commands (Smart - checks backend config)
 deploy: ## 🚀 Build and deploy to AWS (requires backend config)
 	@make check-backend-config
-	@printf "$(BLUE)🚀 Building and deploying to AWS...$(RESET)"\n"
+	@echo "$(BLUE)🚀 Building and deploying to AWS...$(RESET)"
 	@make release
 	@cd iac && $(MAKE) deploy
 
 tf-init: ## ⚙️ Initialize Terraform (requires backend config)
 	@make check-backend-config
-	@printf "$(BLUE)⚙️  Initializing Terraform...$(RESET)"\n"
+	@echo "$(BLUE)⚙️  Initializing Terraform...$(RESET)"
 	@cd iac && terraform init -backend-config=backend.config
 
 tf-plan: release ## 📋 Plan Terraform changes (builds Lambda first, requires backend config)
 	@make check-backend-config
-	@printf "$(BLUE)📋 Planning Terraform deployment...$(RESET)"\n"
+	@echo "$(BLUE)📋 Planning Terraform deployment...$(RESET)"
 	@cd iac && terraform plan
 
 tf-apply: release ## 🚀 Apply Terraform changes (builds Lambda first, requires backend config)
 	@make check-backend-config
-	@printf "$(BLUE)🚀 Applying Terraform deployment...$(RESET)"\n"
+	@echo "$(BLUE)🚀 Applying Terraform deployment...$(RESET)"
 	@cd iac && terraform apply -auto-approve
 
 tf-destroy: ## 🧨 Destroy Terraform resources (requires backend config)
 	@make check-backend-config
-	@printf "$(YELLOW)🧨 Destroying Terraform resources...$(RESET)"\n"
+	@echo "$(YELLOW)🧨 Destroying Terraform resources...$(RESET)"
 	@cd iac && terraform destroy -auto-approve
 
 # Infrastructure Commands
@@ -200,52 +200,52 @@ setup-backend: ## ⚙️ Create S3 backend for Terraform state (native locking)
 	'
 
 login: ## 🔑 Authenticate AWS + Azure CLIs
-	@printf "$(BLUE)🔐 Authenticating AWS + Azure CLIs...$(RESET)"\n"
+	@echo "$(BLUE)🔐 Authenticating AWS + Azure CLIs...$(RESET)"
 	@cd iac && $(MAKE) login
 
 test-token: ## 🔑 Get OAuth token + launch MCP Inspector
-	@printf "$(BLUE)🔑 Getting OAuth token...$(RESET)"\n"
+	@echo "$(BLUE)🔑 Getting OAuth token...$(RESET)"
 	@lsof -ti:6274,6277 2>/dev/null | xargs kill -9 2>/dev/null || true
 	@cd iac && $(MAKE) test-token
 
 test-lambda: ## 🧪 Test Lambda directly (bypass Gateway)
-	@printf "$(BLUE)🧪 Testing Lambda directly...$(RESET)"\n"
+	@echo "$(BLUE)🧪 Testing Lambda directly...$(RESET)"
 	@cd iac && $(MAKE) test-lambda
 
 logs: ## 📜 Tail Lambda logs
-	@printf "$(BLUE)📜 Tailing Lambda logs (Ctrl+C to exit)...$(RESET)\n"; \
+	@echo "$(BLUE)📜 Tailing Lambda logs (Ctrl+C to exit)...$(RESET)"
 	@cd iac && $(MAKE) logs
 
 clean: ## 🧹 Remove tokens and backups
-	@printf "$(BLUE)🧹 Cleaning up...$(RESET)"\n"
+	@echo "$(BLUE)🧹 Cleaning up...$(RESET)"
 	@cd iac && $(MAKE) clean
 
 kill-inspector: ## 🛑 Kill any running MCP Inspector processes
-	@printf "$(BLUE)🛑 Killing MCP Inspector processes...$(RESET)"\n"
+	@echo "$(BLUE)🛑 Killing MCP Inspector processes...$(RESET)"
 	@lsof -ti:6274,6277 2>/dev/null | xargs kill -9 2>/dev/null && echo "$(GREEN)✅ Killed MCP Inspector processes$(RESET)" || echo "$(YELLOW)No MCP Inspector processes running$(RESET)"
 
 oauth-config: ## 📋 Display OAuth configuration for any OAuth 2.0 compliant client
-	@printf "$(BLUE)🔑 Displaying OAuth configuration...$(RESET)"\n"
+	@echo "$(BLUE)🔑 Displaying OAuth configuration...$(RESET)"
 	@cd iac && $(MAKE) oauth-config
 
 add-redirect-url: ## 🔗 Add custom OAuth redirect URL to terraform.tfvars
-	@printf "$(BLUE)🔗 Adding redirect URL to Entra ID app...$(RESET)"\n"
+	@echo "$(BLUE)🔗 Adding redirect URL to Entra ID app...$(RESET)"
 	@cd iac && $(MAKE) add-redirect-url
 
 remove-redirect-url: ## 🔗 Remove custom OAuth redirect URL from terraform.tfvars
-	@printf "$(BLUE)🔗 Removing redirect URL from Entra ID app...$(RESET)"\n"
+	@echo "$(BLUE)🔗 Removing redirect URL from Entra ID app...$(RESET)"
 	@cd iac && $(MAKE) remove-redirect-url
 
 update-secrets: ## 🔐 Update GitHub repository secrets from a .env file (for GitHub Actions and Dependabot)
-	@printf "$(BLUE)🔐 Updating GitHub repository secrets from .env file...$(RESET)"\n"
+	@echo "$(BLUE)🔐 Updating GitHub repository secrets from .env file...$(RESET)"
 	@if [ ! -f .env ]; then \
 		echo "$(RED)❌ .env file not found! Create a .env file with your secrets (e.g., MY_SECRET=value).$(RESET)"; \
 		exit 1; \
 	fi
-	@printf "$(BLUE)Setting secrets for GitHub Actions...$(RESET)"\n"
+	@echo "$(BLUE)Setting secrets for GitHub Actions...$(RESET)"
 	@gh secret set -f .env --app actions
-	@printf "$(BLUE)Setting secrets for Dependabot...$(RESET)"\n"
+	@echo "$(BLUE)Setting secrets for Dependabot...$(RESET)"
 	@gh secret set -f .env --app dependabot
-	@printf "$(GREEN)✅ GitHub secrets updated for both GitHub Actions and Dependabot!$(RESET)"\n"
+	@echo "$(GREEN)✅ GitHub secrets updated for both GitHub Actions and Dependabot!$(RESET)"
 
 .DEFAULT_GOAL := help
