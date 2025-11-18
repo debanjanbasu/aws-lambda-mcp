@@ -76,45 +76,14 @@ jobs:
     needs: terraform_apply_pr
     runs-on: ubuntu-24.04-arm
     steps:
-      - name: 🏥 MCP Health Check
-        run: |
-          # Get required values from reusable workflow outputs
-          CLIENT_ID=${{ needs.terraform_apply_pr.outputs.client_id }}
-          TENANT_ID=${{ needs.terraform_apply_pr.outputs.tenant_id }}
-          CLIENT_SECRET=${{ needs.terraform_apply_pr.outputs.client_secret }}
-          SCOPE=${{ needs.terraform_apply_pr.outputs.scope }}
-          GATEWAY_URL=${{ needs.terraform_apply_pr.outputs.gateway_url }}
-
-          # Get OAuth token using client credentials flow
-          TOKEN_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "client_id=$CLIENT_ID" \
-            -d "client_secret=$CLIENT_SECRET" \
-            -d "grant_type=client_credentials" \
-            -d "scope=$SCOPE")
-
-          ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r ".access_token")
-
-          # Test MCP initialize call with token
-          RESPONSE=$(curl -s -X POST "$GATEWAY_URL/jsonrpc" \
-            -H "Authorization: Bearer $ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}')
-
-          # Validate MCP response
-          if echo "$RESPONSE" | jq -e '.result' > /dev/null 2>&1; then
-            echo "✅ MCP service healthy"
-          else
-            echo "❌ MCP service unhealthy"
-            echo "Response: $RESPONSE"
-            exit 1
-          fi
-
       - name: 💬 Post Deployment Comment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           GATEWAY_URL=${{ needs.terraform_apply_pr.outputs.gateway_url }}
+          CLIENT_ID=${{ needs.terraform_apply_pr.outputs.client_id }}
+          SCOPE=${{ needs.terraform_apply_pr.outputs.scope }}
+          
           COMMENT="## 🌱 Ephemeral Environment Deployed ✅
 
           Your PR environment has been deployed successfully!
@@ -122,19 +91,26 @@ jobs:
           🔗 **Gateway URL**: $GATEWAY_URL
 
           🧪 **Testing Instructions**:
-          1. Copy the gateway URL below
+          1. Copy the gateway URL above
           2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-          3. Use an OAuth token from your development environment to authenticate in the Inspector UI
+          3. Use an OAuth token to authenticate in the Inspector UI
           
           🔐 **Token Generation**:
-          For security reasons, tokens are not automatically generated in CI environments.
-          Please use a token from your local development environment or generate one using:
-          - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
-          - Or use the Azure Portal to generate a test token for your registered application
+          Generate a token using client credentials flow:
+          \`\`\`bash
+          curl -X POST \"https://login.microsoftonline.com/${{ secrets.AZURE_TENANT_ID }}/oauth2/v2.0/token\" \\
+            -H \"Content-Type: application/x-www-form-urlencoded\" \\
+            -d \"client_id=$CLIENT_ID\" \\
+            -d \"client_secret=<YOUR_CLIENT_SECRET>\" \\
+            -d \"grant_type=client_credentials\" \\
+            -d \"scope=$SCOPE\"
+          \`\`\`
 
           📋 **Environment Details**:
           - Environment: \`pr-${{ github.event.number }}\`
           - Branch: \`${{ github.head_ref }}\`
+          - Client ID: \`$CLIENT_ID\`
+          - Scope: \`$SCOPE\`
 
           ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
           

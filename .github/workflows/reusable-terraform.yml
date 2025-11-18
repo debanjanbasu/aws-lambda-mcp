@@ -94,7 +94,7 @@ jobs:
 
       - name: ☁️ Download Lambda Artifacts
         if: inputs.artifact_name && inputs.artifact_name != 'dummy-artifact'
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: ${{ inputs.artifact_name }}
           path: .
@@ -155,11 +155,20 @@ jobs:
           else
             STATE_KEY="aws-lambda-mcp/terraform.tfstate"
           fi
-          terraform init \
-            -backend-config="bucket=${TF_BACKEND_BUCKET}" \
-            -backend-config="key=${STATE_KEY}" \
-            -backend-config="region=${{ inputs.aws_region }}" \
-            -backend-config="use_lockfile=true"
+          # Use -reconfigure for PR environments to handle backend config changes
+          if [ -n "${{ inputs.environment_name }}" ]; then
+            terraform init -reconfigure \
+              -backend-config="bucket=${TF_BACKEND_BUCKET}" \
+              -backend-config="key=${STATE_KEY}" \
+              -backend-config="region=${{ inputs.aws_region }}" \
+              -backend-config="use_lockfile=true"
+          else
+            terraform init \
+              -backend-config="bucket=${TF_BACKEND_BUCKET}" \
+              -backend-config="key=${STATE_KEY}" \
+              -backend-config="region=${{ inputs.aws_region }}" \
+              -backend-config="use_lockfile=true"
+          fi
 
       - name: ✅ Terraform Validate
         if: inputs.command == 'validate' || inputs.command == 'deploy'
