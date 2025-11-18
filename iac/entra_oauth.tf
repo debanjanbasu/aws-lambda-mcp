@@ -100,6 +100,16 @@ resource "azuread_application" "agentcore_app" {
   }
 
   tags = local.entra_app_tags
+
+  # Ignore changes to redirect URIs so they can be managed externally
+  # This allows adding redirect URIs via Azure Portal or other tools
+  # without Terraform trying to remove them on subsequent applies
+  lifecycle {
+    ignore_changes = [
+      web[0].redirect_uris,
+      public_client[0].redirect_uris,
+    ]
+  }
 }
 
 # Client secret for OAuth 2.0 confidential clients
