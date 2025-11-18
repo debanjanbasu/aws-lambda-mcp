@@ -47,6 +47,7 @@ jobs:
     with:
       command: 'plan'
       aws_region: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
+      artifact_name: 'lambda-build'
     secrets: inherit
       
   terraform_apply:
@@ -56,6 +57,7 @@ jobs:
     with:
       command: 'apply'
       aws_region: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
+      artifact_name: 'lambda-build'
     secrets: inherit
       
   health_check:
