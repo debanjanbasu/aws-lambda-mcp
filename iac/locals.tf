@@ -4,7 +4,7 @@ locals {
   # Microsoft Graph API identifiers (well-known GUIDs)
   microsoft_graph_app_id             = "00000003-0000-0000-c000-000000000000"
   microsoft_graph_user_read_scope_id = "e1fe6dd8-ba31-4d61-89e7-88639da4683d"
-  
+
   # Microsoft Graph App Role IDs (for application permissions)
   microsoft_graph_user_read_all_app_role_id = "df021288-bdef-4463-88db-98f22de89214"
 

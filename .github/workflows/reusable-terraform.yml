@@ -1,0 +1,75 @@
+name: Reusable Terraform Operations
+on:
+  workflow_call:
+    inputs:
+      command:
+        required: true
+        type: string
+        description: 'Terraform command to run (init, validate, plan, apply)'
+      var_file:
+        required: false
+        type: string
+        description: 'Variable file to use'
+      backend_config:
+        required: true
+        type: string
+        description: 'Backend configuration file'
+      plan_file:
+        required: false
+        type: string
+        description: 'Plan file for apply command'
+    outputs:
+      gateway_url:
+        description: 'API Gateway URL output'
+        value: ${{ jobs.terraform.outputs.gateway_url }}
+      lambda_function_name:
+        description: 'Lambda function name output'
+        value: ${{ jobs.terraform.outputs.lambda_function_name }}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      gateway_url: ${{ steps.terraform-outputs.outputs.gateway_url }}
+      lambda_function_name: ${{ steps.terraform-outputs.outputs.lambda_function_name }}
+    steps:
+      - name: 📦 Checkout code
+        uses: actions/checkout@v5
+
+      - name: 🏗️ Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: 🎨 Terraform Format Check
+        if: inputs.command == 'init'
+        run: cd iac && terraform fmt -check
+
+      - name: 🚀 Terraform Init
+        run: |
+          cd iac
+          terraform init -backend-config="${{ inputs.backend_config }}"
+
+      - name: ✅ Terraform Validate
+        if: inputs.command == 'validate' || inputs.command == 'plan' || inputs.command == 'apply'
+        run: cd iac && terraform validate
+
+      - name: 📋 Terraform Plan
+        if: inputs.command == 'plan'
+        run: |
+          cd iac
+          terraform plan -out=tfplan ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
+
+      - name: 🚀 Terraform Apply
+        if: inputs.command == 'apply'
+        run: |
+          cd iac
+          terraform apply ${{ inputs.plan_file || 'tfplan' }} ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
+
+      - name: 📤 Capture Terraform Outputs
+        if: inputs.command == 'apply'
+        id: terraform-outputs
+        run: |
+          cd iac
+          echo "gateway_url=$(terraform output -raw api_gateway_url 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "lambda_function_name=$(terraform output -raw lambda_function_name 2>/dev/null || echo "")" >> $GITHUB_OUTPUT

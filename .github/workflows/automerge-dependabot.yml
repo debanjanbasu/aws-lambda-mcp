@@ -59,16 +59,12 @@ jobs:
         if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rust-src
-          targets: aarch64-unknown-linux-gnu
 
       - name: 💾 Cache Rust dependencies
         if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
@@ -77,60 +73,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
 
-      - name: 🔧 Install cargo-lambda
-        if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
-        run: |
-          if ! command -v cargo-lambda &> /dev/null
-          then
-            cargo install cargo-lambda
-          fi
-
-      - name: ⚙️ Setup Zig
-        if: steps.detect_pr_type.outputs.IS_RUST_PR == 'true'
-        uses: mlugg/setup-zig@v2
-        with:
-          version: latest
-
       # Terraform Dependency Updates
-      - name: 🏗️ Setup Terraform
-        if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: latest # Use latest Terraform version for dependency updates
-
-      - name: 💾 Cache Terraform plugins
-        if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
-        uses: actions/cache@v4
-        with:
-          path: iac/.terraform
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
-
-      - name: 🚀 Terraform Init
-        if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
-        run: |
-          cd iac && terraform init
-
       - name: ✅ Terraform Validate
         if: steps.detect_pr_type.outputs.IS_TERRAFORM_PR == 'true'
-        run: |
-          cd iac && terraform validate
+        uses: ./.github/workflows/reusable-terraform.yml
+        with:
+          command: 'validate'
+          backend_config: 'backend.config'
 
       # Run appropriate tests based on PR type
       - name: 🧪 Run Tests
         # For Dependabot PRs, we only run tests to verify compatibility
         run: |
-           if [ "${{ steps.detect_pr_type.outputs.IS_RUST_PR }}" = "true" ]; then
-             echo "Running Rust tests with latest dependencies..."
-             make test || (echo "Rust tests failed - this may indicate breaking changes in dependencies" && exit 1)
+          if [ "${{ steps.detect_pr_type.outputs.IS_RUST_PR }}" = "true" ]; then
+            echo "Running Rust tests with latest dependencies..."
+            make test || (echo "Rust tests failed - this may indicate breaking changes in dependencies" && exit 1)
            elif [ "${{ steps.detect_pr_type.outputs.IS_TERRAFORM_PR }}" = "true" ]; then
-             echo "Validating Terraform configuration..."
-             cd iac && terraform validate
-             # For Terraform updates, we rely on terraform validate
-           else
-             # Fallback to running all tests
-             echo "Running all tests..."
-             make test || (echo "Tests failed - this may indicate breaking changes" && exit 1)
-           fi
+             echo "Terraform configuration already validated above"
+             # For Terraform updates, validation was done earlier
+          else
+            # Fallback to running all tests
+            echo "Running all tests..."
+            make test || (echo "Tests failed - this may indicate breaking changes" && exit 1)
+          fi
 
       - name: ✅ Approve and Merge
         if: success() # Only run if tests pass

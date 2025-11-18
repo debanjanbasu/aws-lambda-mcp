@@ -28,22 +28,30 @@ jobs:
     name: 🔍 tfsec scan
     runs-on: ubuntu-latest
 
-    steps:
-      - name: 📦 Checkout repository
-        uses: actions/checkout@v5
+     steps:
+       - name: 📦 Checkout repository
+         uses: actions/checkout@v5
 
-      - name: 📁 List files before tfsec
-        run: ls -R
+       - name: 💾 Cache tfsec
+         uses: actions/cache@v4
+         with:
+           path: ~/.tfsec
+           key: ${{ runner.os }}-tfsec-v1.28.1
+           restore-keys: |
+             ${{ runner.os }}-tfsec-
 
-      - name: 🛡️ Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.3
-        with:
-          # Point the action to your Terraform code directory
-          working_directory: 'iac'
-          # Pass additional arguments to tfsec to specify SARIF format and output file
-          additional_args: '--format sarif --out tfsec.sarif'
-          soft_fail: true # Do not fail the workflow if tfsec finds issues
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+       - name: 📁 List files before tfsec
+         run: ls -R
+
+       - name: 🛡️ Run tfsec
+         uses: aquasecurity/tfsec-action@v1.0.3
+         with:
+           # Point the action to your Terraform code directory
+           working_directory: 'iac'
+           # Pass additional arguments to tfsec to specify SARIF format and output file
+           additional_args: '--format sarif --out tfsec.sarif'
+           soft_fail: true # Do not fail the workflow if tfsec finds issues
+           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📁 List files after tfsec
         run: ls -R
