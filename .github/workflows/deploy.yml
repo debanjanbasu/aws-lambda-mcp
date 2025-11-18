@@ -144,21 +144,21 @@ jobs:
           command: 'plan'
           backend_config: 'backend-deploy.config'
 
-       - name: 🚀 Terraform Apply
-         id: terraform-apply
-         uses: ./.github/workflows/reusable-terraform.yml
-         with:
-           command: 'apply'
-           backend_config: 'backend-deploy.config'
+      - name: 🚀 Terraform Apply
+        id: terraform-apply
+        uses: ./.github/workflows/reusable-terraform.yml
+        with:
+          command: 'apply'
+          backend_config: 'backend-deploy.config'
 
-       - name: 🏥 MCP Health Check
-         run: |
-           # Get required values from reusable workflow outputs
-           CLIENT_ID=${{ steps.terraform-apply.outputs.client_id }}
-           TENANT_ID=${{ steps.terraform-apply.outputs.tenant_id }}
-           CLIENT_SECRET=${{ steps.terraform-apply.outputs.client_secret }}
-           SCOPE=${{ steps.terraform-apply.outputs.scope }}
-           GATEWAY_URL=${{ steps.terraform-apply.outputs.gateway_url }}
+      - name: 🏥 MCP Health Check
+        run: |
+          # Get required values from reusable workflow outputs
+          CLIENT_ID=${{ steps.terraform-apply.outputs.client_id }}
+          TENANT_ID=${{ steps.terraform-apply.outputs.tenant_id }}
+          CLIENT_SECRET=${{ steps.terraform-apply.outputs.client_secret }}
+          SCOPE=${{ steps.terraform-apply.outputs.scope }}
+          GATEWAY_URL=${{ steps.terraform-apply.outputs.gateway_url }}
 
           # Get OAuth token using client credentials flow
           TOKEN_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
@@ -176,11 +176,11 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}')
 
-           # Validate MCP response
-           if echo "$RESPONSE" | jq -e '.result' > /dev/null 2>&1; then
-             echo "✅ MCP service healthy"
-           else
-             echo "❌ MCP service unhealthy"
-             echo "Response: $RESPONSE"
-             exit 1
-           fi
+          # Validate MCP response
+          if echo "$RESPONSE" | jq -e '.result' > /dev/null 2>&1; then
+            echo "✅ MCP service healthy"
+          else
+            echo "❌ MCP service unhealthy"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
