@@ -62,7 +62,8 @@ jobs:
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'validate'
-      backend_config: 'backend.config'
+      artifact_name: 'dummy-artifact'
+    secrets: inherit
 
   run_rust_tests:
     name: 🧪 Run Rust Tests
@@ -72,11 +73,12 @@ jobs:
     with:
       run_tests: true
       run_build: false
+      artifact_name: 'dummy-artifact'
 
   approve_and_merge:
     name: ✅ Approve and Merge
     needs: [detect_changes, terraform_validate, run_rust_tests]
-    if: success()
+    if: always() && !failure() && !cancelled()
     runs-on: ubuntu-24.04-arm
     steps:
       - name: ✅ Approve and Merge

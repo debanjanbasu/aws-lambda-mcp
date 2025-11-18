@@ -7,10 +7,7 @@ on:
         required: true
         type: string
         description: 'Name of the artifact to download'
-      backend_config_name:
-        required: true
-        type: string
-        description: 'Name of the backend config file to create'
+
       environment_name:
         required: false
         type: string
@@ -19,6 +16,16 @@ on:
         required: false
         type: string
         description: 'PR number (for PRs)'
+    outputs:
+      environment_name:
+        description: 'Environment name'
+        value: ${{ jobs.prepare.outputs.environment_name }}
+      pr_number:
+        description: 'PR number'
+        value: ${{ jobs.prepare.outputs.pr_number }}
+      action:
+        description: 'Action to perform'
+        value: ${{ jobs.prepare.outputs.action }}
       
 permissions:
   id-token: write
@@ -28,35 +35,52 @@ permissions:
 jobs:
   prepare:
     runs-on: ubuntu-24.04-arm
+    outputs:
+      environment_name: ${{ steps.set-outputs.outputs.environment_name }}
+      pr_number: ${{ steps.set-outputs.outputs.pr_number }}
+      action: ${{ steps.set-outputs.outputs.action }}
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v5
 
       - name: ☁️ Download Lambda build artifacts
+        if: inputs.artifact_name != 'dummy-artifact'
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifact_name }}
           path: .
 
-      - name: 🔐 Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
 
-      - name: 💾 Cache Terraform plugins
-        uses: actions/cache@v4
-        with:
-          path: |
-            iac/.terraform
-            ~/.terraform.d/
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-terraform-
-            
-      - name: 📝 Prepare Backend Config
+
+      - name: 📝 Create Environment Variables File
+        if: inputs.environment_name
         run: |
-          echo "bucket=${{ secrets.TF_BACKEND_BUCKET }}" > iac/${{ inputs.backend_config_name }}
-          echo "key=aws-lambda-mcp/${{ inputs.environment_name || 'terraform.tfstate' }}" >> iac/${{ inputs.backend_config_name }}
-          echo "region=${{ env.AWS_REGION }}" >> iac/${{ inputs.backend_config_name }}
-          echo "use_lockfile=true" >> iac/${{ inputs.backend_config_name }}
+          cat > iac/pr-environment.tfvars << EOF
+          project_name = "aws-agentcore-gateway-${{ inputs.environment_name }}"
+          common_tags = {
+            Project     = "aws-agentcore-gateway"
+            ManagedBy   = "terraform"
+            Environment = "ephemeral-${{ inputs.environment_name }}"
+            PR_Number   = "${{ inputs.pr_number }}"
+            Branch      = "${{ github.head_ref }}"
+          }
+          EOF
+
+      - name: ☁️ Upload Environment Config
+        if: inputs.environment_name
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'pr-environment-config'
+          path: iac/pr-environment.tfvars
+          retention-days: 1
+
+      - name: 📝 Set Outputs
+        id: set-outputs
+        run: |
+          echo "environment_name=${{ inputs.environment_name }}" >> $GITHUB_OUTPUT
+          echo "pr_number=${{ inputs.pr_number }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event.action }}" = "closed" ]; then
+            echo "action=destroy" >> $GITHUB_OUTPUT
+          else
+            echo "action=deploy" >> $GITHUB_OUTPUT
+          fi

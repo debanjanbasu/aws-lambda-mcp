@@ -6,19 +6,33 @@ on:
       command:
         required: true
         type: string
-        description: 'Terraform command to run (init, validate, plan, apply, deploy)'
+        description: 'Terraform command to run (init, validate, plan, apply, deploy, destroy)'
       var_file:
         required: false
         type: string
         description: 'Variable file to use'
-      backend_config:
-        required: true
-        type: string
-        description: 'Backend configuration file'
+
       plan_file:
         required: false
         type: string
         description: 'Plan file for apply command'
+      aws_region:
+        required: false
+        type: string
+        default: 'ap-southeast-2'
+        description: 'AWS region'
+      environment_name:
+        required: false
+        type: string
+        description: 'Environment name for state key (e.g., pr-123)'
+      artifact_name:
+        required: false
+        type: string
+        description: 'Name of the artifact to download'
+      pr_number:
+        required: false
+        type: string
+        description: 'PR number for tagging'
     outputs:
       gateway_url:
         description: 'API Gateway URL output'
@@ -57,9 +71,15 @@ on:
         description: 'Entra app scope'
         value: ${{ jobs.terraform.outputs.scope }}
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   terraform:
     runs-on: ubuntu-24.04-arm
+    env:
+      AWS_REGION: ${{ inputs.aws_region }}
     outputs:
       gateway_url: ${{ steps.terraform-outputs.outputs.gateway_url }}
       lambda_function_name: ${{ steps.terraform-outputs.outputs.lambda_function_name }}
@@ -76,6 +96,37 @@ jobs:
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v5
+
+      - name: ☁️ Download Lambda Artifacts
+        if: inputs.artifact_name && inputs.artifact_name != 'dummy-artifact'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: .
+
+      - name: 📝 Create Environment Variables File
+        if: inputs.environment_name
+        run: |
+          cat > iac/pr-environment.tfvars << EOF
+          project_name = "aws-agentcore-gateway-${{ inputs.environment_name }}"
+          common_tags = {
+            Project     = "aws-agentcore-gateway"
+            ManagedBy   = "terraform"
+            Environment = "ephemeral-${{ inputs.environment_name }}"
+            PR_Number   = "${{ inputs.pr_number || github.event.number }}"
+            Branch      = "${{ github.head_ref }}"
+          }
+          EOF
+
+      - name: 💾 Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: |
+            iac/.terraform
+            ~/.terraform.d/
+          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-terraform-
       
       - name: 🏗️ Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -86,13 +137,31 @@ jobs:
         if: inputs.command == 'init'
         run: cd iac && terraform fmt -check
 
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: 📝 Ensure Backend Config Exists
+        run: |
+          cd iac
+          echo "bucket=${{ secrets.TF_BACKEND_BUCKET }}" > backend.config
+          if [ -n "${{ inputs.environment_name }}" ]; then
+            echo "key=aws-lambda-mcp/${{ inputs.environment_name }}/terraform.tfstate" >> backend.config
+          else
+            echo "key=aws-lambda-mcp/terraform.tfstate" >> backend.config
+          fi
+          echo "region=${{ inputs.aws_region }}" >> backend.config
+          echo "use_lockfile=true" >> backend.config
+
       - name: 🚀 Terraform Init
         run: |
           cd iac
-          terraform init -backend-config="${{ inputs.backend_config }}"
+          terraform init -backend-config="backend.config"
 
       - name: ✅ Terraform Validate
-        if: inputs.command == 'validate' || inputs.command == 'plan' || inputs.command == 'apply'
+        if: inputs.command == 'validate' || inputs.command == 'plan' || inputs.command == 'apply' || inputs.command == 'deploy'
         run: cd iac && terraform validate
 
       - name: 📋 Terraform Plan
@@ -113,6 +182,12 @@ jobs:
           cd iac
           terraform plan -out=tfplan ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
           terraform apply tfplan
+
+      - name: 💥 Terraform Destroy
+        if: inputs.command == 'destroy'
+        run: |
+          cd iac
+          terraform destroy -auto-approve ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
 
       - name: 📤 Capture Terraform Outputs
         if: inputs.command == 'apply' || inputs.command == 'deploy'
