@@ -31,3 +31,5 @@ tool_schema.json
 
 # Terraform
 iac/backend.config
+iac/*.tfvars
+!iac/terraform.tfvars.example

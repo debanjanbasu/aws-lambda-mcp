@@ -33,4 +33,7 @@ locals {
 
   # Generate Entra app tags from project type
   entra_app_tags = ["agentcore-gateway", "oauth2", "pkce", "terraform-managed"]
+
+  # Application identifier URI
+  app_identifier_uri = "api://${var.project_name}"
 }
