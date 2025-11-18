@@ -143,24 +143,21 @@ jobs:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
           aws-region: ${{ inputs.aws_region }}
 
-      - name: 📝 Ensure Backend Config Exists
+      - name: 🚀 Terraform Init
         env:
           TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
         run: |
           cd iac
-          echo "bucket=${TF_BACKEND_BUCKET}" > backend.config
           if [ -n "${{ inputs.environment_name }}" ]; then
-            echo "key=aws-lambda-mcp/${{ inputs.environment_name }}/terraform.tfstate" >> backend.config
+            STATE_KEY="aws-lambda-mcp/${{ inputs.environment_name }}/terraform.tfstate"
           else
-            echo "key=aws-lambda-mcp/terraform.tfstate" >> backend.config
+            STATE_KEY="aws-lambda-mcp/terraform.tfstate"
           fi
-          echo "region=${{ inputs.aws_region }}" >> backend.config
-          echo "use_lockfile=true" >> backend.config
-
-      - name: 🚀 Terraform Init
-        run: |
-          cd iac
-          terraform init -backend-config="backend.config"
+          terraform init \
+            -backend-config="bucket=${TF_BACKEND_BUCKET}" \
+            -backend-config="key=${STATE_KEY}" \
+            -backend-config="region=${{ inputs.aws_region }}" \
+            -backend-config="use_lockfile=true"
 
       - name: ✅ Terraform Validate
         if: inputs.command == 'validate' || inputs.command == 'plan' || inputs.command == 'apply' || inputs.command == 'deploy'
