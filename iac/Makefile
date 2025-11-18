@@ -194,24 +194,20 @@ oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
 	echo "\033[1;33mNote: If configuring with a non-Dynamic Client Registration compatible OAuth provider, you may need to run '\''make add-redirect-url'\'' to manually add redirect URIs.\033[0m"; \
 	echo "";
 
-add-redirect-url: ## Add custom OAuth redirect URL temporarily for deployment
-	@echo "🔗 Adding redirect URL temporarily for deployment..."; \
-	read -p "Enter redirect URI to add: " REDIRECT_URI; \
-	if [ -z "$$REDIRECT_URI" ]; then \
-		echo "❌ Redirect URI cannot be empty"; \
-		exit 1; \
-	fi; \
-	echo "📝 Creating temporary terraform.tfvars with redirect URI..."; \
-	echo "rust_log_level      = \"info\"" > terraform.tfvars.temp; \
-	echo "entra_redirect_uris = [\"$$REDIRECT_URI\"]" >> terraform.tfvars.temp; \
-	echo "✅ Temporary terraform.tfvars created with redirect URI"; \
-	echo "💡 Run 'make deploy' to apply changes, then 'make clean-redirect-url' to remove";
+add-redirect-url: ## Add custom OAuth redirect URL (managed outside Terraform)
+	@echo "🔗 To add redirect URLs, you can:"; \
+	echo "  1. Add them directly in the Azure Portal"; \
+	echo "  2. Add them to terraform.tfvars in the entra_redirect_uris array"; \
+	echo "  3. Use the Azure CLI:"; \
+	echo "     az ad app update --id $$(terraform output -raw entra_app_client_id 2>/dev/null) --web-redirect-uris YOUR_URI"; \
+	echo ""; \
+	echo "💡 Terraform will preserve any redirect URIs added externally due to ignore_changes";
 
-clean-redirect-url: ## Remove temporary redirect URL configuration
-	@echo "🧹 Cleaning up temporary redirect URL configuration..."; \
-	if [ -f terraform.tfvars.temp ]; then \
-		rm terraform.tfvars.temp; \
-		echo "✅ Temporary terraform.tfvars removed"; \
-	else \
-		echo "⚠️ No temporary terraform.tfvars found"; \
-	fi;
+remove-redirect-url: ## Remove custom OAuth redirect URL (managed outside Terraform)
+	@echo "🔗 To remove redirect URLs, you can:"; \
+	echo "  1. Remove them directly in the Azure Portal"; \
+	echo "  2. Remove them from terraform.tfvars in the entra_redirect_uris array"; \
+	echo "  3. Use the Azure CLI:"; \
+	echo "     az ad app update --id $$(terraform output -raw entra_app_client_id 2>/dev/null) --web-redirect-uris NEW_LIST_OF_URIS"; \
+	echo ""; \
+	echo "💡 Terraform will preserve any redirect URIs added externally due to ignore_changes";

@@ -228,13 +228,13 @@ oauth-config: ## 📋 Display OAuth configuration for any OAuth 2.0 compliant cl
 	@echo "$(BLUE)🔑 Displaying OAuth configuration...$(RESET)"
 	@cd iac && $(MAKE) oauth-config
 
-add-redirect-url: ## 🔗 Add custom OAuth redirect URL temporarily for deployment
-	@echo "$(BLUE)🔗 Adding redirect URL temporarily for deployment...$(RESET)"
+add-redirect-url: ## 🔗 Add custom OAuth redirect URL (managed outside Terraform)
+	@echo "$(BLUE)🔗 Managing redirect URLs...$(RESET)"
 	@cd iac && $(MAKE) add-redirect-url
 
-clean-redirect-url: ## 🧹 Remove temporary redirect URL configuration
-	@echo "$(BLUE)🧹 Cleaning up temporary redirect URL configuration...$(RESET)"
-	@cd iac && $(MAKE) clean-redirect-url
+remove-redirect-url: ## 🔗 Remove custom OAuth redirect URL (managed outside Terraform)
+	@echo "$(BLUE)🔗 Managing redirect URLs...$(RESET)"
+	@cd iac && $(MAKE) remove-redirect-url
 
 update-secrets: ## 🔐 Update GitHub repository secrets from a .env file (for GitHub Actions and Dependabot)
 	@echo "$(BLUE)🔐 Updating GitHub repository secrets from .env file...$(RESET)"
