@@ -90,15 +90,14 @@ jobs:
             tool_schema.json
           retention-days: 7
 
-  deploy-infra:
-    name: 🌐 Deploy Infrastructure
+  prepare_deployment:
+    name: 🔧 Prepare Deployment
     needs: build-lambda
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write
       contents: read
-
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v5
@@ -124,7 +123,7 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-terraform-
-
+            
       - name: 📝 Prepare Backend Config
         run: |
           echo "bucket=${{ secrets.TF_BACKEND_BUCKET }}" > iac/backend-deploy.config
@@ -132,33 +131,43 @@ jobs:
           echo "region=${{ env.AWS_REGION }}" >> iac/backend-deploy.config
           echo "use_lockfile=true" >> iac/backend-deploy.config
 
-      - name: 🚀 Terraform Init & Validate
-        uses: ./.github/workflows/reusable-terraform.yml
-        with:
-          command: 'validate'
-          backend_config: 'backend-deploy.config'
+  terraform_validate:
+    name: ✅ Terraform Validate
+    needs: prepare_deployment
+    uses: ./.github/workflows/reusable-terraform.yml
+    with:
+      command: 'validate'
+      backend_config: 'backend-deploy.config'
 
-      - name: 📋 Terraform Plan
-        uses: ./.github/workflows/reusable-terraform.yml
-        with:
-          command: 'plan'
-          backend_config: 'backend-deploy.config'
-
-      - name: 🚀 Terraform Apply
-        id: terraform-apply
-        uses: ./.github/workflows/reusable-terraform.yml
-        with:
-          command: 'apply'
-          backend_config: 'backend-deploy.config'
-
+  terraform_plan:
+    name: 📋 Terraform Plan
+    needs: terraform_validate
+    uses: ./.github/workflows/reusable-terraform.yml
+    with:
+      command: 'plan'
+      backend_config: 'backend-deploy.config'
+      
+  terraform_apply:
+    name: 🚀 Terraform Apply
+    needs: terraform_plan
+    uses: ./.github/workflows/reusable-terraform.yml
+    with:
+      command: 'apply'
+      backend_config: 'backend-deploy.config'
+      
+  health_check:
+    name: 🏥 MCP Health Check
+    needs: terraform_apply
+    runs-on: ubuntu-24.04-arm
+    steps:
       - name: 🏥 MCP Health Check
         run: |
           # Get required values from reusable workflow outputs
-          CLIENT_ID=${{ steps.terraform-apply.outputs.client_id }}
-          TENANT_ID=${{ steps.terraform-apply.outputs.tenant_id }}
-          CLIENT_SECRET=${{ steps.terraform-apply.outputs.client_secret }}
-          SCOPE=${{ steps.terraform-apply.outputs.scope }}
-          GATEWAY_URL=${{ steps.terraform-apply.outputs.gateway_url }}
+          CLIENT_ID=${{ needs.terraform_apply.outputs.client_id }}
+          TENANT_ID=${{ needs.terraform_apply.outputs.tenant_id }}
+          CLIENT_SECRET=${{ needs.terraform_apply.outputs.client_secret }}
+          SCOPE=${{ needs.terraform_apply.outputs.scope }}
+          GATEWAY_URL=${{ needs.terraform_apply.outputs.gateway_url }}
 
           # Get OAuth token using client credentials flow
           TOKEN_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
