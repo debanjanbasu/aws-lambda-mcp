@@ -138,8 +138,8 @@ jobs:
             target/lambda/
             tool_schema.json
 
-  deploy-environment:
-    name: 🌐 Deploy Environment
+  prepare_pr_environment:
+    name: 🔧 Prepare PR Environment
     needs: build-lambda
     if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
     runs-on: ubuntu-slim
@@ -147,36 +147,37 @@ jobs:
       id-token: write
       contents: read
       pull-requests: write
-
+    outputs:
+      environment_name: ${{ steps.vars.outputs.environment_name }}
+      pr_number: ${{ steps.vars.outputs.pr_number }}
+      action: ${{ steps.vars.outputs.action }}
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v5
 
       - name: ⚙️ Set environment variables
+        id: vars
         run: |
           # Set environment name based on PR number or run number
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "ENVIRONMENT_NAME=pr-${{ github.event.number }}" >> $GITHUB_ENV
-            echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
+            echo "environment_name=pr-${{ github.event.number }}" >> $GITHUB_OUTPUT
+            echo "pr_number=${{ github.event.number }}" >> $GITHUB_OUTPUT
           else
-            echo "ENVIRONMENT_NAME=manual-${{ github.run_number }}" >> $GITHUB_ENV
-            echo "PR_NUMBER=manual" >> $GITHUB_ENV
+            echo "environment_name=manual-${{ github.run_number }}" >> $GITHUB_OUTPUT
+            echo "pr_number=manual" >> $GITHUB_OUTPUT
           fi
-
-      - name: 🎯 Determine action
-        run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             if [ "${{ github.event.action }}" = "closed" ]; then
-              echo "ACTION=destroy" >> $GITHUB_ENV
+              echo "action=destroy" >> $GITHUB_OUTPUT
             else
-              echo "ACTION=deploy" >> $GITHUB_ENV
+              echo "action=deploy" >> $GITHUB_OUTPUT
             fi
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
+            echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
           fi
 
       - name: ☁️ Download Lambda build artifacts
-        if: env.ACTION == 'deploy' && needs.build-lambda.result == 'success'
+        if: steps.vars.outputs.action == 'deploy' && needs.build-lambda.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: pr-lambda-build
@@ -185,13 +186,13 @@ jobs:
       - name: ⚙️ Prepare environment-specific variables
         run: |
            # Create environment-specific tfvars file
-           echo "project_name = \"aws-agentcore-gateway-pr-${{ env.ENVIRONMENT_NAME }}\"" > iac/pr-environment.tfvars
+           echo "project_name = \"aws-agentcore-gateway-pr-${{ steps.vars.outputs.environment_name }}\"" > iac/pr-environment.tfvars
            echo "common_tags = {" >> iac/pr-environment.tfvars
            echo "  Project     = \"aws-agentcore-gateway\"" >> iac/pr-environment.tfvars
            echo "  ManagedBy   = \"terraform\"" >> iac/pr-environment.tfvars
-           echo "  Environment = \"ephemeral-${{ env.ENVIRONMENT_NAME }}\"" >> iac/pr-environment.tfvars
-           if [ "${{ env.PR_NUMBER }}" != "manual" ]; then
-             echo "  PR_Number   = \"${{ env.PR_NUMBER }}\"" >> iac/pr-environment.tfvars
+           echo "  Environment = \"ephemeral-${{ steps.vars.outputs.environment_name }}\"" >> iac/pr-environment.tfvars
+           if [ "${{ steps.vars.outputs.pr_number }}" != "manual" ]; then
+             echo "  PR_Number   = \"${{ steps.vars.outputs.pr_number }}\"" >> iac/pr-environment.tfvars
              echo "  Branch      = \"${{ github.head_ref }}\"" >> iac/pr-environment.tfvars
            else
              echo "  Trigger     = \"manual\"" >> iac/pr-environment.tfvars
@@ -201,10 +202,9 @@ jobs:
 
            # Update backend key to be environment-specific
             echo "bucket         = \"${{ secrets.TF_BACKEND_BUCKET }}\"" > iac/backend-pr.tfvars
-            echo "key            = \"aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate\"" >> iac/backend-pr.tfvars
+            echo "key            = \"aws-lambda-mcp/${{ steps.vars.outputs.environment_name }}/terraform.tfstate\"" >> iac/backend-pr.tfvars
             echo "region         = \"${{ env.AWS_REGION }}\"" >> iac/backend-pr.tfvars
             echo "use_lockfile   = true" >> iac/backend-pr.tfvars
-
 
       - name: 🏗️ Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -234,39 +234,46 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-terraform-
 
-      - name: 🚀 Terraform Init & Validate (Environment)
-        if: env.ACTION == 'deploy'
-        uses: ./.github/workflows/reusable-terraform.yml
-        with:
-          command: 'validate'
-          backend_config: 'backend-pr.tfvars'
+  terraform_validate_pr:
+    name: ✅ Terraform Validate (PR)
+    needs: prepare_pr_environment
+    if: needs.prepare_pr_environment.outputs.action == 'deploy'
+    uses: ./.github/workflows/reusable-terraform.yml
+    with:
+      command: 'validate'
+      backend_config: 'backend-pr.tfvars'
 
-      - name: 📋 Terraform Plan (Environment)
-        if: env.ACTION == 'deploy'
-        uses: ./.github/workflows/reusable-terraform.yml
-        with:
-          command: 'plan'
-          backend_config: 'backend-pr.tfvars'
-          var_file: 'pr-environment.tfvars'
+  terraform_plan_pr:
+    name: 📋 Terraform Plan (PR)
+    needs: terraform_validate_pr
+    uses: ./.github/workflows/reusable-terraform.yml
+    with:
+      command: 'plan'
+      backend_config: 'backend-pr.tfvars'
+      var_file: 'pr-environment.tfvars'
 
-      - name: 🚀 Terraform Apply (Environment)
-        id: terraform-apply-pr
-        if: env.ACTION == 'deploy'
-        uses: ./.github/workflows/reusable-terraform.yml
-        with:
-          command: 'apply'
-          backend_config: 'backend-pr.tfvars'
-          var_file: 'pr-environment.tfvars'
+  terraform_apply_pr:
+    name: 🚀 Terraform Apply (PR)
+    needs: terraform_plan_pr
+    uses: ./.github/workflows/reusable-terraform.yml
+    with:
+      command: 'apply'
+      backend_config: 'backend-pr.tfvars'
+      var_file: 'pr-environment.tfvars'
 
+  post_deployment_steps:
+    name: 🚀 Post-Deployment Steps
+    needs: terraform_apply_pr
+    runs-on: ubuntu-slim
+    steps:
       - name: 🏥 MCP Health Check
-        if: env.ACTION == 'deploy'
         run: |
           # Get required values from reusable workflow outputs
-          CLIENT_ID=${{ steps.terraform-apply-pr.outputs.client_id }}
-          TENANT_ID=${{ steps.terraform-apply-pr.outputs.tenant_id }}
-          CLIENT_SECRET=${{ steps.terraform-apply-pr.outputs.client_secret }}
-          SCOPE=${{ steps.terraform-apply-pr.outputs.scope }}
-          GATEWAY_URL=${{ steps.terraform-apply-pr.outputs.gateway_url }}
+          CLIENT_ID=${{ needs.terraform_apply_pr.outputs.client_id }}
+          TENANT_ID=${{ needs.terraform_apply_pr.outputs.tenant_id }}
+          CLIENT_SECRET=${{ needs.terraform_apply_pr.outputs.client_secret }}
+          SCOPE=${{ needs.terraform_apply_pr.outputs.scope }}
+          GATEWAY_URL=${{ needs.terraform_apply_pr.outputs.gateway_url }}
 
           # Get OAuth token using client credentials flow
           TOKEN_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
@@ -294,14 +301,13 @@ jobs:
           fi
 
       - name: 💬 Post Deployment Comment
-        if: env.ACTION == 'deploy'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd iac
           GATEWAY_URL=$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo "unavailable")
           if [ "$GATEWAY_URL" != "unavailable" ]; then
-            if [ "${{ env.PR_NUMBER }}" != "manual" ]; then
+            if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
               COMMENT="## 🌱 Ephemeral Environment Deployed
 
               Your PR environment has been deployed successfully!
@@ -316,11 +322,11 @@ jobs:
               🔐 **Token Generation**:
               For security reasons, tokens are not automatically generated in CI environments.
               Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ steps.terraform-apply-pr.outputs.scope }}\`
+              - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
               - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
-              - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
+              - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
               - Branch: \`${{ github.head_ref }}\`
 
               ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
@@ -339,11 +345,11 @@ jobs:
               🔐 **Token Generation**:
               For security reasons, tokens are not automatically generated in CI environments.
               Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ steps.terraform-apply-pr.outputs.scope }}\`
+              - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
               - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
-              - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
+              - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
               - Run Number: \`${{ github.run_number }}\`
 
               ⚠️ **Manual Cleanup Required**: Destroy this environment manually when no longer needed:
@@ -352,7 +358,7 @@ jobs:
               \`\`\`"
             fi
           else
-            if [ "${{ env.PR_NUMBER }}" != "manual" ]; then
+            if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
               COMMENT="## 🌱 Ephemeral Environment Deployment Started
             
               Your PR environment deployment has started. Please wait for completion.
@@ -367,20 +373,20 @@ jobs:
             fi
           fi
           
-          if [ "${{ env.PR_NUMBER }}" != "manual" ]; then
+          if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
             # For PRs, add/update comment on the PR
-            gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
+            gh api repos/${{ github.repository }}/issues/${{ needs.prepare_pr_environment.outputs.pr_number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
           fi
 
       - name: 💬 Update Comment with Final Details
-        if: env.ACTION == 'deploy' && success()
+        if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd iac
           GATEWAY_URL=$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo "unavailable")
           if [ "$GATEWAY_URL" != "unavailable" ]; then
-            if [ "${{ env.PR_NUMBER }}" != "manual" ]; then
+            if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
               COMMENT="## 🌱 Ephemeral Environment Deployed ✅
 
               Your PR environment has been deployed successfully!
@@ -395,11 +401,11 @@ jobs:
               🔐 **Token Generation**:
               For security reasons, tokens are not automatically generated in CI environments.
               Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ steps.terraform-apply-pr.outputs.scope }}\`
+              - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
               - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
-              - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
+              - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
               - Branch: \`${{ github.head_ref }}\`
 
               ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
@@ -418,11 +424,11 @@ jobs:
               🔐 **Token Generation**:
               For security reasons, tokens are not automatically generated in CI environments.
               Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ steps.terraform-apply-pr.outputs.scope }}\`
+              - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
               - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
-              - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
+              - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
               - Run Number: \`${{ github.run_number }}\`
 
               ⚠️ **Manual Cleanup Required**: Destroy this environment manually when no longer needed:
@@ -431,14 +437,19 @@ jobs:
               \`\`\`"
             fi
             
-            if [ "${{ env.PR_NUMBER }}" != "manual" ]; then
+            if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
               # For PRs, update the comment on the PR
-              gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
+              gh api repos/${{ github.repository }}/issues/${{ needs.prepare_pr_environment.outputs.pr_number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
             fi
           fi
 
+  terraform_destroy_pr:
+    name: 💣 Terraform Destroy (PR)
+    needs: prepare_pr_environment
+    if: needs.prepare_pr_environment.outputs.action == 'destroy'
+    runs-on: ubuntu-slim
+    steps:
       - name: 💣 Terraform Destroy (Environment)
-        if: env.ACTION == 'destroy'
         run: |
           cd iac
           # Create a dummy Lambda binary for validation during destroy
@@ -450,29 +461,27 @@ jobs:
            terraform destroy -auto-approve -var-file=pr-environment.tfvars
 
       - name: 🧹 Cleanup Terraform State File
-        if: env.ACTION == 'destroy'
         run: |
           # Remove the state file from S3 to prevent accumulation
-          STATE_KEY="aws-lambda-mcp/${{ env.ENVIRONMENT_NAME }}/terraform.tfstate"
+          STATE_KEY="aws-lambda-mcp/${{ needs.prepare_pr_environment.outputs.environment_name }}/terraform.tfstate"
           echo "Cleaning up Terraform state file: s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY"
           aws s3 rm "s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY" || echo "State file cleanup may have failed, continuing..."
 
       - name: 💬 Notify Environment Destruction
-        if: env.ACTION == 'destroy'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ env.PR_NUMBER }}" != "manual" ]; then
+          if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
             COMMENT="## 🌱 Ephemeral Environment Destroyed 🗑️
           
             Your PR environment has been successfully destroyed.
           
             📋 **Details**:
-            - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
+            - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
             - Branch: \`${{ github.head_ref }}\`
           
             ✅ All resources have been cleaned up."
           
             # Add a final comment to the PR
-            gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
+            gh api repos/${{ github.repository }}/issues/${{ needs.prepare_pr_environment.outputs.pr_number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
           fi
