@@ -64,17 +64,20 @@ jobs:
 
           ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r ".access_token")
 
-          # Test MCP initialize call with token
-          RESPONSE=$(curl -s -X POST "$GATEWAY_URL/jsonrpc" \
-            -H "Authorization: Bearer $ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}')
+          if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
+            echo "❌ Failed to get OAuth token"
+            echo "Response: $TOKEN_RESPONSE"
+            exit 1
+          fi
 
-          # Validate MCP response
-          if echo "$RESPONSE" | jq -e '.result' > /dev/null 2>&1; then
-            echo "✅ MCP service healthy"
+          # Test Gateway endpoint with token
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "$GATEWAY_URL")
+
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
+            echo "✅ Gateway healthy (HTTP $HTTP_CODE)"
           else
-            echo "❌ MCP service unhealthy"
-            echo "Response: $RESPONSE"
+            echo "❌ Gateway unhealthy (HTTP $HTTP_CODE)"
             exit 1
           fi

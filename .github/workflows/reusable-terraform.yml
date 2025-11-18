@@ -6,16 +6,11 @@ on:
       command:
         required: true
         type: string
-        description: 'Terraform command to run (init, validate, plan, apply, deploy, destroy)'
+        description: 'Terraform command to run (init, validate, deploy, destroy)'
       var_file:
         required: false
         type: string
         description: 'Variable file to use'
-
-      plan_file:
-        required: false
-        type: string
-        description: 'Plan file for apply command'
       aws_region:
         required: false
         type: string
@@ -167,20 +162,8 @@ jobs:
             -backend-config="use_lockfile=true"
 
       - name: ✅ Terraform Validate
-        if: inputs.command == 'validate' || inputs.command == 'plan' || inputs.command == 'apply' || inputs.command == 'deploy'
+        if: inputs.command == 'validate' || inputs.command == 'deploy'
         run: cd iac && terraform validate
-
-      - name: 📋 Terraform Plan
-        if: inputs.command == 'plan'
-        run: |
-          cd iac
-          terraform plan -out=tfplan ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
-
-      - name: 🚀 Terraform Apply
-        if: inputs.command == 'apply'
-        run: |
-          cd iac
-          terraform apply ${{ inputs.plan_file || 'tfplan' }} ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
 
       - name: 🚀 Terraform Deploy (Plan + Apply)
         if: inputs.command == 'deploy'
@@ -196,7 +179,7 @@ jobs:
           terraform destroy -auto-approve ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
 
       - name: 📤 Capture Terraform Outputs
-        if: inputs.command == 'apply' || inputs.command == 'deploy'
+        if: inputs.command == 'deploy'
         id: terraform-outputs
         run: |
           cd iac
