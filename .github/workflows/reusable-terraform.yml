@@ -144,9 +144,11 @@ jobs:
           aws-region: ${{ inputs.aws_region }}
 
       - name: 📝 Ensure Backend Config Exists
+        env:
+          TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
         run: |
           cd iac
-          echo "bucket=${{ secrets.TF_BACKEND_BUCKET }}" > backend.config
+          echo "bucket=${TF_BACKEND_BUCKET}" > backend.config
           if [ -n "${{ inputs.environment_name }}" ]; then
             echo "key=aws-lambda-mcp/${{ inputs.environment_name }}/terraform.tfstate" >> backend.config
           else
