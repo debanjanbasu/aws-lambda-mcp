@@ -10,6 +10,12 @@ variable "project_name" {
   default     = "aws-agentcore-gateway"
 }
 
+variable "project_name_suffix" {
+  description = "Optional suffix for project name (auto-generated if not provided)"
+  type        = string
+  default     = ""
+}
+
 variable "lambda_memory_size" {
   description = "Memory size for Lambda function in MB"
   type        = number

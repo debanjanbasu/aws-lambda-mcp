@@ -4,12 +4,26 @@
 # Data source to get current Entra ID configuration
 data "azuread_client_config" "current" {}
 
+# Generate a random suffix for unique resource names if not provided
+resource "random_string" "project_suffix" {
+  length  = 6
+  lower   = true
+  upper   = false
+  numeric = true
+  special = false
+}
+
+# Compute the final project name with suffix
+locals {
+  project_name_with_suffix = var.project_name_suffix != "" ? "${var.project_name}-${var.project_name_suffix}" : "${var.project_name}-${random_string.project_suffix.result}"
+}
+
 # Generate a stable UUID for the OAuth scope
 resource "random_uuid" "oauth_scope" {}
 
 # Create Entra ID Application Registration for AgentCore Gateway
 resource "azuread_application" "agentcore_app" {
-  display_name     = var.project_name
+  display_name     = local.project_name_with_suffix
   owners           = [data.azuread_client_config.current.object_id]
   sign_in_audience = var.entra_sign_in_audience
 

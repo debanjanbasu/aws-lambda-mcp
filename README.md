@@ -138,6 +138,8 @@ Included working tool demonstrates the pattern:
 
 When using this repository as a GitHub template, you'll need to set up several secrets in your repository settings for the GitHub Actions workflows to function properly.
 
+**Resource Naming**: The system automatically generates unique resource names by appending a random suffix (e.g., `aws-agentcore-gateway-a1b2c3`) to prevent conflicts when multiple deployments exist in the same AWS account.
+
 ### Required GitHub Secrets
 
 | Secret Name | Description | Setup Instructions |

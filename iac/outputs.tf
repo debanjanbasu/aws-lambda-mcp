@@ -98,7 +98,7 @@ output "entra_app_scope_m365_copilot" {
 
 output "entra_app_name" {
   description = "Entra ID application name"
-  value       = var.project_name
+  value       = local.project_name_with_suffix
 }
 
 output "entra_app_object_id" {
