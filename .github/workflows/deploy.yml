@@ -47,10 +47,10 @@ jobs:
     steps:
       - name: 🏥 MCP Health Check
         run: |
-          # Get required values from reusable workflow outputs
+          # Get required values from reusable workflow outputs and secrets
           CLIENT_ID=${{ needs.terraform_deploy.outputs.client_id }}
-          TENANT_ID=${{ needs.terraform_deploy.outputs.tenant_id }}
-          CLIENT_SECRET=${{ needs.terraform_deploy.outputs.client_secret }}
+          TENANT_ID=${{ secrets.AZURE_TENANT_ID }}
+          CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
           SCOPE=${{ needs.terraform_deploy.outputs.scope }}
           GATEWAY_URL=${{ needs.terraform_deploy.outputs.gateway_url }}
 
