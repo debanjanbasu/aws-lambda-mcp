@@ -40,51 +40,26 @@ jobs:
       - name: Check if Rust files changed
         id: rust_changes
         run: |
-          # Check if any Rust-related files have changed
-          # We compare against the base branch (main) to detect changes
+          # Simple check for Rust-related file changes
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # For pull requests, check what files changed in the PR
-            git fetch origin main:main
-            # Handle case where there's no merge base
-            if CHANGED_FILES=$(git diff --name-only main...HEAD 2>/dev/null); then
-              echo "Using three-dot diff"
+            # Check if PR contains Rust files
+            if git diff --name-only HEAD~1 | grep -E '\.(rs|toml)$|^src/|^Cargo\.'; then
+              echo "rust_changed=true" >> $GITHUB_OUTPUT
             else
-              echo "Fallback to two-dot diff"
-              CHANGED_FILES=$(git diff --name-only main..HEAD)
+              echo "rust_changed=false" >> $GITHUB_OUTPUT
             fi
           else
-            # For workflow_dispatch, check last commit
-            CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
+            # For manual dispatch, always build
+            echo "rust_changed=true" >> $GITHUB_OUTPUT
           fi
-          
-          echo "Changed files:"
-          echo "$CHANGED_FILES"
-          
-          # Check if any Rust-related files changed
-          RUST_CHANGED=false
-          while read -r file; do
-            if [[ "$file" == src/* ]] || [[ "$file" == *.rs ]] || [[ "$file" == Cargo.toml ]] || [[ "$file" == Cargo.lock ]] || [[ "$file" == Makefile ]] || [[ "$file" == .cargo/* ]]; then
-              RUST_CHANGED=true
-              echo "Rust-related file changed: $file"
-              break
-            fi
-          done <<< "$CHANGED_FILES"
-          
-          # If no files changed at all (shouldn't happen), assume no change needed
-          if [ -z "$CHANGED_FILES" ]; then
-            RUST_CHANGED=false
-          fi
-          
-          echo "rust_changed=$RUST_CHANGED" >> $GITHUB_OUTPUT
-          echo "Rust files changed: $RUST_CHANGED"
 
-      - name: Cache Lambda build artifacts
+      - name: 💾 Cache Lambda build artifacts
         uses: actions/cache@v4
         with:
           path: |
             target/lambda/
             tool_schema.json
-          key: ${{ runner.os }}-${{ runner.arch }}-lambda-build-${{ hashFiles('src/**', 'Cargo.toml', 'Cargo.lock', 'Makefile', '.cargo/**') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-lambda-build-${{ hashFiles('src/**', 'Cargo.toml', 'Cargo.lock', 'Makefile', '.cargo/**', 'rust-toolchain.toml') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-lambda-build-
 
@@ -96,7 +71,7 @@ jobs:
           components: rust-src
           targets: aarch64-unknown-linux-gnu
 
-      - name: Cache Rust dependencies
+      - name: 💾 Cache Rust dependencies
         if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: actions/cache@v4
         with:
@@ -106,18 +81,19 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml', 'rust-toolchain.toml') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+            ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+            ${{ runner.os }}-${{ runner.arch }}-cargo-
 
-      - name: Cache cargo-lambda
+      - name: 💾 Cache cargo-lambda
         if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-lambda
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-lambda-
+            ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-
 
       - name: Install cargo-lambda
         if: steps.rust_changes.outputs.rust_changed == 'true'
@@ -133,9 +109,11 @@ jobs:
         with:
           version: latest
 
-      - name: Install UPX (for release build compression)
+      - name: 📦 Install UPX (for release build compression)
         if: steps.rust_changes.outputs.rust_changed == 'true'
-        run: sudo apt-get update && sudo apt-get install -y upx-ucl
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: upx-ucl
 
       - name: Build Lambda (Release)
         if: steps.rust_changes.outputs.rust_changed == 'true'
@@ -249,20 +227,77 @@ jobs:
       - name: 💾 Cache Terraform plugins
         uses: actions/cache@v4
         with:
-          path: iac/.terraform
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
+          path: |
+            iac/.terraform
+            ~/.terraform.d/
+          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-terraform-
 
-      - name: 🚀 Terraform Init (Environment)
+      - name: 🚀 Terraform Init & Validate (Environment)
         if: env.ACTION == 'deploy'
-        run: |
-          cd iac
-          terraform init -backend-config=backend-pr.tfvars
+        uses: ./.github/workflows/reusable-terraform.yml
+        with:
+          command: 'validate'
+          backend_config: 'backend-pr.tfvars'
+
+      - name: 📋 Terraform Plan (Environment)
+        if: env.ACTION == 'deploy'
+        uses: ./.github/workflows/reusable-terraform.yml
+        with:
+          command: 'plan'
+          backend_config: 'backend-pr.tfvars'
+          var_file: 'pr-environment.tfvars'
 
       - name: 🚀 Terraform Apply (Environment)
         if: env.ACTION == 'deploy'
+        uses: ./.github/workflows/reusable-terraform.yml
+        with:
+          command: 'apply'
+          backend_config: 'backend-pr.tfvars'
+          var_file: 'pr-environment.tfvars'
+
+      - name: 🏥 MCP Health Check
+        if: env.ACTION == 'deploy'
         run: |
-          cd iac
-          terraform apply -auto-approve -var-file=pr-environment.tfvars
+          # Get required values from terraform outputs
+          CLIENT_ID=$(cd iac && terraform output -raw entra_app_client_id)
+          TENANT_ID=$(cd iac && terraform output -raw entra_tenant_id)
+          CLIENT_SECRET=$(cd iac && terraform output -raw entra_client_secret)
+          SCOPE=$(cd iac && terraform output -raw entra_app_scope_client_credentials)
+          GATEWAY_URL=$(cd iac && terraform output -raw agentcore_gateway_url)
+
+          # Get OAuth token using client credentials flow
+          TOKEN_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "client_id=$CLIENT_ID" \
+            -d "client_secret=$CLIENT_SECRET" \
+            -d "grant_type=client_credentials" \
+            -d "scope=$SCOPE")
+
+          ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r ".access_token")
+
+          # Test MCP initialize call with token
+          RESPONSE=$(curl -s -X POST "$GATEWAY_URL/jsonrpc" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}')
+
+          # Validate MCP response
+          if echo "$RESPONSE" | jq -e '.result' > /dev/null 2>&1; then
+            echo "✅ MCP service healthy"
+          else
+            echo "❌ MCP service unhealthy"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+
+      - name: 📝 Get OAuth Scope
+        if: env.ACTION == 'deploy'
+        id: get-scope
+        run: |
+          SCOPE=$(cd iac && terraform output -raw entra_app_scope_client_credentials)
+          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
 
       - name: 💬 Post Deployment Comment
         if: env.ACTION == 'deploy'
@@ -280,9 +315,15 @@ jobs:
               🔗 **Gateway URL**: $GATEWAY_URL
 
               🧪 **Testing Instructions**:
-              1. Run \`make test-token\` to generate an OAuth token
+              1. Copy the gateway URL below
               2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-              3. Use the token to authenticate in the Inspector UI
+              3. Use an OAuth token from your development environment to authenticate in the Inspector UI
+              
+              🔐 **Token Generation**:
+              For security reasons, tokens are not automatically generated in CI environments.
+              Please use a token from your local development environment or generate one using:
+              - Azure CLI: \`az account get-access-token --resource ${{ steps.get-scope.outputs.scope }}\`
+              - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
               - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
@@ -297,9 +338,15 @@ jobs:
               🔗 **Gateway URL**: $GATEWAY_URL
 
               🧪 **Testing Instructions**:
-              1. Run \`make test-token\` to generate an OAuth token
+              1. Copy the gateway URL below
               2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-              3. Use the token to authenticate in the Inspector UI
+              3. Use an OAuth token from your development environment to authenticate in the Inspector UI
+              
+              🔐 **Token Generation**:
+              For security reasons, tokens are not automatically generated in CI environments.
+              Please use a token from your local development environment or generate one using:
+              - Azure CLI: \`az account get-access-token --resource ${{ steps.get-scope.outputs.scope }}\`
+              - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
               - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
@@ -347,9 +394,15 @@ jobs:
               🔗 **Gateway URL**: $GATEWAY_URL
 
               🧪 **Testing Instructions**:
-              1. Run \`make test-token\` to generate an OAuth token
+              1. Copy the gateway URL below
               2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-              3. Use the token to authenticate in the Inspector UI
+              3. Use an OAuth token from your development environment to authenticate in the Inspector UI
+              
+              🔐 **Token Generation**:
+              For security reasons, tokens are not automatically generated in CI environments.
+              Please use a token from your local development environment or generate one using:
+              - Azure CLI: \`az account get-access-token --resource ${{ steps.get-scope.outputs.scope }}\`
+              - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
               - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
@@ -364,9 +417,15 @@ jobs:
               🔗 **Gateway URL**: $GATEWAY_URL
 
               🧪 **Testing Instructions**:
-              1. Run \`make test-token\` to generate an OAuth token
+              1. Copy the gateway URL below
               2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-              3. Use the token to authenticate in the Inspector UI
+              3. Use an OAuth token from your development environment to authenticate in the Inspector UI
+              
+              🔐 **Token Generation**:
+              For security reasons, tokens are not automatically generated in CI environments.
+              Please use a token from your local development environment or generate one using:
+              - Azure CLI: \`az account get-access-token --resource ${{ steps.get-scope.outputs.scope }}\`
+              - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
               - Environment: \`${{ env.ENVIRONMENT_NAME }}\`
@@ -391,10 +450,10 @@ jobs:
           # Create a dummy Lambda binary for validation during destroy
           mkdir -p ../target/lambda/aws-lambda-mcp
           echo "dummy-content-for-destroy-operations" > ../target/lambda/aws-lambda-mcp/bootstrap
-          # Initialize Terraform with backend config (without reconfigure to avoid validation)
-          terraform init -backend-config=backend-pr.tfvars
-          # Destroy infrastructure
-          terraform destroy -auto-approve -var-file=pr-environment.tfvars
+           # Initialize Terraform with backend config (without reconfigure to avoid validation)
+           terraform init -backend-config=backend-pr.tfvars
+           # Destroy infrastructure
+           terraform destroy -auto-approve -var-file=pr-environment.tfvars
 
       - name: 🧹 Cleanup Terraform State File
         if: env.ACTION == 'destroy'

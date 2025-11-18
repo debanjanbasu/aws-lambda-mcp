@@ -48,9 +48,10 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml', 'rust-toolchain.toml') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+            ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+            ${{ runner.os }}-${{ runner.arch }}-cargo-
 
       - name: 💾 Cache cargo-lambda
         uses: actions/cache@v4
@@ -73,7 +74,9 @@ jobs:
           version: latest
 
       - name: 📦 Install UPX (for release build compression)
-        run: sudo apt-get update && sudo apt-get install -y upx-ucl
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: upx-ucl
 
       - name: 🛠️ Build Lambda (Release)
         run: make release
@@ -85,6 +88,7 @@ jobs:
           path: |
             target/lambda/
             tool_schema.json
+          retention-days: 7
 
   deploy-infra:
     name: 🌐 Deploy Infrastructure
@@ -114,28 +118,68 @@ jobs:
       - name: 💾 Cache Terraform plugins
         uses: actions/cache@v4
         with:
-          path: iac/.terraform
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl') }}
+          path: |
+            iac/.terraform
+            ~/.terraform.d/
+          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-terraform-
 
-      - name: 🏗️ Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: latest
-
-      - name: 🔐 Setup Azure CLI
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
-      - name: 🚀 Terraform Init
+      - name: 📝 Prepare Backend Config
         run: |
-          cd iac && terraform init \
-            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
-            -backend-config="key=aws-lambda-mcp/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="use_lockfile=true"
+          echo "bucket=${{ secrets.TF_BACKEND_BUCKET }}" > iac/backend-deploy.config
+          echo "key=aws-lambda-mcp/terraform.tfstate" >> iac/backend-deploy.config
+          echo "region=${{ env.AWS_REGION }}" >> iac/backend-deploy.config
+          echo "use_lockfile=true" >> iac/backend-deploy.config
+
+      - name: 🚀 Terraform Init & Validate
+        uses: ./.github/workflows/reusable-terraform.yml
+        with:
+          command: 'validate'
+          backend_config: 'backend-deploy.config'
+
+      - name: 📋 Terraform Plan
+        uses: ./.github/workflows/reusable-terraform.yml
+        with:
+          command: 'plan'
+          backend_config: 'backend-deploy.config'
 
       - name: 🚀 Terraform Apply
-        run: cd iac && terraform apply -auto-approve
+        uses: ./.github/workflows/reusable-terraform.yml
+        with:
+          command: 'apply'
+          backend_config: 'backend-deploy.config'
+
+      - name: 🏥 MCP Health Check
+        run: |
+          # Get required values from terraform outputs
+          CLIENT_ID=$(cd iac && terraform output -raw entra_app_client_id)
+          TENANT_ID=$(cd iac && terraform output -raw entra_tenant_id)
+          CLIENT_SECRET=$(cd iac && terraform output -raw entra_client_secret)
+          SCOPE=$(cd iac && terraform output -raw entra_app_scope_client_credentials)
+          GATEWAY_URL=$(cd iac && terraform output -raw api_gateway_url)
+
+          # Get OAuth token using client credentials flow
+          TOKEN_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "client_id=$CLIENT_ID" \
+            -d "client_secret=$CLIENT_SECRET" \
+            -d "grant_type=client_credentials" \
+            -d "scope=$SCOPE")
+
+          ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r ".access_token")
+
+          # Test MCP initialize call with token
+          RESPONSE=$(curl -s -X POST "$GATEWAY_URL/jsonrpc" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}')
+
+           # Validate MCP response
+           if echo "$RESPONSE" | jq -e '.result' > /dev/null 2>&1; then
+             echo "✅ MCP service healthy"
+           else
+             echo "❌ MCP service unhealthy"
+             echo "Response: $RESPONSE"
+             exit 1
+           fi
