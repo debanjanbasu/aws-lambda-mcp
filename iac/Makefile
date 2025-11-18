@@ -67,11 +67,12 @@ test-token: ## Get OAuth token + launch MCP Inspector
 	CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
 	CLIENT_SECRET=$$(terraform output -raw entra_client_secret 2>/dev/null); \
-	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$CLIENT_SECRET" ]; then \
+	IDENTIFIER_URI=$$(terraform output -raw entra_app_identifier_uri 2>/dev/null); \
+	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$CLIENT_SECRET" ] || [ -z "$$IDENTIFIER_URI" ]; then \
 		echo -e "❌ Missing Terraform outputs. Run \"make apply\" first to deploy infrastructure." >&2; \
 		exit 1; \
 	fi; \
-	SCOPE="api://$$CLIENT_ID/.default"; \
+	SCOPE="$${IDENTIFIER_URI}/.default"; \
 	TOKEN_RESPONSE=$$(curl -s -X POST "https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token" \
 		-H "Content-Type: application/x-www-form-urlencoded" \
 		-d "client_id=$$CLIENT_ID" \
@@ -101,11 +102,11 @@ test-token: ## Get OAuth token + launch MCP Inspector
 		fi; \
 		echo -e "🔗 Gateway URL: $$GATEWAY_URL"; \
 		echo -e "🚀 Launching MCP Inspector..."; \
-		source .env && npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL" || { echo -e "❌ Failed to launch MCP Inspector." >&2; exit 1; }; \
+		source .env && npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL" || { echo -e '\''❌ Failed to launch MCP Inspector.'\'' >&2; exit 1; }; \
 	else \
-		echo -e "⚠️  Gateway not yet deployed. Deploy first with 'make deploy'" >&2; \
+		echo -e "⚠️  Gateway not yet deployed. Deploy first with '\''make deploy'\''" >&2; \
 		exit 1; \
-	fi' 
+	fi'
 
 test-lambda: ## Test Lambda directly
 	@echo "\033[1;34m🧪 Testing Lambda function directly...\033[0m"
@@ -120,7 +121,12 @@ test-lambda: ## Test Lambda directly
 
 logs: ## Tail Lambda logs
 	@echo "📜 Tailing Lambda logs (Ctrl+C to exit)..."
-	@aws logs tail /aws/lambda/aws-lambda-mcp --follow
+	@LOG_GROUP_NAME=$$(terraform output -raw cloudwatch_log_group_name 2>/dev/null); \
+	if [ -z "$$LOG_GROUP_NAME" ]; then \
+		echo "❌ Log group name not found. Run \"make apply\" first to deploy infrastructure." >&2; \
+		exit 1; \
+	fi; \
+	aws logs tail "$$LOG_GROUP_NAME" --follow
 
 clean: ## Remove tokens and backups
 	@echo "🧹 Cleaning up temporary files..."
@@ -143,6 +149,7 @@ oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
 	CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
 	CLIENT_SECRET=$$(terraform output -raw entra_client_secret 2>/dev/null); \
+	IDENTIFIER_URI=$$(terraform output -raw entra_app_identifier_uri 2>/dev/null); \
 	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ]; then \
 		echo "\033[1;31m❌ Run \"make apply\" first to deploy infrastructure\033[0m" >&2; \
 		exit 1; \
@@ -154,7 +161,7 @@ oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
 	echo "  Authorization URL: https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/authorize"; \
 	echo "  Token URL: https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token"; \
 	echo "  Refresh URL: https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token"; \
-	echo "  Scopes: api://$$CLIENT_ID/.default, User.Read, openid, profile, email"; \
+	echo "  Scopes: $${IDENTIFIER_URI}/.default, User.Read, openid, profile, email"; \
 	echo ""; \
 	echo -e "\033[1;33mFor service principal authentication:\033[0m"; \
 	echo "  1. Use the Client ID and Client Secret for authentication"; \

@@ -1,5 +1,10 @@
 # AI Assistant Instructions for AWS Lambda MCP
 
+**Developer Quick Start:**
+- `make login` - Authenticate AWS and Azure CLIs
+- `make deploy` - Build and deploy Lambda to AWS (auto-installs tools if needed)
+- `make test-token` - Get OAuth token and launch MCP Inspector for testing
+
 **Build/Lint/Test Commands:**
 - `make build` - Debug build
 - `make release` - ARM64 production build with UPX compression
@@ -8,7 +13,7 @@
 - `cargo clippy` - Run clippy with strict lints (denies unsafe code, unwrap, panic, etc.)
 - `cargo fmt` - Format code
 - `make schema` - Generate tool schemas
-- `make check-tools` - Install/check required tools (Rust, Zig, cargo-lambda, UPX, jq, Terraform)
+- `make check-tools` - Install/check required tools (Rust, Zig, cargo-lambda, UPX, jq, Terraform) *(Optional - called automatically by deploy)*
 - `make help` - Show all available make commands
 
 **Code Style Guidelines:**
@@ -20,7 +25,7 @@
 - **Async**: Use `async/await` everywhere, no blocking I/O, `#[instrument]` for tracing
 - **Security**: No unsafe code, no hardcoded secrets, environment variables only
 - **Performance**: Prefer `&str` over `String`, minimize allocations, `LazyLock` for globals
-- **Makefiles**: Use `@printf` instead of `@echo` for colored output to properly interpret ANSI color codes (e.g., `@printf "$(BLUE)Message$(RESET)\n"`)
+- **Makefiles**: Use `@echo "$(CYAN)Message$(RESET)"` for colored output in Makefiles (avoids shell escaping issues with printf)
 
 **Deployment Commands:**
 - `make deploy` - Build and deploy Lambda to AWS (requires backend config)

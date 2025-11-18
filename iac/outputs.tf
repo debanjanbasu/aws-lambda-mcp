@@ -76,6 +76,11 @@ output "entra_app_client_id" {
   value       = azuread_application.agentcore_app.client_id
 }
 
+output "entra_app_identifier_uri" {
+  description = "Entra ID application identifier URI"
+  value       = "api://${var.project_name}"
+}
+
 output "entra_app_name" {
   description = "Entra ID application name"
   value       = var.project_name
