@@ -108,6 +108,9 @@ pub async fn function_handler(event: LambdaEvent<Value>) -> Result<Value, Diagno
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lambda_runtime::Context;
+    use serde_json::json;
+    use std::collections::HashMap;
 
     #[test]
     fn test_strip_gateway_prefix() {
@@ -118,5 +121,75 @@ mod tests {
         assert_eq!(strip_gateway_prefix("get_weather"), "get_weather");
         assert_eq!(strip_gateway_prefix(""), "");
         assert_eq!(strip_gateway_prefix("no_prefix"), "no_prefix");
+    }
+
+    #[test]
+    fn test_extract_tool_name_from_client_context() {
+        let event_payload = json!({"name": "fallback"});
+        let mut custom = HashMap::new();
+        custom.insert("bedrockAgentCoreToolName".to_string(), json!("get_weather"));
+        let client_context = lambda_runtime::ClientContext {
+            custom,
+            ..Default::default()
+        };
+        let context = Context {
+            client_context: Some(client_context),
+            ..Default::default()
+        };
+
+        assert_eq!(extract_tool_name(&event_payload, &context), "get_weather");
+    }
+
+    #[test]
+    fn test_extract_tool_name_from_event_payload() {
+        let event_payload = json!({"name": "get_weather"});
+        let context = Context::default();
+
+        assert_eq!(extract_tool_name(&event_payload, &context), "get_weather");
+    }
+
+    #[test]
+    fn test_extract_tool_name_unknown() {
+        let event_payload = json!({});
+        let context = Context::default();
+
+        assert_eq!(extract_tool_name(&event_payload, &context), "unknown");
+    }
+
+    #[test]
+    fn test_extract_tool_name_with_gateway_prefix() {
+        let event_payload = json!({"name": "fallback"});
+        let mut custom = HashMap::new();
+        custom.insert("bedrockAgentCoreToolName".to_string(), json!("gateway-123___get_weather"));
+        let client_context = lambda_runtime::ClientContext {
+            custom,
+            ..Default::default()
+        };
+        let context = Context {
+            client_context: Some(client_context),
+            ..Default::default()
+        };
+
+        assert_eq!(extract_tool_name(&event_payload, &context), "get_weather");
+    }
+
+    #[tokio::test]
+    async fn test_route_tool_unknown() {
+        let event_payload = json!({});
+        let result = route_tool("unknown_tool", event_payload).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error_type, "UnknownTool");
+        assert!(err.error_message.contains("Unknown tool: unknown_tool"));
+    }
+
+    #[tokio::test]
+    async fn test_route_tool_invalid_input() {
+        let event_payload = json!({"invalid": "data"});
+        let result = route_tool("get_weather", event_payload).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error_type, "InvalidInput");
+        assert!(err.error_message.contains("Failed to parse request"));
     }
 }
