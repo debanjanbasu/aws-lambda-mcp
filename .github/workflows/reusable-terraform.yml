@@ -148,6 +148,7 @@ jobs:
       - name: 🚀 Terraform Init
         env:
           TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
+          TF_VAR_project_name_suffix: ${{ secrets.PROJECT_NAME_SUFFIX || '' }}
         run: |
           cd iac
           if [ -n "${{ inputs.environment_name }}" ]; then
