@@ -75,9 +75,8 @@ test-token: ## Get OAuth token + launch MCP Inspector
 	CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
 	CLIENT_SECRET=$$(terraform output -raw entra_client_secret 2>/dev/null); \
-	IDENTIFIER_URI=$$(terraform output -raw entra_app_identifier_uri 2>/dev/null); \
 	CLIENT_CREDENTIALS_SCOPE=$$(terraform output -raw entra_app_scope_client_credentials 2>/dev/null); \
-	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$CLIENT_SECRET" ] || [ -z "$$IDENTIFIER_URI" ] || [ -z "$$CLIENT_CREDENTIALS_SCOPE" ]; then \
+	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$CLIENT_SECRET" ] || [ -z "$$CLIENT_CREDENTIALS_SCOPE" ]; then \
 		echo "❌ Missing Terraform outputs. Run \"make apply\" first to deploy infrastructure." >&2; \
 		exit 1; \
 	fi; \
@@ -176,7 +175,10 @@ oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
 	echo "  Scopes:"; \
 	echo "    Service-to-Service (Client Credentials): $${CLIENT_CREDENTIALS_SCOPE}"; \
 	echo "    User Authentication: $${APP_SCOPE}"; \
-	echo "    Additional: User.Read, openid, profile, email"; \
+	echo "    Microsoft 365 Copilot Integration: $${CLIENT_CREDENTIALS_SCOPE}"; \
+	echo "  Additional Scopes: User.Read, openid, profile, email"; \
+	echo ""; \
+	echo "\033[1;33mNote: The identifier URI (api://$$CLIENT_ID) is for reference only and not used in modern Azure AD authentication.\033[0m"; \
 	echo ""; \
 	echo "\033[1;32mMCP Inspector Configuration:\033[0m"; \
 	if [ -n "$$GATEWAY_URL" ] && [ "$$GATEWAY_URL" != "null" ]; then \

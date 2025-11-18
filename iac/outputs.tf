@@ -77,18 +77,23 @@ output "entra_app_client_id" {
 }
 
 output "entra_app_identifier_uri" {
-  description = "Entra ID application identifier URI"
-  value       = "api://${var.project_name}"
+  description = "Entra ID application identifier URI (for reference only - not used in scopes)"
+  value       = "api://${azuread_application.agentcore_app.client_id}"
 }
 
 output "entra_app_scope" {
   description = "Entra ID application scope for user authentication"
-  value       = "api://${var.project_name}/${var.entra_oauth_scope_value}"
+  value       = "${azuread_application.agentcore_app.client_id}/${var.entra_oauth_scope_value}"
 }
 
 output "entra_app_scope_client_credentials" {
   description = "Entra ID application scope for client credential flows"
-  value       = "api://${var.project_name}/.default"
+  value       = "${azuread_application.agentcore_app.client_id}/.default"
+}
+
+output "entra_app_scope_m365_copilot" {
+  description = "Entra ID application scope for Microsoft 365 Copilot integration (same as client credentials)"
+  value       = "${azuread_application.agentcore_app.client_id}/.default"
 }
 
 output "entra_app_name" {
