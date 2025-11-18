@@ -21,7 +21,7 @@ help: ## ✨ Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(check-backend-config|setup-backend|deploy|tf-destroy):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(GREEN)Development Tools:$(RESET)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(login|test-token|test-lambda|logs|clean|kill-inspector|oauth-config|add-redirect-url|remove-redirect-url|update-secrets):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(login|test-token|test-lambda|logs|clean|kill-inspector|oauth-config|add-redirect-url|clean-redirect-url|update-secrets):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(GREEN)Terraform Commands:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(tf-init|tf-plan|tf-apply):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
@@ -228,13 +228,13 @@ oauth-config: ## 📋 Display OAuth configuration for any OAuth 2.0 compliant cl
 	@echo "$(BLUE)🔑 Displaying OAuth configuration...$(RESET)"
 	@cd iac && $(MAKE) oauth-config
 
-add-redirect-url: ## 🔗 Add custom OAuth redirect URL to terraform.tfvars
-	@echo "$(BLUE)🔗 Adding redirect URL to Entra ID app...$(RESET)"
+add-redirect-url: ## 🔗 Add custom OAuth redirect URL temporarily for deployment
+	@echo "$(BLUE)🔗 Adding redirect URL temporarily for deployment...$(RESET)"
 	@cd iac && $(MAKE) add-redirect-url
 
-remove-redirect-url: ## 🔗 Remove custom OAuth redirect URL from terraform.tfvars
-	@echo "$(BLUE)🔗 Removing redirect URL from Entra ID app...$(RESET)"
-	@cd iac && $(MAKE) remove-redirect-url
+clean-redirect-url: ## 🧹 Remove temporary redirect URL configuration
+	@echo "$(BLUE)🧹 Cleaning up temporary redirect URL configuration...$(RESET)"
+	@cd iac && $(MAKE) clean-redirect-url
 
 update-secrets: ## 🔐 Update GitHub repository secrets from a .env file (for GitHub Actions and Dependabot)
 	@echo "$(BLUE)🔐 Updating GitHub repository secrets from .env file...$(RESET)"

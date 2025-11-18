@@ -81,6 +81,16 @@ output "entra_app_identifier_uri" {
   value       = "api://${var.project_name}"
 }
 
+output "entra_app_scope" {
+  description = "Entra ID application scope for user authentication"
+  value       = "api://${var.project_name}/${var.entra_oauth_scope_value}"
+}
+
+output "entra_app_scope_client_credentials" {
+  description = "Entra ID application scope for client credential flows"
+  value       = "api://${var.project_name}/.default"
+}
+
 output "entra_app_name" {
   description = "Entra ID application name"
   value       = var.project_name

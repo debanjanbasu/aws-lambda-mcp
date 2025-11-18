@@ -41,8 +41,16 @@ login: ## Authenticate AWS + Azure CLIs
 	@echo "✅ Authentication complete!"
 
 init: ## Initialize Terraform
-	@echo "⚙️  Initializing Terraform..."
-	@terraform init -backend-config=backend.config
+	@echo "⚙️  Initializing Terraform..."; \
+	if [ -f terraform.tfvars.temp ]; then \
+		echo "📝 Using temporary terraform.tfvars..."; \
+		cp terraform.tfvars.temp terraform.tfvars; \
+	elif [ ! -f terraform.tfvars ]; then \
+		echo "📝 Creating default terraform.tfvars..."; \
+		echo "rust_log_level      = \"info\"" > terraform.tfvars; \
+		echo "entra_redirect_uris = []" >> terraform.tfvars; \
+	fi; \
+	terraform init -backend-config=backend.config
 
 plan: init ## Show deployment changes
 	@echo "📋 Planning infrastructure changes..."
@@ -68,11 +76,12 @@ test-token: ## Get OAuth token + launch MCP Inspector
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
 	CLIENT_SECRET=$$(terraform output -raw entra_client_secret 2>/dev/null); \
 	IDENTIFIER_URI=$$(terraform output -raw entra_app_identifier_uri 2>/dev/null); \
-	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$CLIENT_SECRET" ] || [ -z "$$IDENTIFIER_URI" ]; then \
-		echo -e "❌ Missing Terraform outputs. Run \"make apply\" first to deploy infrastructure." >&2; \
+	CLIENT_CREDENTIALS_SCOPE=$$(terraform output -raw entra_app_scope_client_credentials 2>/dev/null); \
+	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$CLIENT_SECRET" ] || [ -z "$$IDENTIFIER_URI" ] || [ -z "$$CLIENT_CREDENTIALS_SCOPE" ]; then \
+		echo "❌ Missing Terraform outputs. Run \"make apply\" first to deploy infrastructure." >&2; \
 		exit 1; \
 	fi; \
-	SCOPE="$${IDENTIFIER_URI}/.default"; \
+	SCOPE="$${CLIENT_CREDENTIALS_SCOPE}"; \
 	TOKEN_RESPONSE=$$(curl -s -X POST "https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token" \
 		-H "Content-Type: application/x-www-form-urlencoded" \
 		-d "client_id=$$CLIENT_ID" \
@@ -131,7 +140,8 @@ logs: ## Tail Lambda logs
 clean: ## Remove tokens and backups
 	@echo "🧹 Cleaning up temporary files..."
 	@rm -f .env
-	@rm -f terraform.tfstate.*.backup
+	@rm -f terraform.tfvars.*.backup
+	@rm -f terraform.tfvars.temp
 	@echo "✅ Clean complete!"
 
 destroy: ## Destroy infrastructure
@@ -149,6 +159,8 @@ oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
 	CLIENT_SECRET=$$(terraform output -raw entra_client_secret 2>/dev/null); \
 	IDENTIFIER_URI=$$(terraform output -raw entra_app_identifier_uri 2>/dev/null); \
+	APP_SCOPE=$$(terraform output -raw entra_app_scope 2>/dev/null); \
+	CLIENT_CREDENTIALS_SCOPE=$$(terraform output -raw entra_app_scope_client_credentials 2>/dev/null); \
 	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null); \
 	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ]; then \
 		echo "\033[1;31m❌ Run \"make apply\" first to deploy infrastructure\033[0m" >&2; \
@@ -161,7 +173,10 @@ oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
 	echo "  Authorization URL: https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/authorize"; \
 	echo "  Token URL: https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token"; \
 	echo "  Refresh URL: https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token"; \
-	echo "  Scopes: $${IDENTIFIER_URI}/.default, User.Read, openid, profile, email"; \
+	echo "  Scopes:"; \
+	echo "    Service-to-Service (Client Credentials): $${CLIENT_CREDENTIALS_SCOPE}"; \
+	echo "    User Authentication: $${APP_SCOPE}"; \
+	echo "    Additional: User.Read, openid, profile, email"; \
 	echo ""; \
 	echo "\033[1;32mMCP Inspector Configuration:\033[0m"; \
 	if [ -n "$$GATEWAY_URL" ] && [ "$$GATEWAY_URL" != "null" ]; then \
@@ -177,65 +192,24 @@ oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
 	echo "\033[1;33mNote: If configuring with a non-Dynamic Client Registration compatible OAuth provider, you may need to run '\''make add-redirect-url'\'' to manually add redirect URIs.\033[0m"; \
 	echo "";
 
-add-redirect-url: ## Add custom OAuth redirect URL to terraform.tfvars
-	@echo "🔗 Adding redirect URL to terraform.tfvars..."
-	@bash -c ' \
-	if [ ! -f terraform.tfvars ]; then \
-		echo "❌ terraform.tfvars file not found"; \
-		exit 1; \
-	fi; \
+add-redirect-url: ## Add custom OAuth redirect URL temporarily for deployment
+	@echo "🔗 Adding redirect URL temporarily for deployment..."; \
 	read -p "Enter redirect URI to add: " REDIRECT_URI; \
 	if [ -z "$$REDIRECT_URI" ]; then \
 		echo "❌ Redirect URI cannot be empty"; \
 		exit 1; \
 	fi; \
-	if grep -q """$$REDIRECT_URI""" terraform.tfvars; then \
-		echo "⚠️ Redirect URI already exists in terraform.tfvars"; \
-		exit 0; \
-	fi; \
-	awk -v uri="""$$REDIRECT_URI""" '"'"' \
-		/entra_redirect_uris = \[/ { \
-			in_uris = 1; \
-			print; \
-			next; \
-		} \
-		in_uris && /\]/ { \
-			print "  " uri ","; \
-			in_uris = 0; \
-		} \
-		{ print } \
-	'"'"' terraform.tfvars > terraform.tfvars.tmp && mv terraform.tfvars.tmp terraform.tfvars; \
-	echo "✅ Redirect URI added to terraform.tfvars successfully!"; \
-	echo "💡 Run 'make deploy' to apply the changes to Entra ID"; \
-	' 
+	echo "📝 Creating temporary terraform.tfvars with redirect URI..."; \
+	echo "rust_log_level      = \"info\"" > terraform.tfvars.temp; \
+	echo "entra_redirect_uris = [\"$$REDIRECT_URI\"]" >> terraform.tfvars.temp; \
+	echo "✅ Temporary terraform.tfvars created with redirect URI"; \
+	echo "💡 Run 'make deploy' to apply changes, then 'make clean-redirect-url' to remove";
 
-remove-redirect-url: ## Remove custom OAuth redirect URL from terraform.tfvars
-	@echo "🔗 Removing redirect URL from terraform.tfvars..."
-	@bash -c ' \
-	if [ ! -f terraform.tfvars ]; then \
-		echo "❌ terraform.tfvars file not found"; \
-		exit 1; \
-	fi; \
-	read -p "Enter redirect URI to remove: " REDIRECT_URI; \
-	if [ -z "$$REDIRECT_URI" ]; then \
-		echo "❌ Redirect URI cannot be empty"; \
-		exit 1; \
-	fi; \
-	if ! grep -q """$$REDIRECT_URI""" terraform.tfvars; then \
-		echo "⚠️ Redirect URI not found in terraform.tfvars"; \
-		exit 0; \
-	fi; \
-	awk -v uri="""$$REDIRECT_URI""" '"'"' \
-		BEGIN { found = 0 } \
-		/entra_redirect_uris = \[/ { in_uris = 1 } \
-		in_uris && index($$0, uri) { \
-			found = 1; \
-			next; \
-		} \
-		in_uris && /\]/ { in_uris = 0 } \
-		{ print } \
-		END { if (found == 0) { exit 1 } } \
-	'"'"' terraform.tfvars > terraform.tfvars.tmp && mv terraform.tfvars.tmp terraform.tfvars; \
-	echo "✅ Redirect URI removed from terraform.tfvars successfully!"; \
-	echo "💡 Run 'make deploy' to apply the changes to Entra ID"; \
-	'
+clean-redirect-url: ## Remove temporary redirect URL configuration
+	@echo "🧹 Cleaning up temporary redirect URL configuration..."; \
+	if [ -f terraform.tfvars.temp ]; then \
+		rm terraform.tfvars.temp; \
+		echo "✅ Temporary terraform.tfvars removed"; \
+	else \
+		echo "⚠️ No temporary terraform.tfvars found"; \
+	fi;
