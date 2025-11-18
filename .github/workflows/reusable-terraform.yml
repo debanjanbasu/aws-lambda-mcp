@@ -1,11 +1,14 @@
 name: Reusable Terraform Operations
+description: |
+  Reusable workflow for terraform operations with comprehensive output capture.
+  Supports: init, validate, plan, apply, deploy (plan+apply)
 on:
   workflow_call:
     inputs:
       command:
         required: true
         type: string
-        description: 'Terraform command to run (init, validate, plan, apply)'
+        description: 'Terraform command to run (init, validate, plan, apply, deploy)'
       var_file:
         required: false
         type: string
@@ -25,6 +28,36 @@ on:
       lambda_function_name:
         description: 'Lambda function name output'
         value: ${{ jobs.terraform.outputs.lambda_function_name }}
+      lambda_function_arn:
+        description: 'Lambda function ARN'
+        value: ${{ jobs.terraform.outputs.lambda_function_arn }}
+      lambda_role_arn:
+        description: 'Lambda execution role ARN'
+        value: ${{ jobs.terraform.outputs.lambda_role_arn }}
+      cloudwatch_log_group_name:
+        description: 'CloudWatch log group name'
+        value: ${{ jobs.terraform.outputs.cloudwatch_log_group_name }}
+      agentcore_gateway_id:
+        description: 'AgentCore Gateway ID'
+        value: ${{ jobs.terraform.outputs.agentcore_gateway_id }}
+      agentcore_gateway_arn:
+        description: 'AgentCore Gateway ARN'
+        value: ${{ jobs.terraform.outputs.agentcore_gateway_arn }}
+      aws_region:
+        description: 'AWS region'
+        value: ${{ jobs.terraform.outputs.aws_region }}
+      client_id:
+        description: 'Entra app client ID'
+        value: ${{ jobs.terraform.outputs.client_id }}
+      tenant_id:
+        description: 'Entra tenant ID'
+        value: ${{ jobs.terraform.outputs.tenant_id }}
+      client_secret:
+        description: 'Entra client secret'
+        value: ${{ jobs.terraform.outputs.client_secret }}
+      scope:
+        description: 'Entra app scope'
+        value: ${{ jobs.terraform.outputs.scope }}
 
 jobs:
   terraform:
@@ -32,6 +65,16 @@ jobs:
     outputs:
       gateway_url: ${{ steps.terraform-outputs.outputs.gateway_url }}
       lambda_function_name: ${{ steps.terraform-outputs.outputs.lambda_function_name }}
+      lambda_function_arn: ${{ steps.terraform-outputs.outputs.lambda_function_arn }}
+      lambda_role_arn: ${{ steps.terraform-outputs.outputs.lambda_role_arn }}
+      cloudwatch_log_group_name: ${{ steps.terraform-outputs.outputs.cloudwatch_log_group_name }}
+      agentcore_gateway_id: ${{ steps.terraform-outputs.outputs.agentcore_gateway_id }}
+      agentcore_gateway_arn: ${{ steps.terraform-outputs.outputs.agentcore_gateway_arn }}
+      aws_region: ${{ steps.terraform-outputs.outputs.aws_region }}
+      client_id: ${{ steps.terraform-outputs.outputs.client_id }}
+      tenant_id: ${{ steps.terraform-outputs.outputs.tenant_id }}
+      client_secret: ${{ steps.terraform-outputs.outputs.client_secret }}
+      scope: ${{ steps.terraform-outputs.outputs.scope }}
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v5
@@ -66,10 +109,30 @@ jobs:
           cd iac
           terraform apply ${{ inputs.plan_file || 'tfplan' }} ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
 
+      - name: 🚀 Terraform Deploy (Plan + Apply)
+        if: inputs.command == 'deploy'
+        run: |
+          cd iac
+          terraform plan -out=tfplan ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
+          terraform apply tfplan
+
       - name: 📤 Capture Terraform Outputs
-        if: inputs.command == 'apply'
+        if: inputs.command == 'apply' || inputs.command == 'deploy'
         id: terraform-outputs
         run: |
           cd iac
-          echo "gateway_url=$(terraform output -raw api_gateway_url 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "gateway_url=$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
           echo "lambda_function_name=$(terraform output -raw lambda_function_name 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "lambda_function_arn=$(terraform output -raw lambda_function_arn 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "lambda_role_arn=$(terraform output -raw lambda_role_arn 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "cloudwatch_log_group_name=$(terraform output -raw cloudwatch_log_group_name 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "agentcore_gateway_id=$(terraform output -raw agentcore_gateway_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "agentcore_gateway_arn=$(terraform output -raw agentcore_gateway_arn 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "aws_region=$(terraform output -raw aws_region 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "client_id=$(terraform output -raw entra_app_client_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "tenant_id=$(terraform output -raw entra_tenant_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "client_secret=$(terraform output -raw entra_client_secret 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "scope=$(terraform output -raw entra_app_scope_client_credentials 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          # Available outputs: gateway_url, lambda_function_name, lambda_function_arn,
+          # lambda_role_arn, cloudwatch_log_group_name, agentcore_gateway_id,
+          # agentcore_gateway_arn, aws_region, client_id, tenant_id, client_secret, scope

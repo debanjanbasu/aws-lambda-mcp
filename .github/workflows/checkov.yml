@@ -1,0 +1,64 @@
+# .github/workflows/checkov.yml
+name: "🔒 Terraform Security Scan (Checkov)"
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'iac/**'
+      - '.github/workflows/checkov.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'iac/**'
+      - '.github/workflows/checkov.yml'
+  schedule:
+    - cron: '30 2 * * 1' # Match the CodeQL schedule for consistency
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write # Required to upload SARIF results to the security tab
+
+jobs:
+  checkov:
+    name: 🔍 Checkov scan
+    runs-on: ubuntu-slim
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v5
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x' # Latest Python 3.x
+
+      - name: 💾 Cache Checkov
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/checkov
+          key: ${{ runner.os }}-checkov-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-checkov-
+
+      - name: 🛡️ Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          # Point the action to your Terraform code directory
+          directory: 'iac'
+          framework: 'terraform'
+          # Output in SARIF format for GitHub Security tab
+          output_format: 'sarif'
+          output_file_path: 'checkov.sarif'
+          # Don't fail the workflow if issues are found
+          soft_fail: true
+
+      - name: ☁️ Upload SARIF to Security Tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: 'checkov.sarif'

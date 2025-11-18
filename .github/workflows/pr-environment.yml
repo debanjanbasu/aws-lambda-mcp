@@ -250,6 +250,7 @@ jobs:
           var_file: 'pr-environment.tfvars'
 
       - name: 🚀 Terraform Apply (Environment)
+        id: terraform-apply-pr
         if: env.ACTION == 'deploy'
         uses: ./.github/workflows/reusable-terraform.yml
         with:
@@ -260,12 +261,12 @@ jobs:
       - name: 🏥 MCP Health Check
         if: env.ACTION == 'deploy'
         run: |
-          # Get required values from terraform outputs
-          CLIENT_ID=$(cd iac && terraform output -raw entra_app_client_id)
-          TENANT_ID=$(cd iac && terraform output -raw entra_tenant_id)
-          CLIENT_SECRET=$(cd iac && terraform output -raw entra_client_secret)
-          SCOPE=$(cd iac && terraform output -raw entra_app_scope_client_credentials)
-          GATEWAY_URL=$(cd iac && terraform output -raw agentcore_gateway_url)
+          # Get required values from reusable workflow outputs
+          CLIENT_ID=${{ steps.terraform-apply-pr.outputs.client_id }}
+          TENANT_ID=${{ steps.terraform-apply-pr.outputs.tenant_id }}
+          CLIENT_SECRET=${{ steps.terraform-apply-pr.outputs.client_secret }}
+          SCOPE=${{ steps.terraform-apply-pr.outputs.scope }}
+          GATEWAY_URL=${{ steps.terraform-apply-pr.outputs.gateway_url }}
 
           # Get OAuth token using client credentials flow
           TOKEN_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
@@ -292,13 +293,6 @@ jobs:
             exit 1
           fi
 
-      - name: 📝 Get OAuth Scope
-        if: env.ACTION == 'deploy'
-        id: get-scope
-        run: |
-          SCOPE=$(cd iac && terraform output -raw entra_app_scope_client_credentials)
-          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
-
       - name: 💬 Post Deployment Comment
         if: env.ACTION == 'deploy'
         env:
@@ -322,7 +316,7 @@ jobs:
               🔐 **Token Generation**:
               For security reasons, tokens are not automatically generated in CI environments.
               Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ steps.get-scope.outputs.scope }}\`
+              - Azure CLI: \`az account get-access-token --resource ${{ steps.terraform-apply-pr.outputs.scope }}\`
               - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
@@ -345,7 +339,7 @@ jobs:
               🔐 **Token Generation**:
               For security reasons, tokens are not automatically generated in CI environments.
               Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ steps.get-scope.outputs.scope }}\`
+              - Azure CLI: \`az account get-access-token --resource ${{ steps.terraform-apply-pr.outputs.scope }}\`
               - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
@@ -401,7 +395,7 @@ jobs:
               🔐 **Token Generation**:
               For security reasons, tokens are not automatically generated in CI environments.
               Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ steps.get-scope.outputs.scope }}\`
+              - Azure CLI: \`az account get-access-token --resource ${{ steps.terraform-apply-pr.outputs.scope }}\`
               - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:
@@ -424,7 +418,7 @@ jobs:
               🔐 **Token Generation**:
               For security reasons, tokens are not automatically generated in CI environments.
               Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ steps.get-scope.outputs.scope }}\`
+              - Azure CLI: \`az account get-access-token --resource ${{ steps.terraform-apply-pr.outputs.scope }}\`
               - Or use the Azure Portal to generate a test token for your registered application
 
               📋 **Environment Details**:

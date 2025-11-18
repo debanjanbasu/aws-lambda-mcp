@@ -144,20 +144,21 @@ jobs:
           command: 'plan'
           backend_config: 'backend-deploy.config'
 
-      - name: 🚀 Terraform Apply
-        uses: ./.github/workflows/reusable-terraform.yml
-        with:
-          command: 'apply'
-          backend_config: 'backend-deploy.config'
+       - name: 🚀 Terraform Apply
+         id: terraform-apply
+         uses: ./.github/workflows/reusable-terraform.yml
+         with:
+           command: 'apply'
+           backend_config: 'backend-deploy.config'
 
-      - name: 🏥 MCP Health Check
-        run: |
-          # Get required values from terraform outputs
-          CLIENT_ID=$(cd iac && terraform output -raw entra_app_client_id)
-          TENANT_ID=$(cd iac && terraform output -raw entra_tenant_id)
-          CLIENT_SECRET=$(cd iac && terraform output -raw entra_client_secret)
-          SCOPE=$(cd iac && terraform output -raw entra_app_scope_client_credentials)
-          GATEWAY_URL=$(cd iac && terraform output -raw api_gateway_url)
+       - name: 🏥 MCP Health Check
+         run: |
+           # Get required values from reusable workflow outputs
+           CLIENT_ID=${{ steps.terraform-apply.outputs.client_id }}
+           TENANT_ID=${{ steps.terraform-apply.outputs.tenant_id }}
+           CLIENT_SECRET=${{ steps.terraform-apply.outputs.client_secret }}
+           SCOPE=${{ steps.terraform-apply.outputs.scope }}
+           GATEWAY_URL=${{ steps.terraform-apply.outputs.gateway_url }}
 
           # Get OAuth token using client credentials flow
           TOKEN_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
