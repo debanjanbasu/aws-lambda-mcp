@@ -156,6 +156,9 @@ jobs:
             STATE_KEY="aws-lambda-mcp/terraform.tfstate"
           fi
           # Use -reconfigure for PR environments to handle backend config changes
+          # Issue: GitHub Actions caches Terraform state between jobs, but PR environments
+          # use different state keys than main environment, causing "Backend configuration changed" errors
+          # Solution: Use -reconfigure for PR environments to avoid state migration conflicts
           if [ -n "${{ inputs.environment_name }}" ]; then
             terraform init -reconfigure \
               -backend-config="bucket=${TF_BACKEND_BUCKET}" \
