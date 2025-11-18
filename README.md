@@ -181,6 +181,31 @@ This command will read the `.env` file and use the `gh CLI` to set or update the
 
 **Important**: Ensure your `.env` file is in your `.gitignore` to prevent accidentally committing sensitive information.
 
+### Using with opencode.ai
+
+This repository is pre-configured to work with [opencode.ai](https://opencode.ai), an AI-powered development assistant that can help you build, debug, and maintain your MCP server. The project includes:
+
+- Pre-configured GitHub Actions workflows that integrate with opencode.ai
+- Automatic schema generation for tool discovery
+- Standardized MCP implementation patterns
+- Built-in testing and debugging tools
+
+To use opencode.ai with this project:
+
+1. Visit [opencode.ai](https://opencode.ai) and sign up for an account
+2. Install the opencode CLI: `npm install -g opencode`
+3. Authenticate: `opencode login`
+4. Navigate to your project directory and run: `opencode`
+
+The opencode assistant will automatically detect your project structure and provide context-aware help for:
+- Adding new tools and capabilities
+- Debugging deployment issues
+- Optimizing performance
+- Following MCP best practices
+- Integrating with other AI services
+
+For more information, see the [opencode.ai GitHub documentation](https://opencode.ai/docs/github/).
+
 ## Structure
 
 ```
