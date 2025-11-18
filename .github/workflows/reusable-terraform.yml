@@ -102,7 +102,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifact_name }}
-          path: .
+          path: target/lambda/aws-lambda-mcp/
 
       - name: 📝 Create Environment Variables File
         if: inputs.environment_name
@@ -142,6 +142,13 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
           aws-region: ${{ inputs.aws_region }}
+
+      - name: 🔐 Configure Azure Credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
 
       - name: 🚀 Terraform Init
         env:
