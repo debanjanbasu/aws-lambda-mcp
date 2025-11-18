@@ -30,49 +30,29 @@ jobs:
       run_build: true
       artifact_name: 'lambda-build'
 
-  terraform_validate:
-    name: ✅ Terraform Validate
+  terraform_deploy:
+    name: 🚀 Terraform Deploy
     needs: build-lambda
     uses: ./.github/workflows/reusable-terraform.yml
     with:
-      command: 'validate'
-      aws_region: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
-      artifact_name: 'lambda-build'
-    secrets: inherit
-
-  terraform_plan:
-    name: 📋 Terraform Plan
-    needs: terraform_validate
-    uses: ./.github/workflows/reusable-terraform.yml
-    with:
-      command: 'plan'
-      aws_region: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
-      artifact_name: 'lambda-build'
-    secrets: inherit
-      
-  terraform_apply:
-    name: 🚀 Terraform Apply
-    needs: terraform_plan
-    uses: ./.github/workflows/reusable-terraform.yml
-    with:
-      command: 'apply'
+      command: 'deploy'
       aws_region: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
       artifact_name: 'lambda-build'
     secrets: inherit
       
   health_check:
     name: 🏥 MCP Health Check
-    needs: terraform_apply
+    needs: terraform_deploy
     runs-on: ubuntu-24.04-arm
     steps:
       - name: 🏥 MCP Health Check
         run: |
           # Get required values from reusable workflow outputs
-          CLIENT_ID=${{ needs.terraform_apply.outputs.client_id }}
-          TENANT_ID=${{ needs.terraform_apply.outputs.tenant_id }}
-          CLIENT_SECRET=${{ needs.terraform_apply.outputs.client_secret }}
-          SCOPE=${{ needs.terraform_apply.outputs.scope }}
-          GATEWAY_URL=${{ needs.terraform_apply.outputs.gateway_url }}
+          CLIENT_ID=${{ needs.terraform_deploy.outputs.client_id }}
+          TENANT_ID=${{ needs.terraform_deploy.outputs.tenant_id }}
+          CLIENT_SECRET=${{ needs.terraform_deploy.outputs.client_secret }}
+          SCOPE=${{ needs.terraform_deploy.outputs.scope }}
+          GATEWAY_URL=${{ needs.terraform_deploy.outputs.gateway_url }}
 
           # Get OAuth token using client credentials flow
           TOKEN_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
