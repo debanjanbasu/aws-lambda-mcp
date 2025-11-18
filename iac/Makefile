@@ -145,29 +145,37 @@ destroy: ## Destroy infrastructure
 
 oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
 	@echo "\033[1;34m🔑 OAuth Configuration Details:\033[0m"
-	@bash -c ' \
-	CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
+	@CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
 	CLIENT_SECRET=$$(terraform output -raw entra_client_secret 2>/dev/null); \
 	IDENTIFIER_URI=$$(terraform output -raw entra_app_identifier_uri 2>/dev/null); \
+	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null); \
 	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ]; then \
 		echo "\033[1;31m❌ Run \"make apply\" first to deploy infrastructure\033[0m" >&2; \
 		exit 1; \
 	fi; \
-	echo -e "\033[1;32mOAuth 2.0 Configuration:\033[0m"; \
+	echo "\033[1;32mOAuth 2.0 Configuration:\033[0m"; \
 	echo "  Client ID: $$CLIENT_ID"; \
-	echo -e "  \033[1;31m🚨 Client Secret: $$CLIENT_SECRET (WARNING: Treat this as a sensitive credential)\033[0m"; \
+	echo "  \033[1;31m🚨 Client Secret: $$CLIENT_SECRET (WARNING: Treat this as a sensitive credential)\033[0m"; \
 	echo "  Authority: https://login.microsoftonline.com/$$TENANT_ID"; \
 	echo "  Authorization URL: https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/authorize"; \
 	echo "  Token URL: https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token"; \
 	echo "  Refresh URL: https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token"; \
 	echo "  Scopes: $${IDENTIFIER_URI}/.default, User.Read, openid, profile, email"; \
 	echo ""; \
-	echo -e "\033[1;33mFor service principal authentication:\033[0m"; \
+	echo "\033[1;32mMCP Inspector Configuration:\033[0m"; \
+	if [ -n "$$GATEWAY_URL" ] && [ "$$GATEWAY_URL" != "null" ]; then \
+		echo "  Gateway URL (streamable): $$GATEWAY_URL"; \
+	else \
+		echo "  ❌ Gateway not yet deployed. Deploy first with '\''make deploy'\''"; \
+	fi; \
+	echo ""; \
+	echo "\033[1;33mFor service principal authentication:\033[0m"; \
 	echo "  1. Use the Client ID and Client Secret for authentication"; \
 	echo "  2. Include the scopes in your token request"; \
 	echo ""; \
-	echo -e "\033[1;33mNote: If configuring with a non-Dynamic Client Registration compatible OAuth provider, you may need to run '\''make add-redirect-url'\'' to manually add redirect URIs.\033[0m";' 
+	echo "\033[1;33mNote: If configuring with a non-Dynamic Client Registration compatible OAuth provider, you may need to run '\''make add-redirect-url'\'' to manually add redirect URIs.\033[0m"; \
+	echo "";
 
 add-redirect-url: ## Add custom OAuth redirect URL to terraform.tfvars
 	@echo "🔗 Adding redirect URL to terraform.tfvars..."
