@@ -1,0 +1,62 @@
+name: 🔧 Reusable Prepare Workflow
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        required: true
+        type: string
+        description: 'Name of the artifact to download'
+      backend_config_name:
+        required: true
+        type: string
+        description: 'Name of the backend config file to create'
+      environment_name:
+        required: false
+        type: string
+        description: 'Name of the environment (for PRs)'
+      pr_number:
+        required: false
+        type: string
+        description: 'PR number (for PRs)'
+      
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: 📦 Checkout code
+        uses: actions/checkout@v5
+
+      - name: ☁️ Download Lambda build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: .
+
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 💾 Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: |
+            iac/.terraform
+            ~/.terraform.d/
+          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-terraform-
+            
+      - name: 📝 Prepare Backend Config
+        run: |
+          echo "bucket=${{ secrets.TF_BACKEND_BUCKET }}" > iac/${{ inputs.backend_config_name }}
+          echo "key=aws-lambda-mcp/${{ inputs.environment_name || 'terraform.tfstate' }}" >> iac/${{ inputs.backend_config_name }}
+          echo "region=${{ env.AWS_REGION }}" >> iac/${{ inputs.backend_config_name }}
+          echo "use_lockfile=true" >> iac/${{ inputs.backend_config_name }}

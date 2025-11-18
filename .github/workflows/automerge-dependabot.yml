@@ -64,40 +64,21 @@ jobs:
       command: 'validate'
       backend_config: 'backend.config'
 
+  run_rust_tests:
+    name: 🧪 Run Rust Tests
+    needs: [detect_changes]
+    if: needs.detect_changes.outputs.is_rust == 'true'
+    uses: ./.github/workflows/reusable-rust.yml
+    with:
+      run_tests: true
+      run_build: false
+
   approve_and_merge:
     name: ✅ Approve and Merge
-    needs: [detect_changes, terraform_validate]
-    # Only run if the triggering job was successful
+    needs: [detect_changes, terraform_validate, run_rust_tests]
     if: success()
     runs-on: ubuntu-24.04-arm
     steps:
-      - name: ⚙️ Setup Rust toolchain
-        if: needs.detect_changes.outputs.is_rust == 'true'
-        uses: dtolnay/rust-toolchain@nightly
-        id: rust-toolchain
-
-      - name: 💾 Cache Rust dependencies
-        if: needs.detect_changes.outputs.is_rust == 'true'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
-
-      - name: 🧪 Run Tests
-        run: |
-          if [ "${{ needs.detect_changes.outputs.is_rust }}" = "true" ]; then
-            echo "Running Rust tests with latest dependencies..."
-            make test || (echo "Rust tests failed - this may indicate breaking changes in dependencies" && exit 1)
-          else
-            echo "Skipping Rust tests"
-          fi
-
       - name: ✅ Approve and Merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
