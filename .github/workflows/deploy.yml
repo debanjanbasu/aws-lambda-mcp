@@ -30,21 +30,15 @@ jobs:
       run_build: true
       artifact_name: 'lambda-build'
 
-  prepare_deployment:
-    name: 🔧 Prepare Deployment
-    needs: build-lambda
-    uses: ./.github/workflows/reusable-prepare.yml
-    with:
-      artifact_name: 'lambda-build'
-      backend_config_name: 'backend-deploy.config'
-
   terraform_validate:
     name: ✅ Terraform Validate
-    needs: prepare_deployment
+    needs: build-lambda
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'validate'
-      backend_config: 'backend-deploy.config'
+      aws_region: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
+      artifact_name: 'lambda-build'
+    secrets: inherit
 
   terraform_plan:
     name: 📋 Terraform Plan
@@ -52,7 +46,8 @@ jobs:
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'plan'
-      backend_config: 'backend-deploy.config'
+      aws_region: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
+    secrets: inherit
       
   terraform_apply:
     name: 🚀 Terraform Apply
@@ -60,7 +55,8 @@ jobs:
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'apply'
-      backend_config: 'backend-deploy.config'
+      aws_region: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
+    secrets: inherit
       
   health_check:
     name: 🏥 MCP Health Check

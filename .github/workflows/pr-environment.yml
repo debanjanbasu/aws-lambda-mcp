@@ -35,24 +35,17 @@ jobs:
       run_build: true
       artifact_name: 'pr-lambda-build'
 
-  prepare_pr_environment:
-    name: 🔧 Prepare PR Environment
-    needs: build-lambda
-    uses: ./.github/workflows/reusable-prepare.yml
-    with:
-      artifact_name: 'pr-lambda-build'
-      backend_config_name: 'backend-pr.tfvars'
-      environment_name: 'pr-${{ github.event.number }}'
-      pr_number: '${{ github.event.number }}'
-
   terraform_validate_pr:
     name: ✅ Terraform Validate (PR)
-    needs: prepare_pr_environment
-    if: needs.prepare_pr_environment.outputs.action == 'deploy'
+    needs: build-lambda
+    if: github.event.action != 'closed'
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'validate'
-      backend_config: 'backend-pr.tfvars'
+      environment_name: 'pr-${{ github.event.number }}'
+      artifact_name: 'pr-lambda-build'
+      pr_number: '${{ github.event.number }}'
+    secrets: inherit
 
   terraform_plan_pr:
     name: 📋 Terraform Plan (PR)
@@ -60,8 +53,11 @@ jobs:
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'plan'
-      backend_config: 'backend-pr.tfvars'
       var_file: 'pr-environment.tfvars'
+      environment_name: 'pr-${{ github.event.number }}'
+      artifact_name: 'pr-lambda-build'
+      pr_number: '${{ github.event.number }}'
+    secrets: inherit
 
   terraform_apply_pr:
     name: 🚀 Terraform Apply (PR)
@@ -69,13 +65,16 @@ jobs:
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'apply'
-      backend_config: 'backend-pr.tfvars'
       var_file: 'pr-environment.tfvars'
+      environment_name: 'pr-${{ github.event.number }}'
+      artifact_name: 'pr-lambda-build'
+      pr_number: '${{ github.event.number }}'
+    secrets: inherit
 
   post_deployment_steps:
     name: 🚀 Post-Deployment Steps
     needs: terraform_apply_pr
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: 🏥 MCP Health Check
         run: |
@@ -115,166 +114,62 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd iac
-          GATEWAY_URL=$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo "unavailable")
-          if [ "$GATEWAY_URL" != "unavailable" ]; then
-            if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
-              COMMENT="## 🌱 Ephemeral Environment Deployed
+          GATEWAY_URL=${{ needs.terraform_apply_pr.outputs.gateway_url }}
+          COMMENT="## 🌱 Ephemeral Environment Deployed ✅
 
-              Your PR environment has been deployed successfully!
+          Your PR environment has been deployed successfully!
 
-              🔗 **Gateway URL**: $GATEWAY_URL
+          🔗 **Gateway URL**: $GATEWAY_URL
 
-              🧪 **Testing Instructions**:
-              1. Copy the gateway URL below
-              2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-              3. Use an OAuth token from your development environment to authenticate in the Inspector UI
-              
-              🔐 **Token Generation**:
-              For security reasons, tokens are not automatically generated in CI environments.
-              Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
-              - Or use the Azure Portal to generate a test token for your registered application
-
-              📋 **Environment Details**:
-              - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
-              - Branch: \`${{ github.head_ref }}\`
-
-              ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
-            else
-              COMMENT="## 🌱 Manual Environment Deployed
-
-              Your manual environment has been deployed successfully!
-
-              🔗 **Gateway URL**: $GATEWAY_URL
-
-              🧪 **Testing Instructions**:
-              1. Copy the gateway URL below
-              2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-              3. Use an OAuth token from your development environment to authenticate in the Inspector UI
-              
-              🔐 **Token Generation**:
-              For security reasons, tokens are not automatically generated in CI environments.
-              Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
-              - Or use the Azure Portal to generate a test token for your registered application
-
-              📋 **Environment Details**:
-              - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
-              - Run Number: \`${{ github.run_number }}\`
-
-              ⚠️ **Manual Cleanup Required**: Destroy this environment manually when no longer needed:
-              \`\`\`
-              gh workflow run pr-environment.yml -f action=destroy
-              \`\`\`"
-            fi
-          else
-            if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
-              COMMENT="## 🌱 Ephemeral Environment Deployment Started
-            
-              Your PR environment deployment has started. Please wait for completion.
-            
-              This comment will be updated once the deployment is complete."
-            else
-              COMMENT="## 🌱 Manual Environment Deployment Started
-            
-              Your manual environment deployment has started. Please wait for completion.
-            
-              This comment will be updated once the deployment is complete."
-            fi
-          fi
+          🧪 **Testing Instructions**:
+          1. Copy the gateway URL below
+          2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
+          3. Use an OAuth token from your development environment to authenticate in the Inspector UI
           
-          if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
-            # For PRs, add/update comment on the PR
-            gh api repos/${{ github.repository }}/issues/${{ needs.prepare_pr_environment.outputs.pr_number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
-          fi
+          🔐 **Token Generation**:
+          For security reasons, tokens are not automatically generated in CI environments.
+          Please use a token from your local development environment or generate one using:
+          - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
+          - Or use the Azure Portal to generate a test token for your registered application
 
-      - name: 💬 Update Comment with Final Details
-        if: success()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cd iac
-          GATEWAY_URL=$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo "unavailable")
-          if [ "$GATEWAY_URL" != "unavailable" ]; then
-            if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
-              COMMENT="## 🌱 Ephemeral Environment Deployed ✅
+          📋 **Environment Details**:
+          - Environment: \`pr-${{ github.event.number }}\`
+          - Branch: \`${{ github.head_ref }}\`
 
-              Your PR environment has been deployed successfully!
-
-              🔗 **Gateway URL**: $GATEWAY_URL
-
-              🧪 **Testing Instructions**:
-              1. Copy the gateway URL below
-              2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-              3. Use an OAuth token from your development environment to authenticate in the Inspector UI
-              
-              🔐 **Token Generation**:
-              For security reasons, tokens are not automatically generated in CI environments.
-              Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
-              - Or use the Azure Portal to generate a test token for your registered application
-
-              📋 **Environment Details**:
-              - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
-              - Branch: \`${{ github.head_ref }}\`
-
-              ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
-            else
-              COMMENT="## 🌱 Manual Environment Deployed ✅
-
-              Your manual environment has been deployed successfully!
-
-              🔗 **Gateway URL**: $GATEWAY_URL
-
-              🧪 **Testing Instructions**:
-              1. Copy the gateway URL below
-              2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-              3. Use an OAuth token from your development environment to authenticate in the Inspector UI
-              
-              🔐 **Token Generation**:
-              For security reasons, tokens are not automatically generated in CI environments.
-              Please use a token from your local development environment or generate one using:
-              - Azure CLI: \`az account get-access-token --resource ${{ needs.terraform_apply_pr.outputs.scope }}\`
-              - Or use the Azure Portal to generate a test token for your registered application
-
-              📋 **Environment Details**:
-              - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
-              - Run Number: \`${{ github.run_number }}\`
-
-              ⚠️ **Manual Cleanup Required**: Destroy this environment manually when no longer needed:
-              \`\`\`
-              gh workflow run pr-environment.yml -f action=destroy
-              \`\`\`"
-            fi
-            
-            if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
-              # For PRs, update the comment on the PR
-              gh api repos/${{ github.repository }}/issues/${{ needs.prepare_pr_environment.outputs.pr_number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
-            fi
-          fi
+          ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
+          
+          gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
 
   terraform_destroy_pr:
     name: 💣 Terraform Destroy (PR)
-    needs: prepare_pr_environment
-    if: needs.prepare_pr_environment.outputs.action == 'destroy'
-    runs-on: ubuntu-slim
+    if: github.event.action == 'closed'
+    uses: ./.github/workflows/reusable-terraform.yml
+    with:
+      command: 'destroy'
+      var_file: 'pr-environment.tfvars'
+      environment_name: 'pr-${{ github.event.number }}'
+      pr_number: '${{ github.event.number }}'
+    secrets: inherit
+
+  cleanup_pr_environment:
+    name: 🧹 Cleanup PR Environment
+    needs: terraform_destroy_pr
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
     steps:
-      - name: 💣 Terraform Destroy (Environment)
-        run: |
-          cd iac
-          # Create a dummy Lambda binary for validation during destroy
-          mkdir -p ../target/lambda/aws-lambda-mcp
-          echo "dummy-content-for-destroy-operations" > ../target/lambda/aws-lambda-mcp/bootstrap
-           # Initialize Terraform with backend config (without reconfigure to avoid validation)
-           terraform init -backend-config=backend-pr.tfvars
-           # Destroy infrastructure
-           terraform destroy -auto-approve -var-file=pr-environment.tfvars
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: 🧹 Cleanup Terraform State File
         run: |
-          # Remove the state file from S3 to prevent accumulation
-          STATE_KEY="aws-lambda-mcp/${{ needs.prepare_pr_environment.outputs.environment_name }}/terraform.tfstate"
+          STATE_KEY="aws-lambda-mcp/pr-${{ github.event.number }}/terraform.tfstate"
           echo "Cleaning up Terraform state file: s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY"
           aws s3 rm "s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY" || echo "State file cleanup may have failed, continuing..."
 
@@ -282,17 +177,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ needs.prepare_pr_environment.outputs.pr_number }}" != "manual" ]; then
-            COMMENT="## 🌱 Ephemeral Environment Destroyed 🗑️
-          
-            Your PR environment has been successfully destroyed.
-          
-            📋 **Details**:
-            - Environment: \`${{ needs.prepare_pr_environment.outputs.environment_name }}\`
-            - Branch: \`${{ github.head_ref }}\`
-          
-            ✅ All resources have been cleaned up."
-          
-            # Add a final comment to the PR
-            gh api repos/${{ github.repository }}/issues/${{ needs.prepare_pr_environment.outputs.pr_number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
-          fi
+          COMMENT="## 🌱 Ephemeral Environment Destroyed 🗑️
+        
+          Your PR environment has been successfully destroyed.
+        
+          📋 **Details**:
+          - Environment: \`pr-${{ github.event.number }}\`
+          - Branch: \`${{ github.head_ref }}\`
+        
+          ✅ All resources have been cleaned up."
+        
+          gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true

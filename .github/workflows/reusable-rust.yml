@@ -1,24 +1,31 @@
-name: 🧱 Reusable Rust Build and Test
+name: 🦀 Reusable Rust Build
 
 on:
   workflow_call:
     inputs:
       run_tests:
-        required: true
+        required: false
         type: boolean
+        default: false
         description: 'Whether to run tests'
       run_build:
-        required: true
-        type: boolean
-        description: 'Whether to build the release artifact'
-      artifact_name:
         required: false
+        type: boolean
+        default: true
+        description: 'Whether to build the project'
+      artifact_name:
+        required: true
         type: string
-        description: 'Name of the artifact to upload'
+        description: 'Name of the build artifact'
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
+  rust-build:
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v5
@@ -43,6 +50,31 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
             ${{ runner.os }}-${{ runner.arch }}-cargo-
+
+      - name: 💾 Cache cargo-lambda
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-lambda
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-lambda-
+
+      - name: 🔧 Install cargo-lambda
+        run: |
+          if ! command -v cargo-lambda &> /dev/null
+          then
+            cargo install cargo-lambda
+          fi
+
+      - name: 🔧 Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: latest
+
+      - name: 📦 Install UPX (for release build compression)
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: upx-ucl
 
       - name: 🧪 Run Tests
         if: inputs.run_tests
