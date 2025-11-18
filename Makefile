@@ -228,12 +228,12 @@ oauth-config: ## 📋 Display OAuth configuration for any OAuth 2.0 compliant cl
 	@echo "$(BLUE)🔑 Displaying OAuth configuration...$(RESET)"
 	@cd iac && $(MAKE) oauth-config
 
-add-redirect-url: ## 🔗 Add custom OAuth redirect URL (managed outside Terraform)
-	@echo "$(BLUE)🔗 Managing redirect URLs...$(RESET)"
+add-redirect-url: ## 🔗 Add custom OAuth redirect URL to the Entra ID application
+	@echo "$(BLUE)🔗 Adding redirect URL to Entra ID application...$(RESET)"
 	@cd iac && $(MAKE) add-redirect-url
 
-remove-redirect-url: ## 🔗 Remove custom OAuth redirect URL (managed outside Terraform)
-	@echo "$(BLUE)🔗 Managing redirect URLs...$(RESET)"
+remove-redirect-url: ## 🔗 Remove custom OAuth redirect URL from the Entra ID application
+	@echo "$(BLUE)🔗 Removing redirect URL from Entra ID application...$(RESET)"
 	@cd iac && $(MAKE) remove-redirect-url
 
 update-secrets: ## 🔐 Update GitHub repository secrets from a .env file (for GitHub Actions and Dependabot)
