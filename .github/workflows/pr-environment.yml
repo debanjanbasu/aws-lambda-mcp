@@ -34,10 +34,10 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout code
+      - name: 📦 Checkout code
         uses: actions/checkout@v5
 
-      - name: Check if Rust files changed
+      - name: 🔍 Check if Rust files changed
         id: rust_changes
         run: |
           # Simple check for Rust-related file changes
@@ -63,9 +63,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-lambda-build-
 
-      - name: Setup Rust toolchain
-        id: rust-toolchain
+      - name: ⚙️ Setup Rust toolchain
         if: steps.rust_changes.outputs.rust_changed == 'true'
+        id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
@@ -95,7 +95,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-
 
-      - name: Install cargo-lambda
+      - name: 🔧 Install cargo-lambda
         if: steps.rust_changes.outputs.rust_changed == 'true'
         run: |
           if ! command -v cargo-lambda &> /dev/null
@@ -103,7 +103,7 @@ jobs:
             cargo install cargo-lambda
           fi
 
-      - name: Setup Zig
+      - name: ⚙️ Setup Zig
         if: steps.rust_changes.outputs.rust_changed == 'true'
         uses: mlugg/setup-zig@v2
         with:
@@ -115,11 +115,11 @@ jobs:
         with:
           packages: upx-ucl
 
-      - name: Build Lambda (Release)
+      - name: 🛠️ Build Lambda (Release)
         if: steps.rust_changes.outputs.rust_changed == 'true'
         run: make release
 
-      - name: Verify Lambda artifacts exist
+      - name: ✅ Verify Lambda artifacts exist
         run: |
           # Check if artifacts exist (either from build or cache)
           if [ ! -f "target/lambda/aws-lambda-mcp/bootstrap" ] || [ ! -f "tool_schema.json" ]; then
