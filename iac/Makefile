@@ -194,20 +194,55 @@ oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
 	echo "\033[1;33mNote: If configuring with a non-Dynamic Client Registration compatible OAuth provider, you may need to run '\''make add-redirect-url'\'' to manually add redirect URIs.\033[0m"; \
 	echo "";
 
-add-redirect-url: ## Add custom OAuth redirect URL (managed outside Terraform)
-	@echo "🔗 To add redirect URLs, you can:"; \
-	echo "  1. Add them directly in the Azure Portal"; \
-	echo "  2. Add them to terraform.tfvars in the entra_redirect_uris array"; \
-	echo "  3. Use the Azure CLI:"; \
-	echo "     az ad app update --id $$(terraform output -raw entra_app_client_id 2>/dev/null) --web-redirect-uris YOUR_URI"; \
+add-redirect-url: ## Add custom OAuth redirect URL to the Entra ID application
+	@CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
+	if [ -z "$$CLIENT_ID" ]; then \
+		echo "❌ Run \"make deploy\" first to deploy infrastructure"; \
+		exit 1; \
+	fi; \
+	echo "🔗 Adding redirect URL to Entra ID application..."; \
+	read -p "Enter redirect URI to add: " REDIRECT_URI; \
+	if [ -z "$$REDIRECT_URI" ]; then \
+		echo "❌ Redirect URI cannot be empty"; \
+		exit 1; \
+	fi; \
+	echo "📝 Adding $$REDIRECT_URI to application $$CLIENT_ID..."; \
+	CURRENT_URIS=$$(az ad app show --id $$CLIENT_ID --query "web.redirectUris" -o tsv 2>/dev/null); \
+	if [ -z "$$CURRENT_URIS" ]; then \
+		az ad app update --id $$CLIENT_ID --web-redirect-uris "$$REDIRECT_URI" >/dev/null 2>&1; \
+	else \
+		az ad app update --id $$CLIENT_ID --web-redirect-uris $$CURRENT_URIS "$$REDIRECT_URI" >/dev/null 2>&1; \
+	fi; \
+	echo "✅ Redirect URI added successfully!"; \
+	echo "💡 Due to ignore_changes, this URI will persist through future Terraform applies."; \
 	echo ""; \
-	echo "💡 Terraform will preserve any redirect URIs added externally due to ignore_changes";
+	echo "📌 Alternative methods:"; \
+	echo "   • Azure Portal: App Registrations → $$CLIENT_ID → Authentication → Add URI"; \
+	echo "   • Azure CLI: az ad app update --id $$CLIENT_ID --web-redirect-uris YOUR_URI"; \
+	echo "   • Note: All methods persist due to Terraform ignore_changes lifecycle setting.";
 
-remove-redirect-url: ## Remove custom OAuth redirect URL (managed outside Terraform)
-	@echo "🔗 To remove redirect URLs, you can:"; \
-	echo "  1. Remove them directly in the Azure Portal"; \
-	echo "  2. Remove them from terraform.tfvars in the entra_redirect_uris array"; \
-	echo "  3. Use the Azure CLI:"; \
-	echo "     az ad app update --id $$(terraform output -raw entra_app_client_id 2>/dev/null) --web-redirect-uris NEW_LIST_OF_URIS"; \
+remove-redirect-url: ## Remove custom OAuth redirect URL from the Entra ID application
+	@CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
+	if [ -z "$$CLIENT_ID" ]; then \
+		echo "❌ Run \"make deploy\" first to deploy infrastructure"; \
+		exit 1; \
+	fi; \
+	echo "🔗 Removing redirect URL from Entra ID application..."; \
+	read -p "Enter redirect URI to remove: " REDIRECT_URI; \
+	if [ -z "$$REDIRECT_URI" ]; then \
+		echo "❌ Redirect URI cannot be empty"; \
+		exit 1; \
+	fi; \
+	echo "📝 Removing $$REDIRECT_URI from application $$CLIENT_ID..."; \
+	CURRENT_URIS=$$(az ad app show --id $$CLIENT_ID --query "web.redirectUris" -o tsv 2>/dev/null); \
+	if [ -n "$$CURRENT_URIS" ]; then \
+		REMAINING_URIS=$$(echo "$$CURRENT_URIS" | tr '\t' ' ' | xargs -n1 | grep -v "^$$REDIRECT_URI$$" | xargs); \
+		az ad app update --id $$CLIENT_ID --web-redirect-uris $$REMAINING_URIS >/dev/null 2>&1; \
+	fi; \
+	echo "✅ Redirect URI removed successfully!"; \
+	echo "💡 Due to ignore_changes, this change will persist through future Terraform applies."; \
 	echo ""; \
-	echo "💡 Terraform will preserve any redirect URIs added externally due to ignore_changes";
+	echo "📌 Alternative methods:"; \
+	echo "   • Azure Portal: App Registrations → $$CLIENT_ID → Authentication → Remove URI"; \
+	echo "   • Azure CLI: az ad app update --id $$CLIENT_ID --web-redirect-uris NEW_LIST"; \
+	echo "   • Note: All methods persist due to Terraform ignore_changes lifecycle setting.";

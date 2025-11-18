@@ -43,8 +43,8 @@
 - `make clean` - Remove tokens and backups
 - `make kill-inspector` - Kill running MCP Inspector processes
 - `make oauth-config` - Display OAuth configuration
-- `make add-redirect-url` - Manage OAuth redirect URLs (externally managed)
-- `make remove-redirect-url` - Manage OAuth redirect URLs (externally managed)
+- `make add-redirect-url` - Add OAuth redirect URL to Entra ID app
+- `make remove-redirect-url` - Remove OAuth redirect URL from Entra ID app
 - `make update-secrets` - Update GitHub secrets from .env file
 - `make update-deps` - Update all Rust and Terraform dependencies
 
