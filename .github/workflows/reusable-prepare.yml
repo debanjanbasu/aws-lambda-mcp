@@ -45,7 +45,7 @@ jobs:
 
       - name: ☁️ Download Lambda build artifacts
         if: inputs.artifact_name != 'dummy-artifact'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ inputs.artifact_name }}
           path: .
