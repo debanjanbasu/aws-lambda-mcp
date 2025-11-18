@@ -76,9 +76,6 @@ jobs:
       client_secret: ${{ steps.terraform-outputs.outputs.client_secret }}
       scope: ${{ steps.terraform-outputs.outputs.scope }}
     steps:
-      - name: 📦 Checkout code
-        uses: actions/checkout@v5
-
       - name: 🏗️ Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
