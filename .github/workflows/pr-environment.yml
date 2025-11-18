@@ -95,13 +95,16 @@ jobs:
           2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
           3. Use an OAuth token to authenticate in the Inspector UI
           
-          🔐 **Token Generation**:
-          Generate a token using client credentials flow:
+          🔐 **Token Generation** (run locally with Azure CLI):
           \`\`\`bash
+          # Recommended: Use Azure CLI with the PR environment's scope
+          az account get-access-token --resource $SCOPE --query accessToken -o tsv
+          
+          # Alternative: Manual client credentials flow (requires client secret from Terraform output)
           curl -X POST \"https://login.microsoftonline.com/${{ secrets.AZURE_TENANT_ID }}/oauth2/v2.0/token\" \\
             -H \"Content-Type: application/x-www-form-urlencoded\" \\
             -d \"client_id=$CLIENT_ID\" \\
-            -d \"client_secret=<YOUR_CLIENT_SECRET>\" \\
+            -d \"client_secret=<CLIENT_SECRET_FROM_TERRAFORM_OUTPUT>\" \\
             -d \"grant_type=client_credentials\" \\
             -d \"scope=$SCOPE\"
           \`\`\`
