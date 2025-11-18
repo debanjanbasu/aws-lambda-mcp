@@ -104,10 +104,14 @@ resource "azuread_application" "agentcore_app" {
   # Ignore changes to redirect URIs so they can be managed externally
   # This allows adding redirect URIs via Azure Portal or other tools
   # without Terraform trying to remove them on subsequent applies
+  # Also ignore changes to owners to prevent conflicts with manual owner management
+  # Owners may be modified by CI/CD pipelines, Azure administrators, or other automation
+  # that manages application access and permissions outside of Terraform
   lifecycle {
     ignore_changes = [
       web[0].redirect_uris,
       public_client[0].redirect_uris,
+      owners,
     ]
   }
 }
