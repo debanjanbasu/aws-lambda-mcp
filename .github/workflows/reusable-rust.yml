@@ -1,0 +1,63 @@
+name: 🧱 Reusable Rust Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      run_tests:
+        required: true
+        type: boolean
+        description: 'Whether to run tests'
+      run_build:
+        required: true
+        type: boolean
+        description: 'Whether to build the release artifact'
+      artifact_name:
+        required: false
+        type: string
+        description: 'Name of the artifact to upload'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: 📦 Checkout code
+        uses: actions/checkout@v5
+
+      - name: ⚙️ Setup Rust toolchain
+        id: rust-toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+          targets: aarch64-unknown-linux-gnu
+
+      - name: 💾 Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml', 'rust-toolchain.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+            ${{ runner.os }}-${{ runner.arch }}-cargo-
+
+      - name: 🧪 Run Tests
+        if: inputs.run_tests
+        run: make test
+
+      - name: 🛠️ Build Lambda (Release)
+        if: inputs.run_build
+        run: make release
+
+      - name: ☁️ Upload Lambda build artifacts
+        if: inputs.run_build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: |
+            target/lambda/
+            tool_schema.json
+          retention-days: 7

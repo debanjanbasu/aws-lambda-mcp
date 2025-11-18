@@ -24,112 +24,19 @@ jobs:
   build-lambda:
     name: 🧱 Build Lambda
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04-arm
-    permissions:
-      contents: read
-
-    steps:
-      - name: 📦 Checkout code
-        uses: actions/checkout@v5
-
-      - name: ⚙️ Setup Rust toolchain
-        id: rust-toolchain
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rust-src
-          targets: aarch64-unknown-linux-gnu
-
-      - name: 💾 Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml', 'rust-toolchain.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
-            ${{ runner.os }}-${{ runner.arch }}-cargo-
-
-      - name: 💾 Cache cargo-lambda
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-lambda
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-lambda-
-
-      - name: 🔧 Install cargo-lambda
-        run: |
-          if ! command -v cargo-lambda &> /dev/null
-          then
-            cargo install cargo-lambda
-          fi
-
-      - name: 🔧 Setup Zig
-        uses: mlugg/setup-zig@v2
-        with:
-          version: latest
-
-      - name: 📦 Install UPX (for release build compression)
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: upx-ucl
-
-      - name: 🛠️ Build Lambda (Release)
-        run: make release
-
-      - name: ☁️ Upload Lambda build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: lambda-build
-          path: |
-            target/lambda/
-            tool_schema.json
-          retention-days: 7
+    uses: ./.github/workflows/reusable-rust.yml
+    with:
+      run_tests: true
+      run_build: true
+      artifact_name: 'lambda-build'
 
   prepare_deployment:
     name: 🔧 Prepare Deployment
     needs: build-lambda
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04-arm
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: 📦 Checkout code
-        uses: actions/checkout@v5
-
-      - name: ☁️ Download Lambda build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: lambda-build
-          path: .
-
-      - name: 🔐 Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: 💾 Cache Terraform plugins
-        uses: actions/cache@v4
-        with:
-          path: |
-            iac/.terraform
-            ~/.terraform.d/
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-terraform-
-            
-      - name: 📝 Prepare Backend Config
-        run: |
-          echo "bucket=${{ secrets.TF_BACKEND_BUCKET }}" > iac/backend-deploy.config
-          echo "key=aws-lambda-mcp/terraform.tfstate" >> iac/backend-deploy.config
-          echo "region=${{ env.AWS_REGION }}" >> iac/backend-deploy.config
-          echo "use_lockfile=true" >> iac/backend-deploy.config
+    uses: ./.github/workflows/reusable-prepare.yml
+    with:
+      artifact_name: 'lambda-build'
+      backend_config_name: 'backend-deploy.config'
 
   terraform_validate:
     name: ✅ Terraform Validate
