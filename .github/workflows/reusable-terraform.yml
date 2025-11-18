@@ -1,7 +1,5 @@
-name: Reusable Terraform Operations
-description: |
-  Reusable workflow for terraform operations with comprehensive output capture.
-  Supports: init, validate, plan, apply, deploy (plan+apply)
+name: 🔄 Reusable Terraform Operations
+
 on:
   workflow_call:
     inputs:
