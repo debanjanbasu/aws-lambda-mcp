@@ -137,7 +137,7 @@ jobs:
           fi
 
           BRANCH="fix/issue-${ISSUE_NUM:-workflow-failure}"
-          git checkout -b "$BRANCH"
+          git checkout -B "$BRANCH"
 
           PROMPT="You are the best developer humanity has ever seen. Fix this issue completely:
 
@@ -178,7 +178,7 @@ jobs:
 
           $(cat fix_output.txt | head -20)"
 
-          git push -u origin "$BRANCH"
+          git push -f -u origin "$BRANCH"
 
           PR_URL=$(gh pr create \
             --title "🥷 Fix: $ISSUE_TITLE" \
