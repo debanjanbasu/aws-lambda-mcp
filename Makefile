@@ -184,7 +184,11 @@ setup-backend: ## ⚙️ Create S3 backend for Terraform state (native locking)
 		exit 1; \
 	fi; \
 	echo -e "$(BLUE)▶️ Creating S3 bucket '\''$$BUCKET_NAME'\'' in region $(AWS_REGION)...$(RESET)"; \
-	aws s3api create-bucket --bucket $$BUCKET_NAME --region $(AWS_REGION) --create-bucket-configuration LocationConstraint=$(AWS_REGION) > /dev/null; \
+	if aws s3api head-bucket --bucket $$BUCKET_NAME --no-cli-pager 2>/dev/null; then \
+		echo -e "$(YELLOW)⚠️  Bucket '\''$$BUCKET_NAME'\'' already exists. Using existing bucket.$(RESET)"; \
+	else \
+		aws s3api create-bucket --bucket $$BUCKET_NAME --region $(AWS_REGION) --create-bucket-configuration LocationConstraint=$(AWS_REGION) --no-cli-pager > /dev/null; \
+	fi; \
 	echo -e "$(BLUE)▶️ Enabling versioning and encryption for '\''$$BUCKET_NAME'\''...$(RESET)"; \
 	aws s3api put-bucket-versioning --bucket $$BUCKET_NAME --versioning-configuration Status=Enabled > /dev/null; \
 	aws s3api put-bucket-encryption --bucket $$BUCKET_NAME --server-side-encryption-configuration '\''{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'\'' > /dev/null; \
