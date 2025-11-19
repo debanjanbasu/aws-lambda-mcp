@@ -47,24 +47,12 @@ jobs:
       pr_number: '${{ github.event.number }}'
     secrets: inherit
 
-  terraform_plan_pr:
-    name: 📋 Terraform Plan (PR)
+  terraform_apply_pr:
+    name: 🚀 Terraform Apply (PR)
     needs: terraform_validate_pr
     uses: ./.github/workflows/reusable-terraform.yml
     with:
-      command: 'plan'
-      var_file: 'pr-environment.tfvars'
-      environment_name: 'pr-${{ github.event.number }}'
-      artifact_name: 'pr-lambda-build'
-      pr_number: '${{ github.event.number }}'
-    secrets: inherit
-
-  terraform_apply_pr:
-    name: 🚀 Terraform Apply (PR)
-    needs: terraform_plan_pr
-    uses: ./.github/workflows/reusable-terraform.yml
-    with:
-      command: 'apply'
+      command: 'deploy'
       var_file: 'pr-environment.tfvars'
       environment_name: 'pr-${{ github.event.number }}'
       artifact_name: 'pr-lambda-build'
