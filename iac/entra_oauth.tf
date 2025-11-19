@@ -108,6 +108,15 @@ resource "azuread_application" "agentcore_app" {
     }
   }
 
+  # Client secret for OAuth 2.0 confidential clients
+  # Note: Using password block within azuread_application instead of separate
+  # azuread_application_password resource, as the latter was deprecated/removed
+  # in azuread provider 3.7.0
+  password {
+    display_name = "OAuth 2.0 Confidential Client"
+    end_date     = timeadd(timestamp(), "17520h") # 2 years
+  }
+
   tags = local.entra_app_tags
 
   # Ignore changes to redirect URIs so they can be managed externally
@@ -125,17 +134,7 @@ resource "azuread_application" "agentcore_app" {
   }
 }
 
-# Client secret for OAuth 2.0 confidential clients
-# 2 year expiry - minimum practical duration for Entra ID
-resource "azuread_application_password" "oauth_client" {
-  application_id = azuread_application.agentcore_app.id
-  display_name   = "OAuth 2.0 Confidential Client"
-  end_date       = timeadd(timestamp(), "17520h") # 2 years
 
-  lifecycle {
-    ignore_changes = [end_date]
-  }
-}
 
 # Data source for Microsoft Graph service principal
 data "azuread_service_principal" "microsoft_graph" {
