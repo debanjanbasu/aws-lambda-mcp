@@ -65,9 +65,9 @@ jobs:
 
       - name: 🧪 E2E Test - Weather Tool
         run: |
-          GATEWAY_URL=${{ needs.terraform_deploy.outputs.gateway_url }}
-          PROJECT_NAME=${{ needs.terraform_deploy.outputs.project_name }}
-          TOKEN=${{ steps.get-token.outputs.token }}
+          GATEWAY_URL="${{ needs.terraform_deploy.outputs.gateway_url }}"
+          PROJECT_NAME="${{ needs.terraform_deploy.outputs.project_name }}"
+          TOKEN="${{ steps.get-token.outputs.token }}"
           
           # Tool naming: {gateway-id}_{target-id}___tool-name
           TOOL_NAME="${PROJECT_NAME}_${PROJECT_NAME}-target___get_weather"

@@ -4,6 +4,12 @@ output "aws_region" {
   value       = var.aws_region
 }
 
+# Project Name Output
+output "project_name" {
+  description = "Project name with suffix"
+  value       = local.project_name_with_suffix
+}
+
 # Lambda Outputs
 output "lambda_function_arn" {
   description = "ARN of the Lambda function"
