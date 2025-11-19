@@ -53,6 +53,15 @@ resource "azuread_application" "agentcore_app" {
     }
   }
 
+  # Client secret for OAuth 2.0 confidential clients
+  # Note: Using password block within azuread_application instead of separate
+  # azuread_application_password resource, as the latter was deprecated/removed
+  # in azuread provider 3.7.0
+  password {
+    display_name = "OAuth 2.0 Confidential Client"
+    end_date     = timeadd(timestamp(), "17520h") # 2 years
+  }
+
   # Required resource access - Microsoft Graph for user info and OpenID scopes
   # IMPORTANT: Azure AD scope combination rules:
   # When requesting tokens, the '.default' scope for a custom API (e.g., api://{client_id}/.default)
@@ -122,18 +131,6 @@ resource "azuread_application" "agentcore_app" {
       public_client[0].redirect_uris,
       owners,
     ]
-  }
-}
-
-# Client secret for OAuth 2.0 confidential clients
-# 2 year expiry - minimum practical duration for Entra ID
-resource "azuread_application_password" "oauth_client" {
-  application_id = azuread_application.agentcore_app.id
-  display_name   = "OAuth 2.0 Confidential Client"
-  end_date       = timeadd(timestamp(), "17520h") # 2 years
-
-  lifecycle {
-    ignore_changes = [end_date]
   }
 }
 

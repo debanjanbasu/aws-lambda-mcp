@@ -1,0 +1,15 @@
+The workflow failure was caused by the dependabot update to `hashicorp/azuread` provider version 3.7.0, which removed the deprecated `azuread_application_password` resource. I've fixed this by migrating to the `password` block within the `azuread_application` resource, which is the correct approach for managing client secrets in the updated provider.
+
+**Changes made:**
+- Removed the separate `azuread_application_password` resource
+- Added a `password` block to the `azuread_application` resource
+- Updated outputs to reference `tolist(azuread_application.agentcore_app.password)[0]` for the set-based password attribute
+- Added documentation comments explaining the migration
+
+**Verification:**
+- Terraform configuration validates successfully
+- All tests pass
+- Code passes clippy linting
+- No breaking changes to functionality
+
+The fix ensures compatibility with azuread provider 3.7.0 while maintaining the same OAuth client secret functionality. The PR workflow will now deploy successfully to the ephemeral environment for testing.
