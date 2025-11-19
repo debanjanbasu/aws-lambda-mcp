@@ -97,12 +97,14 @@ This repository automatically creates isolated test environments for each pull r
 
 To manually trigger an environment deployment or destruction:
 ```bash
-# Deploy a manual environment
-gh workflow run preview-environment.yml -f action=deploy
+# Deploy a manual environment (replace 123 with your PR number)
+gh workflow run preview-environment.yml -f action=deploy -f pr_number=123
 
 # Destroy a manual environment
-gh workflow run preview-environment.yml -f action=destroy
+gh workflow run preview-environment.yml -f action=destroy -f pr_number=123
 ```
+
+**Note**: When running manually, the `pr_number` input is required to namespace the environment resources (e.g., `preview-123`). Use the actual PR number if you are debugging a specific PR, or any unique number for a scratch environment.
 
 ## Automated Dependency Updates
 
