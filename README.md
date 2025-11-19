@@ -1,5 +1,9 @@
 # Amazon Bedrock AgentCore Gateway (MCP Server)
 
+[![Deploy](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/deploy.yml/badge.svg)](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/deploy.yml)
+[![Security](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/checkov.yml/badge.svg)](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/checkov.yml)
+[![CodeQL](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/codeql.yml)
+
 Production-ready Model Context Protocol server implementation using Amazon Bedrock AgentCore Gateway. Secure, OAuth-authenticated bridge between Bedrock AI agents and custom tools.
 
 ## Table of Contents
