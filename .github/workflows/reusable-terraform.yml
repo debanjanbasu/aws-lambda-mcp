@@ -32,6 +32,9 @@ on:
       gateway_url:
         description: 'API Gateway URL output'
         value: ${{ jobs.terraform.outputs.gateway_url }}
+      project_name:
+        description: 'Project name with suffix'
+        value: ${{ jobs.terraform.outputs.project_name }}
       client_id:
         description: 'Entra app client ID'
         value: ${{ jobs.terraform.outputs.client_id }}
@@ -50,6 +53,7 @@ jobs:
       AWS_REGION: ${{ inputs.aws_region }}
     outputs:
       gateway_url: ${{ steps.terraform-outputs.outputs.gateway_url }}
+      project_name: ${{ steps.terraform-outputs.outputs.project_name }}
       client_id: ${{ steps.terraform-outputs.outputs.client_id }}
       scope: ${{ steps.terraform-outputs.outputs.scope }}
     steps:
@@ -161,5 +165,6 @@ jobs:
         run: |
           cd iac
           echo "gateway_url=$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "project_name=$(terraform output -raw project_name 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
           echo "client_id=$(terraform output -raw entra_app_client_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
           echo "scope=$(terraform output -raw entra_app_scope_client_credentials 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
