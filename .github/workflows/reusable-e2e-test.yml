@@ -119,47 +119,4 @@ jobs:
             exit 1
           fi
 
-      - name: 💬 Post Deployment Comment
-        if: github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          GATEWAY_URL="${{ inputs.gateway_url }}"
-          CLIENT_ID="${{ inputs.client_id }}"
-          SCOPE="${{ inputs.scope }}"
-          ENVIRONMENT="${{ inputs.environment_name }}"
-          
-          COMMENT="## 🌱 Ephemeral Environment Deployed ✅
-          
-          Your Preview environment has been deployed successfully!
-          
-          🔗 **Gateway URL**: $GATEWAY_URL
-          
-          🧪 **Testing Instructions**:
-          1. Copy the gateway URL above
-          2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-          3. Use an OAuth token to authenticate in the Inspector UI
-          
-          🔐 **Token Generation** (run locally with Azure CLI):
-          \`\`\`bash
-          # Recommended: Use Azure CLI with the preview environment's scope
-          az account get-access-token --resource $SCOPE --query accessToken -o tsv
-          
-          # Alternative: Manual client credentials flow
-          curl -X POST \"https://login.microsoftonline.com/${{ secrets.AZURE_TENANT_ID }}/oauth2/v2.0/token\" \\
-            -H \"Content-Type: application/x-www-form-urlencoded\" \\
-            -d \"client_id=$CLIENT_ID\" \\
-            -d \"client_secret=<CLIENT_SECRET_FROM_TERRAFORM_OUTPUT>\" \\
-            -d \"grant_type=client_credentials\" \\
-            -d \"scope=$SCOPE\"
-          \`\`\`
-          
-          📋 **Environment Details**:
-          - Environment: \`$ENVIRONMENT\`
-          - Branch: \`${{ github.head_ref }}\`
-          - Client ID: \`$CLIENT_ID\`
-          - Scope: \`$SCOPE\`
-          
-          ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
-          
-          gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
+
