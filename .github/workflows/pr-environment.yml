@@ -98,23 +98,33 @@ jobs:
       - name: 🧪 E2E Test - Weather Tool
         run: |
           GATEWAY_URL=${{ needs.terraform_apply_pr.outputs.gateway_url }}
+          PROJECT_NAME=${{ needs.terraform_apply_pr.outputs.project_name }}
           TOKEN=${{ steps.get-token.outputs.token }}
           
+          # Tool naming: {gateway-id}_{target-id}___tool-name
+          TOOL_NAME="${PROJECT_NAME}_${PROJECT_NAME}-target___get_weather"
+          
           echo "Testing weather tool via AgentCore Gateway..."
+          echo "Tool name: $TOOL_NAME"
           RESPONSE=$(curl -s -X POST "$GATEWAY_URL" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{
-              "tool": "get_weather",
-              "input": {
-                "location": "Sydney"
+            -d "{
+              \"jsonrpc\": \"2.0\",
+              \"id\": 1,
+              \"method\": \"tools/call\",
+              \"params\": {
+                \"name\": \"${TOOL_NAME}\",
+                \"arguments\": {
+                  \"location\": \"Sydney\"
+                }
               }
-            }')
+            }")
           
           echo "Response: $RESPONSE"
           
           # Check if response contains expected fields
-          if echo "$RESPONSE" | jq -e '.temperature' >/dev/null 2>&1; then
+          if echo "$RESPONSE" | jq -e '.result.content[0].text' >/dev/null 2>&1; then
             echo "✅ E2E test passed - received valid weather response"
           else
             echo "❌ E2E test failed - invalid response"
