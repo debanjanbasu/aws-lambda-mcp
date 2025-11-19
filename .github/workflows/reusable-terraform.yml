@@ -41,6 +41,12 @@ on:
       scope:
         description: 'Entra app scope'
         value: ${{ jobs.terraform.outputs.scope }}
+      gateway_id:
+        description: 'AgentCore Gateway ID'
+        value: ${{ jobs.terraform.outputs.gateway_id }}
+      target_id:
+        description: 'AgentCore Gateway Target ID'
+        value: ${{ jobs.terraform.outputs.target_id }}
 
 permissions:
   id-token: write
@@ -56,6 +62,8 @@ jobs:
       project_name: ${{ steps.terraform-outputs.outputs.project_name }}
       client_id: ${{ steps.terraform-outputs.outputs.client_id }}
       scope: ${{ steps.terraform-outputs.outputs.scope }}
+      gateway_id: ${{ steps.terraform-outputs.outputs.gateway_id }}
+      target_id: ${{ steps.terraform-outputs.outputs.target_id }}
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v5
@@ -168,3 +176,5 @@ jobs:
           echo "project_name=$(terraform output -raw project_name 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
           echo "client_id=$(terraform output -raw entra_app_client_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
           echo "scope=$(terraform output -raw entra_app_scope_client_credentials 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "gateway_id=$(terraform output -raw agentcore_gateway_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "target_id=$(terraform output -raw agentcore_gateway_target_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT

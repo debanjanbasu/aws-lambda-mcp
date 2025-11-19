@@ -99,10 +99,12 @@ jobs:
         run: |
           GATEWAY_URL="${{ needs.terraform_apply_pr.outputs.gateway_url }}"
           PROJECT_NAME="${{ needs.terraform_apply_pr.outputs.project_name }}"
+          GATEWAY_ID="${{ needs.terraform_apply_pr.outputs.gateway_id }}"
+          TARGET_ID="${{ needs.terraform_apply_pr.outputs.target_id }}"
           TOKEN="${{ steps.get-token.outputs.token }}"
           
           # Tool naming: {gateway-id}_{target-id}___tool-name
-          TOOL_NAME="${PROJECT_NAME}_${PROJECT_NAME}-target___get_weather"
+          TOOL_NAME="${GATEWAY_ID}_${TARGET_ID}___get_weather"
           
           echo "Testing weather tool via AgentCore Gateway..."
           echo "Tool name: $TOOL_NAME"
