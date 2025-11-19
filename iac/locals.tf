@@ -17,8 +17,10 @@ locals {
   email_scope_id   = "64a6cdd6-aab1-4aaf-94b8-3cc8405e90d0"
 
   # Derived paths (binary name matches Cargo package name)
-  lambda_binary_path = "../target/lambda/aws-lambda-mcp/bootstrap"
-  tool_schema_path   = "../tool_schema.json"
+  # Preview environments download artifacts to root directory, so use relative paths from iac/
+  # Main deployment builds locally with artifacts in ../target/lambda/aws-lambda-mcp/
+  lambda_binary_path = startswith(var.common_tags.Environment, "ephemeral-") ? "./target/lambda/bootstrap" : "../target/lambda/aws-lambda-mcp/bootstrap"
+  tool_schema_path   = startswith(var.common_tags.Environment, "ephemeral-") ? "./tool_schema.json" : "../tool_schema.json"
 
   # Entra ID OAuth configuration
   entra_tenant_id     = data.azuread_client_config.current.tenant_id
