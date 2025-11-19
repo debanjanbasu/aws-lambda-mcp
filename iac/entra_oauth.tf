@@ -108,6 +108,12 @@ resource "azuread_application" "agentcore_app" {
     }
   }
 
+  # Client secret for OAuth 2.0 confidential clients
+  password {
+    display_name = "OAuth 2.0 Confidential Client"
+    end_date     = timeadd(timestamp(), "17520h") # 2 years
+  }
+
   tags = local.entra_app_tags
 
   # Ignore changes to redirect URIs so they can be managed externally
@@ -121,17 +127,10 @@ resource "azuread_application" "agentcore_app" {
       web[0].redirect_uris,
       public_client[0].redirect_uris,
       owners,
+      password,
     ]
   }
 }
-
-# Client secret for OAuth 2.0 confidential clients
-resource "azuread_application_password" "agentcore_app_secret" {
-  application_id = azuread_application.agentcore_app.id
-  display_name   = "OAuth 2.0 Confidential Client"
-  end_date       = timeadd(timestamp(), "17520h") # 2 years
-}
-
 
 
 # Data source for Microsoft Graph service principal
