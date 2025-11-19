@@ -1,4 +1,4 @@
-name: 🧪 Reusable E2E Test
+name: 🧪 Voight-Kampff Protocol
 
 on:
   workflow_call:
@@ -29,7 +29,7 @@ on:
 
 jobs:
   e2e-test:
-    name: 🧪 E2E Test & Verify
+    name: 🧪 Baseline Test
     runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write

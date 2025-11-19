@@ -141,3 +141,16 @@ resource "azuread_application" "agentcore_app" {
 data "azuread_service_principal" "microsoft_graph" {
   client_id = local.microsoft_graph_app_id
 }
+
+# Create Service Principal for the application in the current tenant
+resource "azuread_service_principal" "agentcore_sp" {
+  client_id                    = azuread_application.agentcore_app.client_id
+  app_role_assignment_required = false
+  owners                       = [data.azuread_client_config.current.object_id]
+
+  lifecycle {
+    ignore_changes = [
+      owners
+    ]
+  }
+}
