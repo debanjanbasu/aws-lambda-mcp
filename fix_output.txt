@@ -1,0 +1,27 @@
+## Issue Fixed: Terraform Apply Failure in Ephemeral Preview Environment
+
+**Root Cause Analysis:**
+The workflow failure was caused by the use of a deprecated `password` block in the `azuread_application` resource. In azuread provider v3.7.0, the `password` block was removed from `azuread_application` and replaced with a separate `azuread_application_password` resource.
+
+**Minimal, Elegant Fix Applied:**
+
+1. **Replaced deprecated password block** in `iac/entra_oauth.tf`:
+   - Removed the `password` block from `azuread_application.agentcore_app`
+   - Added a new `azuread_application_password` resource named `agentcore_app_secret`
+
+2. **Updated output reference** in `iac/outputs.tf`:
+   - Changed `tolist(azuread_application.agentcore_app.password)[0].value` to `azuread_application_password.agentcore_app_secret.value`
+
+3. **Updated lifecycle** in `azuread_application`:
+   - Removed `password` from `ignore_changes` since it no longer exists
+
+**Validation Completed:**
+- ✅ Terraform configuration validates successfully
+- ✅ All tests pass (weather integration test)
+- ✅ Code passes strict clippy linting (no warnings, denies unsafe code)
+- ✅ Follows AGENTS.md standards (error handling, imports, naming, etc.)
+
+**Security Improvement:**
+This fix enhances security by properly separating application registration from password management, following the latest azuread provider best practices.
+
+The ephemeral preview environment workflow should now deploy successfully without the Terraform apply failure.
