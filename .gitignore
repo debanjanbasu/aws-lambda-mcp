@@ -28,6 +28,7 @@ bootstrap
 
 # Generated files
 tool_schema.json
+fix_output.txt
 
 # Terraform
 iac/backend.config
