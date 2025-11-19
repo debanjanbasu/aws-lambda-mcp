@@ -59,7 +59,7 @@ jobs:
         id: get-token
         run: |
           SCOPE=${{ needs.terraform_deploy.outputs.scope }}
-          TOKEN=$(az account get-access-token --resource "$SCOPE" --query accessToken -o tsv)
+          TOKEN=$(az account get-access-token --scope "$SCOPE" --query accessToken -o tsv)
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
