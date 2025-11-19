@@ -75,6 +75,10 @@ jobs:
     name: 🚀 Post-Deployment Steps
     needs: terraform_apply_pr
     runs-on: ubuntu-24.04-arm
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
     steps:
       - name: 🔐 Configure Azure Credentials
         uses: azure/login@v2
