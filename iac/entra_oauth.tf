@@ -130,6 +130,7 @@ resource "azuread_application" "agentcore_app" {
       web[0].redirect_uris,
       public_client[0].redirect_uris,
       owners,
+      password,
     ]
   }
 }
