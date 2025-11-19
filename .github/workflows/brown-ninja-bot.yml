@@ -1,4 +1,4 @@
-name: 🥷 Brown Ninja Bot - Auto Triage, Propose Fixes, Raise Issues
+name: 🥷 Brown Ninja Bot - Coding Copilot
 
 on:
   issues:
@@ -9,13 +9,13 @@ on:
   workflow_dispatch:
     inputs:
       issue_number:
-        description: 'Issue number to triage (optional)'
+        description: 'Issue number to fix'
         required: false
         type: string
 
 jobs:
-  triage:
-    name: 🤖 Auto Triage & Fix Issues
+  fix:
+    name: 🤖 Analyze, Fix & PR
     if: |
       github.event_name == 'issues' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
@@ -28,40 +28,86 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: 📦 Checkout repository
+      - name: 📦 Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - name: Install opencode
+      - name: 🔧 Setup Git
+        run: |
+          git config user.name "brown-ninja-bot[bot]"
+          git config user.email "brown-ninja-bot[bot]@users.noreply.github.com"
+
+      - name: 📥 Install opencode
         run: curl -fsSL https://opencode.ai/install | bash
 
-      - name: 🚀 Run opencode triage
+      - name: 🚀 Fix Issue & Create PR
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
             ISSUE_NUM=${{ github.event.issue.number }}
+            ISSUE_TITLE="${{ github.event.issue.title }}"
             ISSUE_BODY="${{ github.event.issue.body }}"
-            PROMPT="Plan methodically to triage and fix this issue: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             ISSUE_NUM=${{ github.event.inputs.issue_number }}
+            ISSUE_TITLE=$(gh issue view $ISSUE_NUM --json title -q .title)
             ISSUE_BODY=$(gh issue view $ISSUE_NUM --json body -q .body)
-            PROMPT="Plan methodically to triage and fix this issue: 1. Analyze the issue thoroughly. 2. Identify root causes and required changes. 3. Execute fixes with proper testing. Issue: $ISSUE_BODY"
           else
             ISSUE_NUM=""
-            ISSUE_BODY=""
-            PROMPT=""
+            ISSUE_TITLE="Workflow Failure: ${{ github.event.workflow_run.name }}"
+            ISSUE_BODY="Fix workflow failure. Logs: ${{ github.event.workflow_run.html_url }}"
           fi
 
-          if [ "${{ github.event_name }}" = "issues" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ -n "$ISSUE_NUM" ]; then
-              opencode run --agent build -m opencode/grok-code "$PROMPT" > triage_output.txt
-              if [ -s triage_output.txt ]; then
-                gh issue comment $ISSUE_NUM --body "$(cat triage_output.txt)"
-              else
-                gh issue comment $ISSUE_NUM --body "Opencode triage completed but no output generated."
-              fi
-            fi
-          elif [ "${{ github.event.workflow_run.conclusion }}" = "failure" ]; then
-            # For workflow failures, create an issue
-            gh issue create --title "Workflow Failure: ${{ github.event.workflow_run.name }}" --body "Investigate and fix this workflow failure. Logs: ${{ github.event.workflow_run.html_url }}"
+          BRANCH="fix/issue-${ISSUE_NUM:-workflow-failure}"
+          git checkout -b "$BRANCH"
+
+          PROMPT="You are the best developer humanity has ever seen. Fix this issue completely:
+
+          Issue: $ISSUE_TITLE
+          Details: $ISSUE_BODY
+
+          Requirements:
+          1. Analyze root cause with surgical precision
+          2. Implement minimal, elegant fix following AGENTS.md standards
+          3. Write comprehensive tests for new functionality
+          4. Ensure all tests pass (make test)
+          5. Verify code passes linting (cargo clippy)
+          6. Update documentation and comments
+          7. Consider edge cases and error scenarios
+          
+          Write production-quality code with proper error handling, tests, and documentation."
+
+          opencode run --agent build -m opencode/grok-code "$PROMPT" > fix_output.txt
+
+          if git diff --quiet; then
+            echo "No changes made"
+            [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🤖 Analyzed but no code changes needed. See analysis:\n\n$(cat fix_output.txt)"
+            exit 0
           fi
+
+          git add -A
+          git commit -m "fix: resolve issue #${ISSUE_NUM:-workflow-failure}
+
+          $(cat fix_output.txt | head -20)"
+
+          git push -u origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --title "🥷 Fix: $ISSUE_TITLE" \
+            --body "Fixes #${ISSUE_NUM}
+
+          ## Changes
+          $(cat fix_output.txt)
+
+          ## Testing
+          - Code follows AGENTS.md standards
+          - Minimal changes for correctness
+          - Ready for review
+
+          ---
+          🤖 Auto-generated by brown-ninja-bot" \
+            --base master \
+            --head "$BRANCH")
+
+          [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🥷 Fix implemented! PR: $PR_URL"
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
