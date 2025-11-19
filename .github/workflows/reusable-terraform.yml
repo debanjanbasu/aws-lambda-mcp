@@ -19,15 +19,15 @@ on:
       environment_name:
         required: false
         type: string
-        description: 'Environment name for state key (e.g., pr-123)'
+        description: 'Environment name for state key (e.g., preview-123)'
       artifact_name:
         required: false
         type: string
         description: 'Name of the artifact to download'
-      pr_number:
+      pull_request_number:
         required: false
         type: string
-        description: 'PR number for tagging'
+        description: 'Pull Request number for tagging'
     outputs:
       gateway_url:
         description: 'API Gateway URL output'
@@ -78,13 +78,13 @@ jobs:
       - name: 📝 Create Environment Variables File
         if: inputs.environment_name
         run: |
-          cat > iac/pr-environment.tfvars << EOF
+          cat > iac/preview-environment.tfvars << EOF
           project_name = "aws-agentcore-gateway-${{ inputs.environment_name }}"
           common_tags = {
             Project     = "aws-agentcore-gateway"
             ManagedBy   = "terraform"
             Environment = "ephemeral-${{ inputs.environment_name }}"
-            PR_Number   = "${{ inputs.pr_number || github.event.number }}"
+            Pull_Request_Number = "${{ inputs.pull_request_number || github.event.number }}"
             Branch      = "${{ github.head_ref }}"
           }
           EOF

@@ -1,4 +1,4 @@
-name: 🌱 Ephemeral PR Environment
+name: 🌱 Ephemeral Preview Environment
 
 on:
   pull_request:
@@ -33,35 +33,35 @@ jobs:
     with:
       run_tests: true
       run_build: true
-      artifact_name: 'pr-lambda-build'
+      artifact_name: 'preview-lambda-build'
 
-  terraform_validate_pr:
-    name: ✅ Terraform Validate (PR)
+  terraform_validate_preview:
+    name: ✅ Terraform Validate (Preview)
     needs: build-lambda
     if: github.event.action != 'closed'
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'validate'
-      environment_name: 'pr-${{ github.event.number }}'
-      artifact_name: 'pr-lambda-build'
-      pr_number: '${{ github.event.number }}'
+      environment_name: 'preview-${{ github.event.number }}'
+      artifact_name: 'preview-lambda-build'
+      pull_request_number: '${{ github.event.number }}'
     secrets: inherit
 
-  terraform_apply_pr:
-    name: 🚀 Terraform Apply (PR)
-    needs: terraform_validate_pr
+  terraform_apply_preview:
+    name: 🚀 Terraform Apply (Preview)
+    needs: terraform_validate_preview
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'deploy'
-      var_file: 'pr-environment.tfvars'
-      environment_name: 'pr-${{ github.event.number }}'
-      artifact_name: 'pr-lambda-build'
-      pr_number: '${{ github.event.number }}'
+      var_file: 'preview-environment.tfvars'
+      environment_name: 'preview-${{ github.event.number }}'
+      artifact_name: 'preview-lambda-build'
+      pull_request_number: '${{ github.event.number }}'
     secrets: inherit
 
   post_deployment_steps:
     name: 🚀 Post-Deployment Steps
-    needs: terraform_apply_pr
+    needs: terraform_apply_preview
     runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write
@@ -78,17 +78,17 @@ jobs:
       - name: 🔑 Get OAuth Token
         id: get-token
         run: |
-          SCOPE=${{ needs.terraform_apply_pr.outputs.scope }}
+          SCOPE=${{ needs.terraform_apply_preview.outputs.scope }}
           TOKEN=$(az account get-access-token --scope "$SCOPE" --query accessToken -o tsv)
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
       - name: 🧪 E2E Test - Weather Tool
         run: |
-          GATEWAY_URL="${{ needs.terraform_apply_pr.outputs.gateway_url }}"
-          PROJECT_NAME="${{ needs.terraform_apply_pr.outputs.project_name }}"
-          GATEWAY_ID="${{ needs.terraform_apply_pr.outputs.gateway_id }}"
-          TARGET_ID="${{ needs.terraform_apply_pr.outputs.target_id }}"
+          GATEWAY_URL="${{ needs.terraform_apply_preview.outputs.gateway_url }}"
+          PROJECT_NAME="${{ needs.terraform_apply_preview.outputs.project_name }}"
+          GATEWAY_ID="${{ needs.terraform_apply_preview.outputs.gateway_id }}"
+          TARGET_ID="${{ needs.terraform_apply_preview.outputs.target_id }}"
           TOKEN="${{ steps.get-token.outputs.token }}"
           
           # Tool naming: {gateway-id}_{target-id}___tool-name
@@ -125,13 +125,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          GATEWAY_URL=${{ needs.terraform_apply_pr.outputs.gateway_url }}
-          CLIENT_ID=${{ needs.terraform_apply_pr.outputs.client_id }}
-          SCOPE=${{ needs.terraform_apply_pr.outputs.scope }}
+          GATEWAY_URL=${{ needs.terraform_apply_preview.outputs.gateway_url }}
+          CLIENT_ID=${{ needs.terraform_apply_preview.outputs.client_id }}
+          SCOPE=${{ needs.terraform_apply_preview.outputs.scope }}
           
           COMMENT="## 🌱 Ephemeral Environment Deployed ✅
 
-          Your PR environment has been deployed successfully!
+          Your Preview environment has been deployed successfully!
 
           🔗 **Gateway URL**: $GATEWAY_URL
 
@@ -142,7 +142,7 @@ jobs:
           
           🔐 **Token Generation** (run locally with Azure CLI):
           \`\`\`bash
-          # Recommended: Use Azure CLI with the PR environment's scope
+          # Recommended: Use Azure CLI with the preview environment's scope
           az account get-access-token --resource $SCOPE --query accessToken -o tsv
           
           # Alternative: Manual client credentials flow (requires client secret from Terraform output)
@@ -155,7 +155,7 @@ jobs:
           \`\`\`
 
           📋 **Environment Details**:
-          - Environment: \`pr-${{ github.event.number }}\`
+          - Environment: \`preview-${{ github.event.number }}\`
           - Branch: \`${{ github.head_ref }}\`
           - Client ID: \`$CLIENT_ID\`
           - Scope: \`$SCOPE\`
@@ -164,20 +164,20 @@ jobs:
           
           gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
 
-  terraform_destroy_pr:
-    name: 💣 Terraform Destroy (PR)
+  terraform_destroy_preview:
+    name: 💣 Terraform Destroy (Preview)
     if: github.event.action == 'closed'
     uses: ./.github/workflows/reusable-terraform.yml
     with:
       command: 'destroy'
-      var_file: 'pr-environment.tfvars'
-      environment_name: 'pr-${{ github.event.number }}'
-      pr_number: '${{ github.event.number }}'
+      var_file: 'preview-environment.tfvars'
+      environment_name: 'preview-${{ github.event.number }}'
+      pull_request_number: '${{ github.event.number }}'
     secrets: inherit
 
-  cleanup_pr_environment:
-    name: 🧹 Cleanup PR Environment
-    needs: terraform_destroy_pr
+  cleanup_preview_environment:
+    name: 🧹 Cleanup Preview Environment
+    needs: terraform_destroy_preview
     if: github.event.action == 'closed'
     runs-on: ubuntu-24.04-arm
     permissions:
@@ -193,7 +193,7 @@ jobs:
 
       - name: 🧹 Cleanup Terraform State File
         run: |
-          STATE_KEY="aws-lambda-mcp/pr-${{ github.event.number }}/terraform.tfstate"
+          STATE_KEY="aws-lambda-mcp/preview-${{ github.event.number }}/terraform.tfstate"
           echo "Cleaning up Terraform state file: s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY"
           aws s3 rm "s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY" || echo "State file cleanup may have failed, continuing..."
 
@@ -203,10 +203,10 @@ jobs:
         run: |
           COMMENT="## 🌱 Ephemeral Environment Destroyed 🗑️
         
-          Your PR environment has been successfully destroyed.
+          Your Preview environment has been successfully destroyed.
         
           📋 **Details**:
-          - Environment: \`pr-${{ github.event.number }}\`
+          - Environment: \`preview-${{ github.event.number }}\`
           - Branch: \`${{ github.head_ref }}\`
         
           ✅ All resources have been cleaned up."

@@ -134,9 +134,11 @@ jobs:
             ISSUE_NUM=""
             ISSUE_TITLE="Workflow Failure: ${{ github.event.workflow_run.name }}"
             ISSUE_BODY="Fix workflow failure. Logs: ${{ github.event.workflow_run.html_url }}"
+            # Use unique branch name for workflow failures to prevent collisions
+            BRANCH_SUFFIX="workflow-failure-${{ github.event.workflow_run.id }}"
           fi
 
-          BRANCH="fix/issue-${ISSUE_NUM:-workflow-failure}"
+          BRANCH="fix/${BRANCH_SUFFIX:-issue-$ISSUE_NUM}"
           git checkout -B "$BRANCH"
 
           PROMPT="You are the best developer humanity has ever seen. Fix this issue completely:
