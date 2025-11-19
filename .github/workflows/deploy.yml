@@ -44,6 +44,9 @@ jobs:
     name: 🧪 E2E Test
     needs: terraform_deploy
     runs-on: ubuntu-24.04-arm
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: 🔐 Configure Azure Credentials
         uses: azure/login@v2
