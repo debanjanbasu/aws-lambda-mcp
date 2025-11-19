@@ -98,10 +98,10 @@ This repository automatically creates isolated test environments for each pull r
 To manually trigger an environment deployment or destruction:
 ```bash
 # Deploy a manual environment
-gh workflow run pr-environment.yml -f action=deploy
+gh workflow run preview-environment.yml -f action=deploy
 
 # Destroy a manual environment
-gh workflow run pr-environment.yml -f action=destroy
+gh workflow run preview-environment.yml -f action=destroy
 ```
 
 ## Automated Dependency Updates

@@ -132,7 +132,7 @@ make add-redirect-url  # Add custom redirect URI to terraform.tfvars
 ```
 
 **Note**: When working with ephemeral environments, you can also use:
-- `terraform init -backend-config=../backend-pr.tfvars` for PR environments
+- `terraform init -backend-config=../backend-preview.tfvars` for preview environments
 
 ## Manual Testing
 
