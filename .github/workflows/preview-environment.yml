@@ -59,141 +59,16 @@ jobs:
       pull_request_number: '${{ github.event.number }}'
     secrets: inherit
 
-  post_deployment_steps:
-    name: 🚀 Post-Deployment Steps
+  e2e_test:
+    name: 🧪 E2E Test & Verify
     needs: terraform_apply_preview
-    runs-on: ubuntu-24.04-arm
-    permissions:
-      id-token: write
-      contents: read
-      pull-requests: write
-    steps:
-      - name: 🔐 Configure Azure Credentials
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
-      - name: 🔑 Get OAuth Token
-        id: get-token
-        run: |
-          SCOPE=${{ needs.terraform_apply_preview.outputs.scope }}
-          TOKEN=$(az account get-access-token --scope "$SCOPE" --query accessToken -o tsv)
-          echo "::add-mask::$TOKEN"
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
-
-      - name: 📥 Install opencode
-        run: curl -fsSL https://opencode.ai/install | bash
-
-      - name: 🧪 E2E Test - AI Dynamic Discovery
-        env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-        run: |
-          GATEWAY_URL="${{ needs.terraform_apply_preview.outputs.gateway_url }}"
-          TOKEN="${{ steps.get-token.outputs.token }}"
-          
-          echo "🔍 Discovering tools..."
-          TOOLS_JSON=$(curl -s -X POST "$GATEWAY_URL" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}')
-            
-          echo "Tools response: $TOOLS_JSON"
-          
-          echo "🧠 Generating test inputs using AI..."
-          # Use opencode to generate valid arguments for each tool based on its schema
-          INPUTS_JSON=$(opencode run -m opencode/grok-code "You are a QA engineer. Given this MCP tools list response, generate a single valid JSON object where keys are the tool names and values are valid argument objects for testing that tool. Return ONLY the raw JSON with no markdown formatting. Schema: $TOOLS_JSON")
-          
-          echo "Generated Inputs: $INPUTS_JSON"
-          
-          # Parse tool names
-          TOOL_NAMES=$(echo "$TOOLS_JSON" | jq -r '.result.tools[].name')
-          
-          if [ -z "$TOOL_NAMES" ]; then
-            echo "❌ No tools found!"
-            exit 1
-          fi
-          
-          FAILED=0
-          
-          for TOOL in $TOOL_NAMES; do
-            echo "▶️ Testing tool: $TOOL"
-            
-            # Extract args for this tool from AI response
-            ARGS=$(echo "$INPUTS_JSON" | jq -c ".\"$TOOL\" // {}")
-            
-            echo "Calling $TOOL with args: $ARGS"
-            RESPONSE=$(curl -s -X POST "$GATEWAY_URL" \
-              -H "Authorization: Bearer $TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "{
-                \"jsonrpc\": \"2.0\",
-                \"id\": 2,
-                \"method\": \"tools/call\",
-                \"params\": {
-                  \"name\": \"$TOOL\",
-                  \"arguments\": $ARGS
-                }
-              }")
-            
-            echo "Response: $RESPONSE"
-            
-            if echo "$RESPONSE" | jq -e '.result.content[0].text' >/dev/null 2>&1; then
-              echo "✅ Tool execution passed"
-            else
-              echo "❌ Tool execution failed"
-              FAILED=1
-            fi
-          done
-          
-          if [ $FAILED -ne 0 ]; then
-            echo "❌ One or more tools failed tests"
-            exit 1
-          fi
-
-      - name: 💬 Post Deployment Comment
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          GATEWAY_URL=${{ needs.terraform_apply_preview.outputs.gateway_url }}
-          CLIENT_ID=${{ needs.terraform_apply_preview.outputs.client_id }}
-          SCOPE=${{ needs.terraform_apply_preview.outputs.scope }}
-          
-          COMMENT="## 🌱 Ephemeral Environment Deployed ✅
-
-          Your Preview environment has been deployed successfully!
-
-          🔗 **Gateway URL**: $GATEWAY_URL
-
-          🧪 **Testing Instructions**:
-          1. Copy the gateway URL above
-          2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
-          3. Use an OAuth token to authenticate in the Inspector UI
-          
-          🔐 **Token Generation** (run locally with Azure CLI):
-          \`\`\`bash
-          # Recommended: Use Azure CLI with the preview environment's scope
-          az account get-access-token --resource $SCOPE --query accessToken -o tsv
-          
-          # Alternative: Manual client credentials flow (requires client secret from Terraform output)
-          curl -X POST \"https://login.microsoftonline.com/${{ secrets.AZURE_TENANT_ID }}/oauth2/v2.0/token\" \\
-            -H \"Content-Type: application/x-www-form-urlencoded\" \\
-            -d \"client_id=$CLIENT_ID\" \\
-            -d \"client_secret=<CLIENT_SECRET_FROM_TERRAFORM_OUTPUT>\" \\
-            -d \"grant_type=client_credentials\" \\
-            -d \"scope=$SCOPE\"
-          \`\`\`
-
-          📋 **Environment Details**:
-          - Environment: \`preview-${{ github.event.number }}\`
-          - Branch: \`${{ github.head_ref }}\`
-          - Client ID: \`$CLIENT_ID\`
-          - Scope: \`$SCOPE\`
-
-          ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
-          
-          gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
+    uses: ./.github/workflows/reusable-e2e-test.yml
+    with:
+      gateway_url: ${{ needs.terraform_apply_preview.outputs.gateway_url }}
+      scope: ${{ needs.terraform_apply_preview.outputs.scope }}
+      client_id: ${{ needs.terraform_apply_preview.outputs.client_id }}
+      environment_name: 'preview-${{ github.event.number }}'
+    secrets: inherit
 
   terraform_destroy_preview:
     name: 💣 Terraform Destroy (Preview)
