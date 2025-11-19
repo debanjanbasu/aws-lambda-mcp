@@ -172,9 +172,9 @@ jobs:
         id: terraform-outputs
         run: |
           cd iac
-          echo "gateway_url=$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
-          echo "project_name=$(terraform output -raw project_name 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
-          echo "client_id=$(terraform output -raw entra_app_client_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
-          echo "scope=$(terraform output -raw entra_app_scope_client_credentials 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
-          echo "gateway_id=$(terraform output -raw agentcore_gateway_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
-          echo "target_id=$(terraform output -raw agentcore_gateway_target_id 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          echo "gateway_url=$(terraform output -raw agentcore_gateway_url)" >> $GITHUB_OUTPUT
+          echo "project_name=$(terraform output -raw project_name)" >> $GITHUB_OUTPUT
+          echo "client_id=$(terraform output -raw entra_app_client_id)" >> $GITHUB_OUTPUT
+          echo "scope=$(terraform output -raw entra_app_scope_client_credentials)" >> $GITHUB_OUTPUT
+          echo "gateway_id=$(terraform output -raw agentcore_gateway_id)" >> $GITHUB_OUTPUT
+          echo "target_id=$(terraform output -raw agentcore_gateway_target_id)" >> $GITHUB_OUTPUT
