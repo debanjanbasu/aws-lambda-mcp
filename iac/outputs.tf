@@ -138,7 +138,3 @@ output "entra_client_secret" {
   sensitive   = true
 }
 
-output "entra_client_secret_expires" {
-  description = "Client secret expiration time"
-  value       = tolist(azuread_application.agentcore_app.password)[0].end_date
-}
