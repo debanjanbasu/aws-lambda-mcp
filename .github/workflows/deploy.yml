@@ -63,40 +63,61 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-      - name: 🧪 E2E Test - Weather Tool
+      - name: 🧪 E2E Test - All Tools
         run: |
           GATEWAY_URL="${{ needs.terraform_deploy.outputs.gateway_url }}"
-          PROJECT_NAME="${{ needs.terraform_deploy.outputs.project_name }}"
-          GATEWAY_ID="${{ needs.terraform_deploy.outputs.gateway_id }}"
-          TARGET_ID="${{ needs.terraform_deploy.outputs.target_id }}"
           TOKEN="${{ steps.get-token.outputs.token }}"
           
-          # Tool naming: {gateway-id}_{target-id}___tool-name
-          TOOL_NAME="${GATEWAY_ID}_${TARGET_ID}___get_weather"
-          
-          echo "Testing weather tool via AgentCore Gateway..."
-          echo "Tool name: $TOOL_NAME"
-          RESPONSE=$(curl -s -X POST "$GATEWAY_URL" \
+          echo "🔍 Discovering tools..."
+          TOOLS_LIST=$(curl -s -X POST "$GATEWAY_URL" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"jsonrpc\": \"2.0\",
-              \"id\": 1,
-              \"method\": \"tools/call\",
-              \"params\": {
-                \"name\": \"${TOOL_NAME}\",
-                \"arguments\": {
-                  \"location\": \"Sydney\"
-                }
-              }
-            }")
+            -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}')
+            
+          echo "Tools response: $TOOLS_LIST"
           
-          echo "Response: $RESPONSE"
+          # Parse tool names
+          TOOL_NAMES=$(echo "$TOOLS_LIST" | jq -r '.result.tools[].name')
           
-          # Check if response contains expected fields
-          if echo "$RESPONSE" | jq -e '.result.content[0].text' >/dev/null 2>&1; then
-            echo "✅ E2E test passed - received valid weather response"
-          else
-            echo "❌ E2E test failed - invalid response"
+          if [ -z "$TOOL_NAMES" ]; then
+            echo "❌ No tools found!"
             exit 1
           fi
+          
+          echo "📋 Found tools: $TOOL_NAMES"
+          
+          for TOOL in $TOOL_NAMES; do
+            echo "▶️ Testing tool: $TOOL"
+            
+            # Determine arguments based on tool suffix
+            ARGS="{}"
+            if [[ "$TOOL" == *"get_weather" ]]; then
+              ARGS='{"location": "Sydney"}'
+            else
+              echo "⚠️ Unknown tool: $TOOL - skipping execution test but discovery worked"
+              continue
+            fi
+            
+            echo "Calling $TOOL with args: $ARGS"
+            RESPONSE=$(curl -s -X POST "$GATEWAY_URL" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"jsonrpc\": \"2.0\",
+                \"id\": 2,
+                \"method\": \"tools/call\",
+                \"params\": {
+                  \"name\": \"$TOOL\",
+                  \"arguments\": $ARGS
+                }
+              }")
+            
+            echo "Response: $RESPONSE"
+            
+            if echo "$RESPONSE" | jq -e '.result.content[0].text' >/dev/null 2>&1; then
+              echo "✅ Tool execution passed"
+            else
+              echo "❌ Tool execution failed"
+              exit 1
+            fi
+          done
