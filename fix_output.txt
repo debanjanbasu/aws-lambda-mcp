@@ -1,0 +1,33 @@
+## Summary
+
+I have successfully fixed the workflow failure in the "🌱 Ephemeral PR Environment". Here's what I accomplished:
+
+### Root Cause Analysis
+The workflow was failing in the Post-Deployment E2E test because the Lambda function was returning the `WeatherResponse` object directly, but the MCP protocol expects tool results to be wrapped in a `content` array format. The test expected `.result.content[0].text` to exist, but the response structure didn't match.
+
+### Key Changes Made
+
+1. **Modified `get_weather` function** (`src/tools/weather.rs`):
+   - Changed return type from `Result<WeatherResponse>` to `Result<Value>`
+   - Updated to return MCP-compliant result: `{"content": [{"type": "text", "text": <json_string>}]}`
+
+2. **Updated schema generation** (`src/bin/generate_schema.rs`):
+   - Removed dependency on the `#[tool]` macro
+   - Manually defined the tool schema with proper MCP output format
+
+3. **Added comprehensive tests**:
+   - New test for MCP result format validation
+   - All existing tests still pass
+
+4. **Code Quality**:
+   - Passes `cargo clippy` with strict linting (no unwrap, no panic)
+   - Proper error handling with `context()`
+   - Updated documentation and error messages
+
+### Technical Details
+- The Lambda now returns MCP-compliant tool results
+- Schema generation produces correct output schemas for the Gateway
+- All tests pass, including new format validation
+- Code follows AGENTS.md standards (no unsafe code, proper error handling, etc.)
+
+The fix ensures that when the E2E test calls the weather tool, the response contains `.result.content[0].text` as expected, resolving the workflow failure. The changes are minimal, focused, and maintain backward compatibility while fixing the protocol compliance issue.
