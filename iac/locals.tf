@@ -1,6 +1,9 @@
 # Local values - centralized configuration
 
 locals {
+  # Project naming with optional suffix
+  project_name_with_suffix = var.project_name_suffix == null ? "${var.project_name}-${random_string.project_suffix.result}" : (var.project_name_suffix != "" ? "${var.project_name}-${var.project_name_suffix}" : var.project_name)
+
   # Microsoft Graph API identifiers (well-known GUIDs)
   microsoft_graph_app_id             = "00000003-0000-0000-c000-000000000000"
   microsoft_graph_user_read_scope_id = "e1fe6dd8-ba31-4d61-89e7-88639da4683d"

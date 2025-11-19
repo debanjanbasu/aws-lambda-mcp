@@ -13,11 +13,6 @@ resource "random_string" "project_suffix" {
   special = false
 }
 
-# Compute the final project name with suffix
-locals {
-  project_name_with_suffix = var.project_name_suffix != "" ? "${var.project_name}-${var.project_name_suffix}" : "${var.project_name}-${random_string.project_suffix.result}"
-}
-
 # Generate a stable UUID for the OAuth scope
 resource "random_uuid" "oauth_scope" {}
 
