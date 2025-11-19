@@ -63,40 +63,45 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-      - name: 🧪 E2E Test - All Tools
+      - name: 📥 Install opencode
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: 🧪 E2E Test - AI Dynamic Discovery
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         run: |
           GATEWAY_URL="${{ needs.terraform_deploy.outputs.gateway_url }}"
           TOKEN="${{ steps.get-token.outputs.token }}"
           
           echo "🔍 Discovering tools..."
-          TOOLS_LIST=$(curl -s -X POST "$GATEWAY_URL" \
+          TOOLS_JSON=$(curl -s -X POST "$GATEWAY_URL" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}')
             
-          echo "Tools response: $TOOLS_LIST"
+          echo "Tools response: $TOOLS_JSON"
+          
+          echo "🧠 Generating test inputs using AI..."
+          # Use opencode to generate valid arguments for each tool based on its schema
+          INPUTS_JSON=$(opencode run -m opencode/grok-code "You are a QA engineer. Given this MCP tools list response, generate a single valid JSON object where keys are the tool names and values are valid argument objects for testing that tool. Return ONLY the raw JSON with no markdown formatting. Schema: $TOOLS_JSON")
+          
+          echo "Generated Inputs: $INPUTS_JSON"
           
           # Parse tool names
-          TOOL_NAMES=$(echo "$TOOLS_LIST" | jq -r '.result.tools[].name')
+          TOOL_NAMES=$(echo "$TOOLS_JSON" | jq -r '.result.tools[].name')
           
           if [ -z "$TOOL_NAMES" ]; then
             echo "❌ No tools found!"
             exit 1
           fi
           
-          echo "📋 Found tools: $TOOL_NAMES"
+          FAILED=0
           
           for TOOL in $TOOL_NAMES; do
             echo "▶️ Testing tool: $TOOL"
             
-            # Determine arguments based on tool suffix
-            ARGS="{}"
-            if [[ "$TOOL" == *"get_weather" ]]; then
-              ARGS='{"location": "Sydney"}'
-            else
-              echo "⚠️ Unknown tool: $TOOL - skipping execution test but discovery worked"
-              continue
-            fi
+            # Extract args for this tool from AI response
+            ARGS=$(echo "$INPUTS_JSON" | jq -c ".\"$TOOL\" // {}")
             
             echo "Calling $TOOL with args: $ARGS"
             RESPONSE=$(curl -s -X POST "$GATEWAY_URL" \
@@ -118,6 +123,11 @@ jobs:
               echo "✅ Tool execution passed"
             else
               echo "❌ Tool execution failed"
-              exit 1
+              FAILED=1
             fi
           done
+          
+          if [ $FAILED -ne 0 ]; then
+            echo "❌ One or more tools failed tests"
+            exit 1
+          fi
