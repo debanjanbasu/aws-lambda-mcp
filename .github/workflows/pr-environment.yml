@@ -76,6 +76,47 @@ jobs:
     needs: terraform_apply_pr
     runs-on: ubuntu-24.04-arm
     steps:
+      - name: 🔐 Configure Azure Credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: 🔑 Get OAuth Token
+        id: get-token
+        run: |
+          SCOPE=${{ needs.terraform_apply_pr.outputs.scope }}
+          TOKEN=$(az account get-access-token --resource "$SCOPE" --query accessToken -o tsv)
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: 🧪 E2E Test - Weather Tool
+        run: |
+          GATEWAY_URL=${{ needs.terraform_apply_pr.outputs.gateway_url }}
+          TOKEN=${{ steps.get-token.outputs.token }}
+          
+          echo "Testing weather tool via AgentCore Gateway..."
+          RESPONSE=$(curl -s -X POST "$GATEWAY_URL" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "tool": "get_weather",
+              "input": {
+                "location": "Sydney"
+              }
+            }')
+          
+          echo "Response: $RESPONSE"
+          
+          # Check if response contains expected fields
+          if echo "$RESPONSE" | jq -e '.temperature' >/dev/null 2>&1; then
+            echo "✅ E2E test passed - received valid weather response"
+          else
+            echo "❌ E2E test failed - invalid response"
+            exit 1
+          fi
+
       - name: 💬 Post Deployment Comment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

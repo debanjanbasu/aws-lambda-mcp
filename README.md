@@ -149,6 +149,12 @@ When using this repository as a GitHub template, you'll need to set up several s
 | `AZURE_TENANT_ID` | Entra ID Tenant ID | [Azure GitHub Actions Setup](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-azure) |
 | `TF_BACKEND_BUCKET` | S3 Bucket name for Terraform state storage | Run `make setup-backend` after setting AWS credentials |
 
+### Optional GitHub Secrets
+
+| Secret Name | Description | Default |
+|-------------|-------------|---------|
+| `PROJECT_NAME_SUFFIX` | Custom suffix for resource names (e.g., "prod", "dev"). If not set, a random suffix is auto-generated | Random 6-char string |
+
 ### Setting Up AWS Authentication
 
 1. Follow [GitHub's documentation](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services) to configure OIDC between GitHub and AWS
