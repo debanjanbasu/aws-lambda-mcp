@@ -108,6 +108,7 @@ pub async fn function_handler(event: LambdaEvent<Value>) -> Result<Value, Diagno
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn test_strip_gateway_prefix() {
@@ -118,5 +119,34 @@ mod tests {
         assert_eq!(strip_gateway_prefix("get_weather"), "get_weather");
         assert_eq!(strip_gateway_prefix(""), "");
         assert_eq!(strip_gateway_prefix("no_prefix"), "no_prefix");
+        assert_eq!(
+            strip_gateway_prefix("complex___prefix___tool_name"),
+            "prefix___tool_name"
+        );
     }
+
+    #[tokio::test]
+    async fn test_route_tool_unknown_tool() {
+        let event_payload = json!({ "name": "unknown_tool" });
+        let result = route_tool("unknown_tool", event_payload).await;
+        assert!(result.is_err());
+
+        let diagnostic = result.unwrap_err();
+        assert_eq!(diagnostic.error_type, "UnknownTool");
+        assert!(diagnostic.error_message.contains("Unknown tool: unknown_tool"));
+    }
+
+    #[tokio::test]
+    async fn test_route_tool_invalid_weather_request() {
+        let event_payload = json!({ "invalid_field": "value" }); // Missing location field
+        let result = route_tool("get_weather", event_payload).await;
+        assert!(result.is_err());
+
+        let diagnostic = result.unwrap_err();
+        assert_eq!(diagnostic.error_type, "InvalidInput");
+        assert!(diagnostic.error_message.contains("Failed to parse request"));
+    }
+
+    // Note: Testing successful weather routing would require mocking the get_weather function
+    // which is complex in this context. The integration tests cover the full flow.
 }
