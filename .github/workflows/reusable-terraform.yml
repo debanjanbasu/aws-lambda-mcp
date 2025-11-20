@@ -89,8 +89,9 @@ jobs:
           path: |
             iac/.terraform
             ~/.terraform.d/
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ inputs.environment_name || 'prod' }}-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
           restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-terraform-${{ inputs.environment_name || 'prod' }}-
             ${{ runner.os }}-${{ runner.arch }}-terraform-
       
       - name: 🏗️ Setup Terraform
