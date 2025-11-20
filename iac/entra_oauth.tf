@@ -153,4 +153,9 @@ resource "azuread_service_principal" "agentcore_sp" {
       owners
     ]
   }
+
+  timeouts {
+    create = "5m"
+    read   = "5m"
+  }
 }
