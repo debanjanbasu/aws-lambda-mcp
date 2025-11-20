@@ -71,22 +71,39 @@ jobs:
         with:
           version: latest
 
-      - name: 📦 Install UPX (Latest Release)
+      - name: 📦 Get Latest UPX Version
+        id: get-upx-version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "⬇️ Finding latest UPX release..."
           # Get the latest release tag from GitHub API with authentication
           LATEST_TAG=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/upx/upx/releases/latest | jq -r .tag_name)
-          
+
           # Fallback to known stable version if API fails
           if [ "$LATEST_TAG" == "null" ] || [ -z "$LATEST_TAG" ]; then
             echo "⚠️ Failed to fetch latest version. Falling back to v5.0.2"
             LATEST_TAG="v5.0.2"
           fi
-          
+
           VERSION=${LATEST_TAG#v} # Remove 'v' prefix
           echo "🚀 Latest version: $LATEST_TAG ($VERSION)"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: 💾 Cache UPX
+        id: cache-upx
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/upx
+          key: ${{ runner.os }}-${{ runner.arch }}-upx-${{ steps.get-upx-version.outputs.version }}
+
+      - name: 📦 Install UPX (Latest Release)
+        if: steps.cache-upx.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.get-upx-version.outputs.version }}"
+          LATEST_TAG="v$VERSION"
 
           # Detect Architecture
           ARCH=$(uname -m)
@@ -105,17 +122,22 @@ jobs:
           echo "⬇️ Downloading from: $URL"
           curl -L "$URL" -o upx.tar.xz
 
-          # Install
+          # Install to local bin
+          mkdir -p ~/.local/bin
           echo "📦 Extracting..."
           tar -xf upx.tar.xz
-          echo "🔧 Installing..."
-          sudo mv upx-${VERSION}-${UPX_ARCH}/upx /usr/local/bin/
-          
+          echo "🔧 Installing to ~/.local/bin..."
+          mv upx-${VERSION}-${UPX_ARCH}/upx ~/.local/bin/
+          chmod +x ~/.local/bin/upx
+
           # Cleanup
           rm -rf upx.tar.xz upx-${VERSION}-${UPX_ARCH}
-          
-          # Verify
-          upx --version
+
+      - name: 🔧 Verify UPX
+        run: |
+           echo "$HOME/.local/bin" >> $GITHUB_PATH
+           export PATH="$HOME/.local/bin:$PATH"
+           upx --version
 
       - name: 🧪 Run Tests
         if: inputs.run_tests
