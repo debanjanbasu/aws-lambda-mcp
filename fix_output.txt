@@ -1,0 +1,9 @@
+The workflow failure has been fixed by replacing the deprecated `password` block in the `azuread_application` resource with a dedicated `azuread_application_password` resource. This provides more secure and reliable password management for Entra ID OAuth applications, especially in ephemeral preview environments.
+
+Key changes made:
+- Removed the deprecated `password` block from `azuread_application`
+- Added a new `azuread_application_password` resource with proper lifecycle management
+- Updated the `entra_client_secret` output to reference the new password resource
+- Removed `password` from the `ignore_changes` lifecycle in `azuread_application`
+
+All tests pass, code lints successfully, and the Terraform configuration is valid. The fix ensures that client secrets are created securely for each preview environment without conflicts from lifecycle ignores.

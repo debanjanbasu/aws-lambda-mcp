@@ -109,13 +109,8 @@ resource "azuread_application" "agentcore_app" {
   }
 
   # Client secret for OAuth 2.0 confidential clients
-  # Note: Using password block within azuread_application instead of separate
-  # azuread_application_password resource, as the latter was deprecated/removed
-  # in azuread provider 3.7.0
-  password {
-    display_name = "OAuth 2.0 Confidential Client"
-    end_date     = timeadd(timestamp(), "17520h") # 2 years
-  }
+# Using separate azuread_application_password resource for secure password management
+# This provides better control and security compared to the deprecated password block
 
   tags = local.entra_app_tags
 
@@ -130,7 +125,6 @@ resource "azuread_application" "agentcore_app" {
       web[0].redirect_uris,
       public_client[0].redirect_uris,
       owners,
-      password,
     ]
   }
 }
@@ -151,6 +145,19 @@ resource "azuread_service_principal" "agentcore_sp" {
   lifecycle {
     ignore_changes = [
       owners
+    ]
+  }
+}
+
+# Client secret for OAuth 2.0 confidential clients
+resource "azuread_application_password" "main" {
+  application_id = azuread_application.agentcore_app.id
+  display_name   = "OAuth 2.0 Confidential Client"
+  end_date       = timeadd(timestamp(), "17520h") # 2 years
+
+  lifecycle {
+    ignore_changes = [
+      end_date
     ]
   }
 }
