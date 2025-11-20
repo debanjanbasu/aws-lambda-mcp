@@ -45,6 +45,21 @@ jobs:
           git config user.name "brown-ninja-bot[bot]"
           git config user.email "brown-ninja-bot[bot]@users.noreply.github.com"
 
+      - name: 🚀 Notify Working
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            ISSUE_NUM=${{ github.event.issue.number }}
+            MESSAGES=(
+              "🥷 Brown Ninja Bot activated! Sneaking through the codebase shadows to eliminate this issue..."
+              "🥷 *poof* Brown Ninja Bot vanishes into the code! Reappearing with a fix soon..."
+              "🥷 Ninja mode engaged! Disappearing into the codebase to fix this issue..."
+              "🥷 Brown Ninja Bot: 'A fix in the shadows is worth two in the light!' Analyzing now..."
+              "🥷 Stealth mode initiated! Brown Ninja Bot is hunting down this issue..."
+            )
+            RANDOM_MESSAGE="${MESSAGES[$RANDOM % ${#MESSAGES[@]}]}"
+            gh issue comment $ISSUE_NUM --body "$RANDOM_MESSAGE Setting up my ninja tools..."
+          fi
+
       - name: 🦀 Setup Rust
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
@@ -202,19 +217,6 @@ jobs:
             # Use unique branch name for workflow failures to prevent collisions
             BRANCH_SUFFIX="workflow-failure-${{ github.event.workflow_run.id }}"
           fi
-
-           # Notify that we're working on the issue with a random ninja message
-           if [ -n "$ISSUE_NUM" ]; then
-             MESSAGES=(
-               "🥷 Brown Ninja Bot activated! Sneaking through the codebase shadows to eliminate this issue..."
-               "🥷 *poof* Brown Ninja Bot vanishes into the code! Reappearing with a fix soon..."
-               "🥷 Ninja mode engaged! Disappearing into the codebase to fix this issue..."
-               "🥷 Brown Ninja Bot: 'A fix in the shadows is worth two in the light!' Analyzing now..."
-               "🥷 Stealth mode initiated! Brown Ninja Bot is hunting down this issue..."
-             )
-             RANDOM_MESSAGE="${MESSAGES[$RANDOM % ${#MESSAGES[@]}]}"
-             gh issue comment $ISSUE_NUM --body "$RANDOM_MESSAGE This may take a few minutes..."
-           fi
 
            BRANCH="fix/${BRANCH_SUFFIX:-issue-$ISSUE_NUM}"
            git checkout -B "$BRANCH"
