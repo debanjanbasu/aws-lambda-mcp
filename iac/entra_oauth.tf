@@ -157,5 +157,7 @@ resource "azuread_service_principal" "agentcore_sp" {
   timeouts {
     create = "10m"
     read   = "10m"
+    update = "10m"
+    delete = "10m"
   }
 }
