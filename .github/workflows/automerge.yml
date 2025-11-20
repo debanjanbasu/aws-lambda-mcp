@@ -1,5 +1,5 @@
-# .github/workflows/automerge-dependabot.yml
-name: 🤖 Dependabot Auto-merge
+# .github/workflows/automerge.yml
+name: 🤖 Auto-merge
 
 on:
   pull_request:
@@ -7,6 +7,7 @@ on:
       - opened
       - synchronize
       - reopened
+      - labeled
     paths-ignore:
       - '**.md'
       - '.gitignore'
@@ -19,6 +20,7 @@ permissions:
   contents: write
   pull-requests: write
   statuses: write
+  id-token: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,7 +29,12 @@ env:
 jobs:
   detect_changes:
     name: 🕵️ Detect PR type
-    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
+    if: |
+      (
+        github.event.pull_request.user.login == 'dependabot[bot]' ||
+        contains(github.event.pull_request.labels.*.name, 'automerge')
+      ) &&
+      github.event.pull_request.draft == false
     runs-on: ubuntu-24.04-arm
     outputs:
       is_rust: ${{ steps.detect_pr_type.outputs.IS_RUST_PR }}
@@ -101,26 +108,25 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           gh pr edit "$PR_URL" --add-label "breaking-change-detected"
-          gh pr comment "$PR_URL" --body "## 🚨 Auto-Merge Failed - Breaking Change Detected
+          gh pr comment "$PR_URL" --body "## 🚨 Auto-Merge Failed - Checks Failed
 
-          Tests failed for this Dependabot PR, indicating a potential breaking change in the updated dependencies. An AI agent has been dispatched to attempt a fix.
+          Tests failed for this PR.
           
-          This is expected behavior as we intentionally use the latest versions to catch breaking changes early.
+          If this is a Dependabot PR, an AI agent may be dispatched to attempt a fix.
           
           Next steps:
-          1. The AI agent will analyze the failure and push a fix to this branch.
-          2. If the agent is successful, the tests will be re-run automatically.
-          3. If the agent fails, manual intervention will be required. Review the workflow logs to identify the specific failure."
+          1. Review the workflow logs to identify the specific failure.
+          2. If this is a dependency update, check for breaking changes.
+          3. Run tests locally (\`make test\`) to reproduce the issue."
           
           if [ "${{ needs.detect_changes.outputs.is_rust }}" = "true" ]; then
-            gh pr comment "$PR_URL" --body "For Rust dependency updates:
-            - Check the dependency's release notes for breaking changes
-            - Run \`cargo check\` locally with the updated dependencies
-            - Update the code as needed to work with the new API
+            gh pr comment "$PR_URL" --body "For Rust updates:
+            - Check release notes for breaking changes
+            - Run \`cargo check\` locally
+            - Update code as needed
             - Run \`make test\` to ensure all tests pass"
           elif [ "${{ needs.detect_changes.outputs.is_terraform }}" = "true" ]; then
-            gh pr comment "$PR_URL" --body "For Terraform provider updates:
-            - Check the provider's changelog for breaking changes
-            - Run \`cd iac && terraform init\` and \`terraform validate\` locally
-            - Update the Terraform configuration as needed"
+            gh pr comment "$PR_URL" --body "For Terraform updates:
+            - Check provider changelog
+            - Run \`cd iac && terraform init\` and \`terraform validate\` locally"
           fi

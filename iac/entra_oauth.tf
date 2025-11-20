@@ -146,11 +146,17 @@ data "azuread_service_principal" "microsoft_graph" {
 resource "azuread_service_principal" "agentcore_sp" {
   client_id                    = azuread_application.agentcore_app.client_id
   app_role_assignment_required = false
-  owners                       = [data.azuread_client_config.current.object_id]
 
   lifecycle {
     ignore_changes = [
       owners
     ]
+  }
+
+  timeouts {
+    create = "15m"
+    read   = "15m"
+    update = "15m"
+    delete = "15m"
   }
 }
