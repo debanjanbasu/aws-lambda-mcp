@@ -231,9 +231,10 @@ jobs:
           6. Update documentation and comments
           7. Consider edge cases and error scenarios
           
-          Note: DO NOT run make deploy - the PR workflow will automatically deploy to ephemeral environment for testing.
-          
-          Write production-quality code with proper error handling, tests, and documentation."
+           Note: DO NOT run make deploy - the PR workflow will automatically deploy to ephemeral environment for testing.
+           Note: DO NOT modify any files in .github/workflows/ - workflow changes are not permitted.
+
+           Write production-quality code with proper error handling, tests, and documentation."
 
           opencode run --agent build -m opencode/grok-code "$PROMPT" > fix_output.txt
 
@@ -243,10 +244,19 @@ jobs:
             exit 0
           fi
 
-          git add -A
-          git commit -m "fix: resolve issue #${ISSUE_NUM:-workflow-failure}
+           git add -A
+           # Remove workflow files from staging to avoid permission issues
+           git reset HEAD .github/workflows/ 2>/dev/null || true
 
-          $(cat fix_output.txt | head -20)"
+           if git diff --cached --quiet; then
+             echo "No non-workflow changes to commit"
+             [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🤖 Analysis complete. Changes were only to workflow files (not permitted). See analysis:\n\n$(cat fix_output.txt)"
+             exit 0
+           fi
+
+           git commit -m "fix: resolve issue #${ISSUE_NUM:-workflow-failure}
+
+           $(cat fix_output.txt | head -20)"
 
           git push -f -u origin "$BRANCH"
 
