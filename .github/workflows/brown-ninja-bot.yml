@@ -203,10 +203,13 @@ jobs:
             BRANCH_SUFFIX="workflow-failure-${{ github.event.workflow_run.id }}"
           fi
 
-          BRANCH="fix/${BRANCH_SUFFIX:-issue-$ISSUE_NUM}"
-          git checkout -B "$BRANCH"
+           # Notify that we're working on the issue
+           [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🤖 I'm analyzing this issue and working on an automated fix. This may take a few minutes..."
 
-          PROMPT="You are the best developer humanity has ever seen. Fix this issue completely:
+           BRANCH="fix/${BRANCH_SUFFIX:-issue-$ISSUE_NUM}"
+           git checkout -B "$BRANCH"
+
+           PROMPT="You are the best developer humanity has ever seen. Fix this issue completely:
 
           Issue: $ISSUE_TITLE
           Details: $ISSUE_BODY
