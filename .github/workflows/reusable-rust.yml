@@ -72,12 +72,21 @@ jobs:
           version: latest
 
       - name: 📦 Install UPX (Latest Release)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "⬇️ Finding latest UPX release..."
-          # Get the latest release tag from GitHub API
-          LATEST_TAG=$(curl -s https://api.github.com/repos/upx/upx/releases/latest | jq -r .tag_name)
+          # Get the latest release tag from GitHub API with authentication
+          LATEST_TAG=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/upx/upx/releases/latest | jq -r .tag_name)
+          
+          # Fallback to known stable version if API fails
+          if [ "$LATEST_TAG" == "null" ] || [ -z "$LATEST_TAG" ]; then
+            echo "⚠️ Failed to fetch latest version. Falling back to v5.0.2"
+            LATEST_TAG="v5.0.2"
+          fi
+          
           VERSION=${LATEST_TAG#v} # Remove 'v' prefix
-          echo "🚀 Latest version: $LATEST_TAG"
+          echo "🚀 Latest version: $LATEST_TAG ($VERSION)"
 
           # Detect Architecture
           ARCH=$(uname -m)
