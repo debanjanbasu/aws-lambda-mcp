@@ -78,7 +78,6 @@ test-token: ## Get OAuth token + launch MCP Inspector
 	@echo "$(BLUE)🔑 Generating OAuth token...$(RESET)"
 	@bash -c ' \
 	set -e; \
-	command -v jq >/dev/null 2>&1 || { echo -e "$(RED)❌ jq not found. Install: brew install jq$(RESET)" >&2; exit 1; }; \
 	command -v curl >/dev/null 2>&1 || { echo -e "$(RED)❌ curl not found. Install: brew install curl$(RESET)" >&2; exit 1; }; \
 	command -v npx >/dev/null 2>&1 || { echo -e "$(RED)❌ npx not found. Install Node.js and npm.$(RESET)" >&2; exit 1; }; \
 	CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
