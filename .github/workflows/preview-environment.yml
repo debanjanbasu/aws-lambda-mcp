@@ -29,6 +29,11 @@ env:
   AWS_REGION: ap-southeast-2
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+
 jobs:
   build-lambda:
     name: 🧱 Build Lambda
