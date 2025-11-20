@@ -154,9 +154,6 @@ jobs:
            export PATH="$HOME/.local/bin:$PATH"
            upx --version
 
-      - name: 🔧 Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
       - name: 🏗️ Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
