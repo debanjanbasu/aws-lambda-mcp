@@ -1,0 +1,64 @@
+name: "Reusable: GitHub App Installation Token"
+
+on:
+  workflow_call:
+    outputs:
+      installation_token:
+        description: "Short-lived installation access token"
+        value: ${{ jobs.make_token.outputs.installation_token }}
+
+jobs:
+  make_token:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      installation_token: ${{ steps.make_token.outputs.installation_token }}
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Prepare small Node project and install deps
+        run: |
+          printf '%s\n' '{"name":"tmp","version":"1.0.0","private":true,"dependencies":{"@octokit/auth-app":"^4"}}' > package.json
+          npm install --no-audit --no-fund --silent
+
+      - name: Generate installation token
+        id: make_token
+        env:
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
+          GITHUB_OUTPUT: ${{ github.output }}
+        run: |
+          node -e "
+          const { createAppAuth } = require('@octokit/auth-app');
+          const fs = require('fs');
+          (async () => {
+            const appId = process.env.APP_ID;
+            let privateKey = process.env.APP_PRIVATE_KEY;
+            const installationId = process.env.INSTALLATION_ID;
+            if (!appId || !privateKey || !installationId) {
+              console.error('Missing APP_ID, APP_PRIVATE_KEY or INSTALLATION_ID');
+              process.exit(2);
+            }
+            privateKey = privateKey.replace(/\\r/g, '\\n');
+            const auth = createAppAuth({
+              id: Number(appId),
+              privateKey,
+              installationId: Number(installationId)
+            });
+            const installationAuth = await auth({ type: 'installation' });
+            const token = installationAuth.token;
+            if (!token) {
+              console.error('Failed to obtain installation token');
+              process.exit(3);
+            }
+            const outputPath = process.env.GITHUB_OUTPUT || process.env.GITHUB_OUTPUT_FILE || './_out';
+            fs.appendFileSync(outputPath, 'installation_token=' + token + '\n');
+            console.log('Obtained installation token successfully.');
+          })().catch(e=>{ console.error(e); process.exit(4); });
+          "
