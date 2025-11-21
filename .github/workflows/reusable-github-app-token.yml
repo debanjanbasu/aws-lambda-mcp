@@ -14,51 +14,62 @@ jobs:
       id-token: write
       contents: read
     outputs:
-      installation_token: ${{ steps.make_token.outputs.installation_token }}
+      installation_token: ${{ steps.request_token.outputs.token }}
     steps:
-      - name: ⚙️ Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 📦 Prepare small Node project and install deps
+      - name: 🔐 Prepare private key
+        id: write_key
+        env:
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
         run: |
-          printf '%s\n' '{"name":"tmp","version":"1.0.0","private":true,"dependencies":{"@octokit/auth-app":"^4"}}' > package.json
-          npm install --no-audit --no-fund --silent
+          if [ -z "$APP_PRIVATE_KEY" ]; then
+            echo "Missing APP_PRIVATE_KEY" >&2
+            exit 2
+          fi
+          echo "$APP_PRIVATE_KEY" > /tmp/app.pem
+          chmod 600 /tmp/app.pem
 
-      - name: 🔑 Generate installation token
-        id: make_token
+      - name: 🔐 Generate JWT
+        id: gen_jwt
         env:
           APP_ID: ${{ secrets.APP_ID }}
-          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
-          INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
-          GITHUB_OUTPUT: ${{ github.output }}
         run: |
-          node -e "
-          const { createAppAuth } = require('@octokit/auth-app');
-          const fs = require('fs');
-          (async () => {
-            const appId = process.env.APP_ID;
-            let privateKey = process.env.APP_PRIVATE_KEY;
-            const installationId = process.env.INSTALLATION_ID;
-            if (!appId || !privateKey || !installationId) {
-              console.error('Missing APP_ID, APP_PRIVATE_KEY or INSTALLATION_ID');
-              process.exit(2);
-            }
-            privateKey = privateKey.replace(/\\r/g, '\\n');
-            const auth = createAppAuth({
-              id: Number(appId),
-              privateKey,
-              installationId: Number(installationId)
-            });
-            const installationAuth = await auth({ type: 'installation' });
-            const token = installationAuth.token;
-            if (!token) {
-              console.error('Failed to obtain installation token');
-              process.exit(3);
-            }
-            const outputPath = process.env.GITHUB_OUTPUT || process.env.GITHUB_OUTPUT_FILE || './_out';
-            fs.appendFileSync(outputPath, 'installation_token=' + token + '\n');
-            console.log('Obtained installation token successfully.');
-          })().catch(e=>{ console.error(e); process.exit(4); });
-          "
+          if [ -z "$APP_ID" ]; then
+            echo "Missing APP_ID" >&2
+            exit 2
+          fi
+          now=$(date +%s)
+          iat=$now
+          exp=$((now + 600))
+          header=$(printf '%s' '{"alg":"RS256","typ":"JWT"}' | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
+          payload=$(printf '%s' "{\"iat\":${iat},\"exp\":${exp},\"iss\":${APP_ID}}" | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
+          unsigned="$header.$payload"
+          signature=$(printf '%s' "$unsigned" | openssl dgst -sha256 -sign /tmp/app.pem | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+          jwt="$unsigned.$signature"
+          echo "jwt=$jwt" >> $GITHUB_OUTPUT
+
+      - name: 🔑 Request installation token
+        id: request_token
+        env:
+          INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
+        run: |
+          if [ -z "$INSTALLATION_ID" ]; then
+            echo "Missing INSTALLATION_ID" >&2
+            exit 2
+          fi
+          JWT=$(cat $GITHUB_OUTPUT | sed -n 's/^jwt=//p' | tr -d '\r' || true)
+          if [ -z "$JWT" ]; then
+            # fallback: read from env (older runners)
+            echo "JWT not found in GITHUB_OUTPUT, attempting from env..."
+            JWT=${{ secrets.APP_JWT || '' }}
+          fi
+          if [ -z "$JWT" ]; then
+            echo "JWT creation failed" >&2
+            exit 3
+          fi
+          resp=$(curl -s -X POST -H "Authorization: Bearer $JWT" -H "Accept: application/vnd.github+json" https://api.github.com/app/installations/${INSTALLATION_ID}/access_tokens)
+          token=$(echo "$resp" | jq -r .token)
+          if [ "$token" = "null" ] || [ -z "$token" ]; then
+            echo "Failed to obtain installation token: $resp" >&2
+            exit 4
+          fi
+          echo "token=$token" >> $GITHUB_OUTPUT
