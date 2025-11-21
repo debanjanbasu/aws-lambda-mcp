@@ -154,6 +154,9 @@ When using this repository as a GitHub template, you'll need to set up several s
 | `AZURE_CLIENT_ID` | Entra ID App Registration Client ID | [Azure GitHub Actions Setup](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-azure) |
 | `AZURE_TENANT_ID` | Entra ID Tenant ID | [Azure GitHub Actions Setup](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-azure) |
 | `TF_BACKEND_BUCKET` | S3 Bucket name for Terraform state storage | Run `make setup-backend` after setting AWS credentials |
+| `APP_PRIVATE_KEY` | PEM private key for the GitHub App `@brown-ninja-bot` (multi-line). Used to mint short-lived installation tokens for CI automation. | Create a GitHub App (Settings → Developer settings → GitHub Apps), generate and download the private key, then add the PEM contents as the secret `APP_PRIVATE_KEY` in this repository's Settings → Secrets & variables → Actions. |
+| `APP_ID` | Numeric GitHub App ID for `@brown-ninja-bot`. Used together with the private key to mint JWTs. | Add the numeric App ID as the secret `APP_ID` in repository secrets. |
+| `INSTALLATION_ID` | Numeric installation ID for the App installation on this repository/organization. The reusable workflow uses this to request an installation token. | Add the installation ID (from the App installation page) as `INSTALLATION_ID` in repository secrets, or omit and modify the workflow to discover it at runtime. |
 
 ### Optional GitHub Secrets
 
