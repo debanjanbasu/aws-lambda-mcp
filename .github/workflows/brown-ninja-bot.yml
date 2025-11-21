@@ -24,7 +24,6 @@ jobs:
     secrets:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
-      INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
 
   fix:
     needs: mint_installation_token
@@ -39,7 +38,6 @@ jobs:
       pull-requests: write
       issues: write
     env:
-      GH_TOKEN: ${{ github.token }}
       AWS_REGION: ap-southeast-2
       CARGO_TERM_COLOR: always
     steps:
