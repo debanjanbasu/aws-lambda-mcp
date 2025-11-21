@@ -1,4 +1,4 @@
-name: "Reusable: GitHub App Installation Token"
+name: "🔑 Reusable: GitHub App Installation Token"
 
 on:
   workflow_call:
@@ -26,7 +26,7 @@ jobs:
           printf '%s\n' '{"name":"tmp","version":"1.0.0","private":true,"dependencies":{"@octokit/auth-app":"^4"}}' > package.json
           npm install --no-audit --no-fund --silent
 
-      - name: Generate installation token
+      - name: 🔑 Generate installation token
         id: make_token
         env:
           APP_ID: ${{ secrets.APP_ID }}
