@@ -16,12 +16,12 @@ jobs:
     outputs:
       installation_token: ${{ steps.make_token.outputs.installation_token }}
     steps:
-      - name: Setup Node
+      - name: ⚙️ Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Prepare small Node project and install deps
+      - name: 📦 Prepare small Node project and install deps
         run: |
           printf '%s\n' '{"name":"tmp","version":"1.0.0","private":true,"dependencies":{"@octokit/auth-app":"^4"}}' > package.json
           npm install --no-audit --no-fund --silent
