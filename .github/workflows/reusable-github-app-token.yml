@@ -47,18 +47,12 @@ jobs:
           jwt="$unsigned.$signature"
           echo "jwt=$jwt" >> $GITHUB_OUTPUT
 
-      - name: 🔑 Request installation token
+      - name: 🔑 Request installation token (auto-discover installation)
         id: request_token
-        env:
-          INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
         run: |
-          if [ -z "$INSTALLATION_ID" ]; then
-            echo "Missing INSTALLATION_ID" >&2
-            exit 2
-          fi
+          # Determine JWT
           JWT=$(cat $GITHUB_OUTPUT | sed -n 's/^jwt=//p' | tr -d '\r' || true)
           if [ -z "$JWT" ]; then
-            # fallback: read from env (older runners)
             echo "JWT not found in GITHUB_OUTPUT, attempting from env..."
             JWT=${{ secrets.APP_JWT || '' }}
           fi
@@ -66,10 +60,25 @@ jobs:
             echo "JWT creation failed" >&2
             exit 3
           fi
-          resp=$(curl -s -X POST -H "Authorization: Bearer $JWT" -H "Accept: application/vnd.github+json" https://api.github.com/app/installations/${INSTALLATION_ID}/access_tokens)
-          token=$(echo "$resp" | jq -r .token)
-          if [ "$token" = "null" ] || [ -z "$token" ]; then
-            echo "Failed to obtain installation token: $resp" >&2
+
+          # Use the repository context to find the installation ID
+          if [ -z "$GITHUB_REPOSITORY" ]; then
+            echo "GITHUB_REPOSITORY not set" >&2
             exit 4
+          fi
+          echo "Discovering installation for repo: $GITHUB_REPOSITORY"
+          resp=$(curl -s -H "Authorization: Bearer $JWT" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$GITHUB_REPOSITORY/installation")
+          installation_id=$(echo "$resp" | jq -r .id)
+          if [ -z "$installation_id" ] || [ "$installation_id" = "null" ]; then
+            echo "Failed to find installation for $GITHUB_REPOSITORY: $resp" >&2
+            exit 5
+          fi
+
+          # Request an installation access token
+          resp2=$(curl -s -X POST -H "Authorization: Bearer $JWT" -H "Accept: application/vnd.github+json" "https://api.github.com/app/installations/${installation_id}/access_tokens")
+          token=$(echo "$resp2" | jq -r .token)
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "Failed to obtain installation token: $resp2" >&2
+            exit 6
           fi
           echo "token=$token" >> $GITHUB_OUTPUT
