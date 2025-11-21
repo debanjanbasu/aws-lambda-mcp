@@ -156,7 +156,7 @@ When using this repository as a GitHub template, you'll need to set up several s
 | `TF_BACKEND_BUCKET` | S3 Bucket name for Terraform state storage | Run `make setup-backend` after setting AWS credentials |
 | `APP_PRIVATE_KEY` | PEM private key for the GitHub App `@brown-ninja-bot` (multi-line). Used to mint short-lived installation tokens for CI automation. | Create a GitHub App (Settings → Developer settings → GitHub Apps), generate and download the private key, then add the PEM contents as the secret `APP_PRIVATE_KEY` in this repository's Settings → Secrets & variables → Actions. |
 | `APP_ID` | Numeric GitHub App ID for `@brown-ninja-bot`. Used together with the private key to mint JWTs. | Add the numeric App ID as the secret `APP_ID` in repository secrets. |
-| `INSTALLATION_ID` | Numeric installation ID for the App installation on this repository/organization. The reusable workflow uses this to request an installation token. | Add the installation ID (from the App installation page) as `INSTALLATION_ID` in repository secrets, or omit and modify the workflow to discover it at runtime. |
+| `INSTALLATION_ID` (optional) | Numeric installation ID for the App installation on this repository/organization. Not required if the App is installed on the repository — the workflow will auto-discover the installation ID at runtime. | Optional: add the installation ID as `INSTALLATION_ID` in repository secrets for faster resolution. If omitted, the reusable workflow will query the repository installation via the API. |
 
 ### Optional GitHub Secrets
 
