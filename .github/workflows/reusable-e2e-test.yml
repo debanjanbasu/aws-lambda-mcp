@@ -47,17 +47,19 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
       - name: 💾 Cache opencode
+        id: cache-opencode
         uses: actions/cache@v4
         with:
           path: ~/.opencode
-          key: ${{ runner.os }}-opencode-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-opencode
           restore-keys: |
-            ${{ runner.os }}-opencode-
+            ${{ runner.os }}-opencode
       - name: 📥 Install opencode
-        run: |
-          if [ ! -d ~/.opencode ]; then
-            curl -fsSL https://opencode.ai/install | bash
-          fi
+        if: steps.cache-opencode.outputs.cache-hit != 'true'
+        run: curl -fsSL https://opencode.ai/install | bash
+      
+      - name: 🔧 Add opencode to PATH
+        run: echo "$HOME/.opencode/bin" >> $GITHUB_PATH
       - name: 🧪 E2E Test - AI Dynamic Discovery
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
