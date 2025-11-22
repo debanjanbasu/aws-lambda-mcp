@@ -134,17 +134,3 @@ resource "azuread_application" "agentcore_app" {
     ]
   }
 }
-
-# Create Service Principal for the application in the current tenant
-resource "azuread_service_principal" "agentcore_sp" {
-  client_id                    = azuread_application.agentcore_app.client_id
-  app_role_assignment_required = false
-
-  depends_on = [azuread_application.agentcore_app]
-
-  lifecycle {
-    ignore_changes = [
-      owners
-    ]
-  }
-}
