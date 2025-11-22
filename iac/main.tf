@@ -15,6 +15,9 @@ resource "aws_sqs_queue" "lambda_dlq" {
   message_retention_seconds  = 1209600  # 14 days
   visibility_timeout_seconds = 30
 
+  # Enable server-side encryption using AWS managed KMS key for SQS (free tier)
+  kms_master_key_id = "alias/aws/sqs"
+
   tags = var.common_tags
 }
 

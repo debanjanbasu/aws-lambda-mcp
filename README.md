@@ -52,7 +52,7 @@ The Bedrock AgentCore Gateway is configured with a `SEMANTIC` search type, which
 - **JWT Validation** - OIDC discovery per request
 - **Zero Unsafe** - No `unwrap/expect/panic/unsafe`, strict lints
 - **Structured Tracing** - JSON logs for CloudWatch
-- **Dead Letter Queue** - Failed invocations stored in SQS for debugging
+- **Dead Letter Queue** - Failed invocations stored in encrypted SQS for debugging
 - **Auto Schemas** - Generated from code annotations
 - **Fast Cold Start** - Minimal deps, optimized binary
 - **Free Tier** - Typical usage $0/month
