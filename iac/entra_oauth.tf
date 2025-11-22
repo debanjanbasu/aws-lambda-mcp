@@ -144,31 +144,56 @@ resource "azuread_application" "agentcore_app" {
 
 
 
-# Data source to refresh the application after replication
-data "azuread_application" "refreshed" {
-  object_id = azuread_application.agentcore_app.object_id
-
-  depends_on = [time_sleep.wait_for_app_replication]
-}
-
 # Data source for Microsoft Graph service principal
 data "azuread_service_principal" "microsoft_graph" {
   client_id = local.microsoft_graph_app_id
 }
 
-# Wait for application to be fully replicated before creating service principal
-resource "time_sleep" "wait_for_app_replication" {
-  depends_on = [azuread_application.agentcore_app]
+# A null_resource to wait for the application's service principal to be fully replicated
+resource "null_resource" "service_principal_waiter" {
+  # This ensures the waiter runs after the application is created
+  triggers = {
+    application_client_id = azuread_application.agentcore_app.client_id
+  }
 
-  create_duration = "600s"
+  provisioner "local-exec" {
+    # Check if Azure CLI is installed
+    command = "az --version || (echo 'Azure CLI not found. Please install it to use this waiter.' && exit 1)"
+  }
+
+  provisioner "local-exec" {
+    # Inline PowerShell (for Windows agents) or Bash (for Linux/macOS agents) script to wait
+    # This example uses Bash; adjust for PowerShell if needed.
+    # The script polls using 'az ad sp show' until the service principal is found or a timeout occurs.
+    command = <<-EOT
+      #!/bin/bash
+      MAX_ATTEMPTS=30
+      SLEEP_SECONDS=10
+      APP_CLIENT_ID="${self.triggers.application_client_id}"
+      echo "Waiting for Azure AD Application Client ID ${APP_CLIENT_ID} to be replicated..."
+
+      for (( i=1; i<=$MAX_ATTEMPTS; i++ )); do
+        echo "Attempt $i/$MAX_ATTEMPTS: Checking for Service Principal..."
+        if az ad sp show --id "$APP_CLIENT_ID" --query id &> /dev/null; then
+          echo "Service Principal for Application Client ID ${APP_CLIENT_ID} found after $((i * SLEEP_SECONDS)) seconds."
+          exit 0
+        fi
+        sleep $SLEEP_SECONDS
+      done
+
+      echo "Error: Service Principal for Application Client ID ${APP_CLIENT_ID} not found after $((MAX_ATTEMPTS * SLEEP_SECONDS)) seconds. Exiting."
+      exit 1
+    EOT
+    interpreter = ["bash", "-c"] # Specify bash for Linux/macOS
+  }
 }
 
 # Create Service Principal for the application in the current tenant
 resource "azuread_service_principal" "agentcore_sp" {
-  client_id                    = data.azuread_application.refreshed.client_id
+  client_id                    = azuread_application.agentcore_app.client_id
   app_role_assignment_required = false
 
-  depends_on = [data.azuread_application.refreshed]
+  depends_on = [null_resource.service_principal_waiter]
 
   lifecycle {
     ignore_changes = [
