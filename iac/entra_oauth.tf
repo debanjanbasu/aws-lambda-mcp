@@ -160,7 +160,7 @@ data "azuread_service_principal" "microsoft_graph" {
 resource "time_sleep" "wait_for_app_replication" {
   depends_on = [azuread_application.agentcore_app]
 
-  create_duration = "180s"
+  create_duration = "300s"
 }
 
 # Create Service Principal for the application in the current tenant
