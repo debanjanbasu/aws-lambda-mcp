@@ -124,9 +124,10 @@ mod tests {
     async fn test_route_tool_unknown() {
         let event_payload = serde_json::json!({"name": "unknown_tool"});
         let result = route_tool("unknown_tool", event_payload).await;
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert_eq!(err.error_type, "UnknownTool");
-        assert!(err.error_message.contains("Unknown tool: unknown_tool"));
+        assert!(result.is_err(), "Expected error for unknown tool");
+        if let Err(err) = result {
+            assert_eq!(err.error_type, "UnknownTool");
+            assert!(err.error_message.contains("Unknown tool: unknown_tool"));
+        }
     }
 }
