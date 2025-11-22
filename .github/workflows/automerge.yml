@@ -1,6 +1,5 @@
 # .github/workflows/automerge.yml
 name: 🤖 Auto-merge
-
 on:
   pull_request:
     types:
@@ -11,21 +10,17 @@ on:
     paths-ignore:
       - '**.md'
       - '.gitignore'
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: write
   pull-requests: write
   statuses: write
   id-token: write
-
 env:
   CARGO_TERM_COLOR: always
   AWS_REGION: ap-southeast-2
-
 jobs:
   detect_changes:
     name: 🕵️ Detect PR type
@@ -44,7 +39,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 2 # Required to diff HEAD^
-
       - name: 🕵️ Detect PR type
         id: detect_pr_type
         run: |
@@ -54,14 +48,12 @@ jobs:
           else
             echo "IS_TERRAFORM_PR=false" >> $GITHUB_OUTPUT
           fi
-          
           # Determine if this is a Rust/Cargo PR
           if git diff --name-only HEAD^ HEAD | grep -q "Cargo\.\(lock\|toml\)"; then
             echo "IS_RUST_PR=true" >> $GITHUB_OUTPUT
           else
             echo "IS_RUST_PR=false" >> $GITHUB_OUTPUT
           fi
-
   terraform_validate:
     name: ✅ Terraform Validate
     needs: [detect_changes]
@@ -71,7 +63,6 @@ jobs:
       command: 'validate'
       artifact_name: 'dummy-artifact'
     secrets: inherit
-
   run_rust_tests:
     name: 🧪 Run Rust Tests
     needs: [detect_changes]
@@ -81,7 +72,6 @@ jobs:
       run_tests: true
       run_build: false
       artifact_name: 'dummy-artifact'
-
   approve_and_merge:
     name: ✅ Approve and Merge
     needs: [detect_changes, terraform_validate, run_rust_tests]
@@ -95,7 +85,6 @@ jobs:
         run: |
           gh pr review --approve "$PR_URL"
           gh pr merge --auto --merge "$PR_URL"
-
   handle_failure:
     name: 🚨 Handle Failure
     needs: [approve_and_merge]
@@ -109,16 +98,12 @@ jobs:
         run: |
           gh pr edit "$PR_URL" --add-label "breaking-change-detected"
           gh pr comment "$PR_URL" --body "## 🚨 Auto-Merge Failed - Checks Failed
-
           Tests failed for this PR.
-          
           If this is a Dependabot PR, an AI agent may be dispatched to attempt a fix.
-          
           Next steps:
           1. Review the workflow logs to identify the specific failure.
           2. If this is a dependency update, check for breaking changes.
           3. Run tests locally (\`make test\`) to reproduce the issue."
-          
           if [ "${{ needs.detect_changes.outputs.is_rust }}" = "true" ]; then
             gh pr comment "$PR_URL" --body "For Rust updates:
             - Check release notes for breaking changes

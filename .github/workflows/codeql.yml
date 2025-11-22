@@ -1,6 +1,5 @@
 # .github/workflows/codeql.yml
 name: "🔍 CodeQL Security Analysis"
-
 on:
   push:
     branches: [ "main" ]
@@ -20,15 +19,12 @@ on:
       - '.github/workflows/codeql.yml'
   schedule:
     - cron: '30 2 * * 1' # Run every Monday at 2:30 AM
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
   security-events: write
-
 jobs:
   analyze-rust:
     name: 🦀 Analyze Rust
@@ -40,21 +36,18 @@ jobs:
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v6
-
       - name: 🚀 Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: 'rust'
           queries: security-extended
           config-file: ./.github/codeql/codeql-config.yml
-
       - name: ⚙️ Setup Rust toolchain
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
           targets: aarch64-unknown-linux-gnu
-
       - name: 💾 Cache Rust dependencies
         uses: actions/cache@v4
         with:
@@ -67,10 +60,8 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
-
       - name: 🛠️ Build Project
         run: |
           cargo build --release --workspace
-
       - name: 🔍 Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

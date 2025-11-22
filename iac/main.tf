@@ -250,26 +250,7 @@ resource "aws_lambda_permission" "agentcore_gateway_invoke" {
   source_arn    = aws_bedrockagentcore_gateway.main.gateway_arn
 }
 
-# Optional: Secrets Manager Access
-resource "aws_iam_role_policy" "secrets_manager" {
-  count = length(var.secrets_manager_arns) > 0 ? 1 : 0
 
-  name   = "${local.project_name_with_suffix}-secrets-manager"
-  role   = aws_iam_role.lambda_execution.id
-  policy = data.aws_iam_policy_document.secrets_manager[0].json
-}
-
-data "aws_iam_policy_document" "secrets_manager" {
-  count = length(var.secrets_manager_arns) > 0 ? 1 : 0
-
-  statement {
-    effect = "Allow"
-    actions = [
-      "secretsmanager:GetSecretValue",
-    ]
-    resources = var.secrets_manager_arns
-  }
-}
 
 # Lambda Alias (removed - not needed, adds version management overhead)
 # Use $LATEST directly to avoid versioning costs

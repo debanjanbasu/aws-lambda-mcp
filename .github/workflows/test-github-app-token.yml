@@ -1,15 +1,12 @@
 name: "🔍 Test: GitHub App Installation Token"
-
 on:
   workflow_dispatch:
-
 jobs:
   mint_and_validate:
     uses: ./.github/workflows/reusable-github-app-token.yml
     secrets:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
-
   validate:
     needs: mint_and_validate
     runs-on: ubuntu-24.04-arm

@@ -1,5 +1,4 @@
 name: 🌱 Ephemeral Preview Environment
-
 on:
   pull_request:
     types:
@@ -24,16 +23,12 @@ on:
         description: 'PR Number (required for manual trigger)'
         required: true
         type: string
-
 env:
   AWS_REGION: ap-southeast-2
   CARGO_TERM_COLOR: always
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || inputs.pr_number }}
   cancel-in-progress: true
-
-
 jobs:
   build-lambda:
     name: 🧱 Build Lambda
@@ -43,7 +38,6 @@ jobs:
       run_tests: true
       run_build: true
       artifact_name: 'preview-lambda-build'
-
   terraform_validate_preview:
     name: ✅ Terraform Validate (Preview)
     needs: build-lambda
@@ -55,7 +49,6 @@ jobs:
       artifact_name: 'preview-lambda-build'
       pull_request_number: '${{ github.event.number || inputs.pr_number }}'
     secrets: inherit
-
   terraform_apply_preview:
     name: 🚀 Terraform Apply (Preview)
     needs: terraform_validate_preview
@@ -67,7 +60,6 @@ jobs:
       artifact_name: 'preview-lambda-build'
       pull_request_number: '${{ github.event.number || inputs.pr_number }}'
     secrets: inherit
-
   e2e_test:
     name: 🧪 E2E Test & Verify
     needs: terraform_apply_preview
@@ -78,7 +70,6 @@ jobs:
       client_id: ${{ needs.terraform_apply_preview.outputs.client_id }}
       environment_name: 'preview-${{ github.event.number }}'
     secrets: inherit
-
   post_deployment_comment:
     name: 💬 Post Deployment Comment
     needs: [terraform_apply_preview, e2e_test]
@@ -99,21 +90,16 @@ jobs:
           TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           COMMENT="## 🌱 Ephemeral Environment Deployed ✅
-          
           Your Preview environment has been deployed successfully!
-          
           🔗 **Gateway URL**: $GATEWAY_URL
-          
           🧪 **Testing Instructions**:
           1. Copy the gateway URL above
           2. Launch the MCP Inspector: \`npx @modelcontextprotocol/inspector --transport http --server-url \"$GATEWAY_URL\"\`
           3. Use an OAuth token to authenticate in the Inspector UI
-          
           🔐 **Token Generation** (run locally with Azure CLI):
           \`\`\`bash
           # Recommended: Use Azure CLI with the preview environment's scope
           az account get-access-token --resource $SCOPE --query accessToken -o tsv
-          
           # Alternative: Manual client credentials flow
           curl -X POST \"https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token\" \\
             -H \"Content-Type: application/x-www-form-urlencoded\" \\
@@ -122,17 +108,13 @@ jobs:
             -d \"grant_type=client_credentials\" \\
             -d \"scope=$SCOPE\"
           \`\`\`
-          
           📋 **Environment Details**:
           - Environment: \`$ENVIRONMENT\`
           - Branch: \`$BRANCH\`
           - Client ID: \`$CLIENT_ID\`
           - Scope: \`$SCOPE\`
-          
           ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
-          
           gh api repos/${{ github.repository }}/issues/$PR_NUMBER/comments -f body="$COMMENT" >/dev/null 2>&1 || true
-
   terraform_destroy_preview:
     name: 💣 Terraform Destroy (Preview)
     if: (github.event_name == 'pull_request' && github.event.action == 'closed') || (github.event_name == 'workflow_dispatch' && inputs.action == 'destroy')
@@ -143,7 +125,6 @@ jobs:
       environment_name: 'preview-${{ github.event.number }}'
       pull_request_number: '${{ github.event.number }}'
     secrets: inherit
-
   cleanup_preview_environment:
     name: 🧹 Cleanup Preview Environment
     needs: terraform_destroy_preview
@@ -159,25 +140,19 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-
       - name: 🧹 Cleanup Terraform State File
         run: |
           STATE_KEY="aws-lambda-mcp/preview-${{ github.event.number || inputs.pr_number }}/terraform.tfstate"
           echo "Cleaning up Terraform state file: s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY"
           aws s3 rm "s3://${{ secrets.TF_BACKEND_BUCKET }}/$STATE_KEY" || echo "State file cleanup may have failed, continuing..."
-
       - name: 💬 Notify Environment Destruction
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           COMMENT="## 🌱 Ephemeral Environment Destroyed 🗑️
-        
           Your Preview environment has been successfully destroyed.
-        
           📋 **Details**:
           - Environment: \`preview-${{ github.event.number || inputs.pr_number }}\`
           - Branch: \`${{ github.head_ref }}\`
-        
           ✅ All resources have been cleaned up."
-        
           gh api repos/${{ github.repository }}/issues/${{ github.event.number || inputs.pr_number }}/comments -f body="$COMMENT" >/dev/null 2>&1 || true
