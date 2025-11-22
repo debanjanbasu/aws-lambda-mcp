@@ -137,6 +137,13 @@ resource "azuread_application" "agentcore_app" {
 
 
 
+# Data source to refresh the application after replication
+data "azuread_application" "refreshed" {
+  object_id = azuread_application.agentcore_app.object_id
+
+  depends_on = [time_sleep.wait_for_app_replication]
+}
+
 # Data source for Microsoft Graph service principal
 data "azuread_service_principal" "microsoft_graph" {
   client_id = local.microsoft_graph_app_id
@@ -146,15 +153,15 @@ data "azuread_service_principal" "microsoft_graph" {
 resource "time_sleep" "wait_for_app_replication" {
   depends_on = [azuread_application.agentcore_app]
 
-  create_duration = "60s"
+  create_duration = "180s"
 }
 
 # Create Service Principal for the application in the current tenant
 resource "azuread_service_principal" "agentcore_sp" {
-  client_id                    = azuread_application.agentcore_app.client_id
+  client_id                    = data.azuread_application.refreshed.client_id
   app_role_assignment_required = false
 
-  depends_on = [time_sleep.wait_for_app_replication]
+  depends_on = [data.azuread_application.refreshed]
 
   lifecycle {
     ignore_changes = [
