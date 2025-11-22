@@ -18,7 +18,9 @@ locals {
 
   # Derived paths (binary name matches Cargo package name)
   lambda_binary_path = "../target/lambda/aws-lambda-mcp/bootstrap"
-  tool_schema_path   = "../tool_schema.json"
+  # Tool schema path: for ephemeral preview environments, schema is downloaded via artifact to iac/
+  # For main/production deployments, schema is generated in project root before terraform runs
+  tool_schema_path = startswith(var.common_tags["Environment"], "ephemeral-") ? "tool_schema.json" : "../tool_schema.json"
 
   # Entra ID OAuth configuration
   entra_tenant_id     = data.azuread_client_config.current.tenant_id
