@@ -1,5 +1,4 @@
 name: 🔄 Reusable Terraform Operations
-
 on:
   workflow_call:
     inputs:
@@ -41,12 +40,9 @@ on:
       scope:
         description: 'Entra app scope'
         value: ${{ jobs.terraform.outputs.scope }}
-
-
 permissions:
   id-token: write
   contents: read
-
 jobs:
   terraform:
     runs-on: ubuntu-24.04-arm
@@ -57,18 +53,15 @@ jobs:
       project_name: ${{ steps.terraform-outputs.outputs.project_name }}
       client_id: ${{ steps.terraform-outputs.outputs.client_id }}
       scope: ${{ steps.terraform-outputs.outputs.scope }}
-
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v6
-
       - name: ☁️ Download Lambda Artifacts
         if: inputs.artifact_name && inputs.artifact_name != 'dummy-artifact'
         uses: actions/download-artifact@v6
         with:
           name: ${{ inputs.artifact_name }}
           path: .
-
       - name: 📝 Create Environment Variables File
         if: inputs.environment_name
         run: |
@@ -82,7 +75,6 @@ jobs:
             Branch      = "${{ github.head_ref }}"
           }
           EOF
-
       - name: 💾 Cache Terraform plugins
         uses: actions/cache@v4
         with:
@@ -93,29 +85,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-terraform-${{ inputs.environment_name || 'prod' }}-
             ${{ runner.os }}-${{ runner.arch }}-terraform-
-      
       - name: 🏗️ Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: latest
-
       - name: 🎨 Terraform Format Check
         if: inputs.command == 'init'
         run: cd iac && terraform fmt -check
-
       - name: 🔐 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
           aws-region: ${{ inputs.aws_region }}
-
       - name: 🔐 Configure Azure Credentials
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
-
       - name: 🚀 Terraform Init
         env:
           TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
@@ -144,24 +131,20 @@ jobs:
               -backend-config="region=${{ inputs.aws_region }}" \
               -backend-config="use_lockfile=true"
           fi
-
       - name: ✅ Terraform Validate
         if: inputs.command == 'validate' || inputs.command == 'deploy'
         run: cd iac && terraform validate
-
       - name: 🚀 Terraform Deploy (Plan + Apply)
         if: inputs.command == 'deploy'
         run: |
           cd iac
           terraform plan -out=tfplan ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
           terraform apply tfplan
-
       - name: 💥 Terraform Destroy
         if: inputs.command == 'destroy'
         run: |
           cd iac
           terraform destroy -auto-approve ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
-
       - name: 📤 Capture Terraform Outputs
         if: inputs.command == 'deploy'
         id: terraform-outputs

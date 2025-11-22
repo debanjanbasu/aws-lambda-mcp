@@ -1,5 +1,4 @@
 name: 🥷 Brown Ninja Bot - Coding Copilot
-
 on:
   issues:
     types: [opened]
@@ -12,21 +11,11 @@ on:
         description: 'Issue number to fix'
         required: false
         type: string
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.inputs.issue_number || github.run_id }}
   cancel-in-progress: true
-
-
 jobs:
-  mint_installation_token:
-    uses: ./.github/workflows/reusable-github-app-token.yml
-    secrets:
-      APP_ID: ${{ secrets.APP_ID }}
-      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
-
   fix:
-    needs: mint_installation_token
     name: 🤖 Analyze, Fix & PR
     if: |
       github.event_name == 'issues' ||
@@ -41,16 +30,20 @@ jobs:
       AWS_REGION: ap-southeast-2
       CARGO_TERM_COLOR: always
     steps:
+      - name: 🔑 Generate Token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
       - name: 📦 Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
       - name: 🔧 Setup Git
         run: |
           git config user.name "brown-ninja-bot[bot]"
           git config user.email "brown-ninja-bot[bot]@users.noreply.github.com"
-
       - name: 🚀 Notify Working
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
@@ -65,14 +58,12 @@ jobs:
             RANDOM_MESSAGE="${MESSAGES[$RANDOM % ${#MESSAGES[@]}]}"
             gh issue comment $ISSUE_NUM --body "$RANDOM_MESSAGE Setting up my ninja tools..."
           fi
-
       - name: 🦀 Setup Rust
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src, clippy, rustfmt
           targets: aarch64-unknown-linux-gnu
-
       - name: 💾 Cache Rust dependencies
         uses: actions/cache@v4
         with:
@@ -86,7 +77,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
             ${{ runner.os }}-${{ runner.arch }}-cargo-
-
       - name: 💾 Cache cargo-lambda
         uses: actions/cache@v4
         with:
@@ -94,19 +84,16 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-lambda-
-
       - name: 🔧 Install cargo-lambda
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
             cargo install cargo-lambda
           fi
-
       - name: 🔧 Setup Zig
         uses: mlugg/setup-zig@v2
         with:
           version: latest
-
       - name: 📦 Get Latest UPX Version
         id: get-upx-version
         env:
@@ -115,24 +102,20 @@ jobs:
           echo "⬇️ Finding latest UPX release..."
           # Get the latest release tag from GitHub API with authentication
           LATEST_TAG=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/upx/upx/releases/latest | jq -r .tag_name)
-
           # Fallback to known stable version if API fails
           if [ "$LATEST_TAG" == "null" ] || [ -z "$LATEST_TAG" ]; then
             echo "⚠️ Failed to fetch latest version. Falling back to v5.0.2"
             LATEST_TAG="v5.0.2"
           fi
-
           VERSION=${LATEST_TAG#v} # Remove 'v' prefix
           echo "🚀 Latest version: $LATEST_TAG ($VERSION)"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: 💾 Cache UPX
         id: cache-upx
         uses: actions/cache@v4
         with:
           path: ~/.local/bin/upx
           key: ${{ runner.os }}-${{ runner.arch }}-upx-${{ steps.get-upx-version.outputs.version }}
-
       - name: 📦 Install UPX (Latest Release)
         if: steps.cache-upx.outputs.cache-hit != 'true'
         env:
@@ -140,7 +123,6 @@ jobs:
         run: |
           VERSION="${{ steps.get-upx-version.outputs.version }}"
           LATEST_TAG="v$VERSION"
-
           # Detect Architecture
           ARCH=$(uname -m)
           if [ "$ARCH" = "x86_64" ]; then
@@ -152,12 +134,10 @@ jobs:
             exit 1
           fi
           echo "💻 Detected architecture: $ARCH -> $UPX_ARCH"
-
           # Download
           URL="https://github.com/upx/upx/releases/download/${LATEST_TAG}/upx-${VERSION}-${UPX_ARCH}.tar.xz"
           echo "⬇️ Downloading from: $URL"
           curl -L "$URL" -o upx.tar.xz
-
           # Install to local bin
           mkdir -p ~/.local/bin
           echo "📦 Extracting..."
@@ -165,21 +145,17 @@ jobs:
           echo "🔧 Installing to ~/.local/bin..."
           mv upx-${VERSION}-${UPX_ARCH}/upx ~/.local/bin/
           chmod +x ~/.local/bin/upx
-
           # Cleanup
           rm -rf upx.tar.xz upx-${VERSION}-${UPX_ARCH}
-
       - name: 🔧 Verify UPX
         run: |
            echo "$HOME/.local/bin" >> $GITHUB_PATH
            export PATH="$HOME/.local/bin:$PATH"
            upx --version
-
       - name: 🏗️ Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
-
       - name: 💾 Cache Terraform plugins
         uses: actions/cache@v4
         with:
@@ -189,28 +165,23 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-terraform-
-
       - name: ☁️ Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
           aws-region: ap-southeast-2
-
       - name: 🔐 Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
-
       - name: 📥 Install opencode
         run: curl -fsSL https://opencode.ai/install | bash
-
       - name: 🚀 Fix Issue & Create PR
         run: |
-          # Authenticate gh with installation token obtained from the reusable job
-          echo "${{ needs.mint_installation_token.outputs.installation_token }}" | gh auth login --with-token || true
-
+          # Authenticate gh with installation token
+          echo "${{ steps.generate_token.outputs.token }}" | gh auth login --with-token || true
           if [ "${{ github.event_name }}" = "issues" ]; then
             ISSUE_NUM=${{ github.event.issue.number }}
             ISSUE_TITLE="${{ github.event.issue.title }}"
@@ -226,15 +197,11 @@ jobs:
             # Use unique branch name for workflow failures to prevent collisions
             BRANCH_SUFFIX="workflow-failure-${{ github.event.workflow_run.id }}"
           fi
-
-           BRANCH="fix/${BRANCH_SUFFIX:-issue-$ISSUE_NUM}"
-           git checkout -B "$BRANCH"
-
-           PROMPT="You are the best developer humanity has ever seen. Fix this issue completely:
-
+          BRANCH="fix/${BRANCH_SUFFIX:-issue-$ISSUE_NUM}"
+          git checkout -B "$BRANCH"
+          PROMPT="You are the best developer humanity has ever seen. Fix this issue completely:
           Issue: $ISSUE_TITLE
           Details: $ISSUE_BODY
-
           Environment:
           - Full Rust toolchain with cargo-lambda installed
           - Terraform CLI available
@@ -242,7 +209,6 @@ jobs:
           - Azure CLI authenticated
           - All build tools: upx, jq, make
           - Can run: make build, make test, cargo clippy, terraform validate
-
           Requirements:
           1. Analyze root cause with surgical precision
           2. Implement minimal, elegant fix following AGENTS.md standards
@@ -251,58 +217,42 @@ jobs:
           5. Verify code passes linting (cargo clippy)
           6. Update documentation and comments
           7. Consider edge cases and error scenarios
-          
-           Note: DO NOT run make deploy - the PR workflow will automatically deploy to ephemeral environment for testing.
-           Note: DO NOT modify any files in .github/workflows/ - workflow changes are not permitted.
-
-           Write production-quality code with proper error handling, tests, and documentation."
-
+          Note: DO NOT run make deploy - the PR workflow will automatically deploy to ephemeral environment for testing.
+          Note: DO NOT modify any files in .github/workflows/ - workflow changes are not permitted.
+          Write production-quality code with proper error handling, tests, and documentation."
           opencode run --agent build -m opencode/grok-code "$PROMPT" > fix_output.txt
-
           if git diff --quiet; then
             echo "No changes made"
             [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🤖 Analyzed but no code changes needed. See analysis:\n\n$(cat fix_output.txt)"
             exit 0
           fi
-
-           git add -A
-           # Remove workflow files from staging to avoid permission issues
-           git reset HEAD .github/workflows/ 2>/dev/null || true
-
-           if git diff --cached --quiet; then
-             echo "No non-workflow changes to commit"
-             [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🤖 Analysis complete. Changes were only to workflow files (not permitted). See analysis:\n\n$(cat fix_output.txt)"
-             exit 0
-           fi
-
-           git commit -m "fix: resolve issue #${ISSUE_NUM:-workflow-failure}
-
-           $(cat fix_output.txt | head -20)"
-
+          git add -A
+          # Remove workflow files from staging to avoid permission issues
+          git reset HEAD .github/workflows/ 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No non-workflow changes to commit"
+            [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🤖 Analysis complete. Changes were only to workflow files (not permitted). See analysis:\n\n$(cat fix_output.txt)"
+            exit 0
+          fi
+          git commit -m "fix: resolve issue #${ISSUE_NUM:-workflow-failure}
+          $(cat fix_output.txt | head -20)"
           git push -f -u origin "$BRANCH"
-
-           PR_URL=$(gh pr create \
-             --title "🥷 Fix: $ISSUE_TITLE" \
-             --body "Fixes #${ISSUE_NUM}
-
-           ## Changes
-           $(cat fix_output.txt)
-
-           ## Testing
-           - Code follows AGENTS.md standards
-           - Minimal changes for correctness
-           - Ready for review
-
-           ---
-           🤖 Auto-generated by brown-ninja-bot" \
-             --base main \
-             --head "$BRANCH")
-
-           # Add automerge label so the automerge workflow will pick this up
-           PR_NUMBER=$(echo "$PR_URL" | awk -F'/' '{print $NF}')
-           gh pr edit $PR_NUMBER --add-label automerge || true
-
-
+          PR_URL=$(gh pr create \
+            --title "🥷 Fix: $ISSUE_TITLE" \
+            --body "Fixes #${ISSUE_NUM}
+          ## Changes
+          $(cat fix_output.txt)
+          ## Testing
+          - Code follows AGENTS.md standards
+          - Minimal changes for correctness
+          - Ready for review
+          ---
+          🤖 Auto-generated by brown-ninja-bot" \
+            --base main \
+            --head "$BRANCH")
+          # Add automerge label so the automerge workflow will pick this up
+          PR_NUMBER=$(echo "$PR_URL" | awk -F'/' '{print $NF}')
+          gh pr edit $PR_NUMBER --add-label automerge || true
           [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🥷 Fix implemented! PR: $PR_URL"
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}

@@ -1,9 +1,7 @@
 name: 🔧 Opencode AI Assistant
-
 on:
   issue_comment:
     types: [created]
-
 jobs:
   opencode:
     name: 🤖 AI Code Assistant
@@ -21,7 +19,6 @@ jobs:
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v6
-
       - name: 🚀 Run opencode
         uses: sst/opencode/github@latest
         env:

@@ -1,5 +1,4 @@
 name: 🦀 Reusable Rust Build
-
 on:
   workflow_call:
     inputs:
@@ -17,10 +16,8 @@ on:
         required: true
         type: string
         description: 'Name of the build artifact'
-
 permissions:
   contents: read
-
 jobs:
   rust-build:
     runs-on: ubuntu-24.04-arm
@@ -29,14 +26,12 @@ jobs:
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v6
-
       - name: ⚙️ Setup Rust toolchain
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
           targets: aarch64-unknown-linux-gnu
-
       - name: 💾 Cache Rust dependencies
         uses: actions/cache@v4
         with:
@@ -50,7 +45,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
             ${{ runner.os }}-${{ runner.arch }}-cargo-
-
       - name: 💾 Cache cargo-lambda
         uses: actions/cache@v4
         with:
@@ -58,19 +52,16 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-lambda-
-
       - name: 🔧 Install cargo-lambda
         run: |
           if ! command -v cargo-lambda &> /dev/null
           then
             cargo install cargo-lambda
           fi
-
       - name: 🔧 Setup Zig
         uses: mlugg/setup-zig@v2
         with:
           version: latest
-
       - name: 📦 Get Latest UPX Version
         id: get-upx-version
         env:
@@ -79,24 +70,20 @@ jobs:
           echo "⬇️ Finding latest UPX release..."
           # Get the latest release tag from GitHub API with authentication
           LATEST_TAG=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/upx/upx/releases/latest | jq -r .tag_name)
-
           # Fallback to known stable version if API fails
           if [ "$LATEST_TAG" == "null" ] || [ -z "$LATEST_TAG" ]; then
             echo "⚠️ Failed to fetch latest version. Falling back to v5.0.2"
             LATEST_TAG="v5.0.2"
           fi
-
           VERSION=${LATEST_TAG#v} # Remove 'v' prefix
           echo "🚀 Latest version: $LATEST_TAG ($VERSION)"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: 💾 Cache UPX
         id: cache-upx
         uses: actions/cache@v4
         with:
           path: ~/.local/bin/upx
           key: ${{ runner.os }}-${{ runner.arch }}-upx-${{ steps.get-upx-version.outputs.version }}
-
       - name: 📦 Install UPX (Latest Release)
         if: steps.cache-upx.outputs.cache-hit != 'true'
         env:
@@ -104,7 +91,6 @@ jobs:
         run: |
           VERSION="${{ steps.get-upx-version.outputs.version }}"
           LATEST_TAG="v$VERSION"
-
           # Detect Architecture
           ARCH=$(uname -m)
           if [ "$ARCH" = "x86_64" ]; then
@@ -116,12 +102,10 @@ jobs:
             exit 1
           fi
           echo "💻 Detected architecture: $ARCH -> $UPX_ARCH"
-
           # Download
           URL="https://github.com/upx/upx/releases/download/${LATEST_TAG}/upx-${VERSION}-${UPX_ARCH}.tar.xz"
           echo "⬇️ Downloading from: $URL"
           curl -L "$URL" -o upx.tar.xz
-
           # Install to local bin
           mkdir -p ~/.local/bin
           echo "📦 Extracting..."
@@ -129,24 +113,19 @@ jobs:
           echo "🔧 Installing to ~/.local/bin..."
           mv upx-${VERSION}-${UPX_ARCH}/upx ~/.local/bin/
           chmod +x ~/.local/bin/upx
-
           # Cleanup
           rm -rf upx.tar.xz upx-${VERSION}-${UPX_ARCH}
-
       - name: 🔧 Verify UPX
         run: |
            echo "$HOME/.local/bin" >> $GITHUB_PATH
            export PATH="$HOME/.local/bin:$PATH"
            upx --version
-
       - name: 🧪 Run Tests
         if: inputs.run_tests
         run: make test
-
       - name: 🛠️ Build Lambda (Release)
         if: inputs.run_build
         run: make release
-
       - name: ☁️ Upload Lambda build artifacts
         if: inputs.run_build
         uses: actions/upload-artifact@v5

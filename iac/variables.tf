@@ -51,17 +51,7 @@ variable "log_retention_days" {
   default     = 3
 }
 
-variable "cloudwatch_kms_key_arn" {
-  description = "KMS key ARN for CloudWatch Logs encryption (optional)"
-  type        = string
-  default     = null
-}
 
-variable "secrets_manager_arns" {
-  description = "List of Secrets Manager secret ARNs the Lambda can access"
-  type        = list(string)
-  default     = []
-}
 
 variable "common_tags" {
   description = "Common tags to apply to all resources"
@@ -110,14 +100,4 @@ variable "gateway_exception_level" {
   }
 }
 
-# Infrastructure Operation Mode
-variable "operation_mode" {
-  description = "Operation mode for infrastructure. 'deploy' creates all resources, 'destroy' handles cleanup."
-  type        = string
-  default     = "deploy"
 
-  validation {
-    condition     = contains(["deploy", "destroy"], var.operation_mode)
-    error_message = "Operation mode must be either 'deploy' or 'destroy'."
-  }
-}

@@ -1,5 +1,4 @@
 name: 🚀 Deploy AWS Lambda MCP
-
 on:
   push:
     branches:
@@ -11,15 +10,12 @@ on:
       - 'Makefile'
       - 'iac/**'
   workflow_dispatch: # Allows manual triggering
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 env:
   AWS_REGION: ap-southeast-2 # Default AWS region, can be overridden
   CARGO_TERM_COLOR: always # Ensure Rust color output is consistent
-
 jobs:
   build-lambda:
     name: 🧱 Build Lambda
@@ -29,7 +25,6 @@ jobs:
       run_tests: true
       run_build: true
       artifact_name: 'lambda-build'
-
   terraform_deploy:
     name: 🚀 Terraform Deploy
     needs: build-lambda
@@ -39,7 +34,6 @@ jobs:
       aws_region: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
       artifact_name: 'lambda-build'
     secrets: inherit
-
   e2e_test:
     name: 🧪 E2E Test
     needs: terraform_deploy

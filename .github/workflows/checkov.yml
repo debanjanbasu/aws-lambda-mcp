@@ -1,6 +1,5 @@
 # .github/workflows/checkov.yml
 name: "🔒 Terraform Security Scan (Checkov)"
-
 on:
   push:
     branches: [ "main" ]
@@ -14,30 +13,24 @@ on:
       - '.github/workflows/checkov.yml'
   schedule:
     - cron: '30 2 * * 1' # Match the CodeQL schedule for consistency
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read # for actions/checkout to fetch code
   security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
   actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
-
 jobs:
   checkov:
     name: 🔍 Checkov scan
     runs-on: ubuntu-24.04-arm
-
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v6
-
       - name: 🐍 Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.x' # Latest Python 3.x
-
       - name: 🛡️ Run Checkov
         uses: bridgecrewio/checkov-action@master
         with:
@@ -49,7 +42,6 @@ jobs:
           output_file_path: 'checkov.sarif'
           # Don't fail the workflow if issues are found
           soft_fail: true
-
       - name: ☁️ Upload SARIF to Security Tab
         if: always()
         uses: github/codeql-action/upload-sarif@v4

@@ -26,10 +26,6 @@ output "lambda_function_version" {
   value       = aws_lambda_function.bedrock_agent_gateway.version
 }
 
-output "lambda_alias_arn" {
-  description = "ARN of the Lambda alias (disabled for cost optimization)"
-  value       = null
-}
 
 output "lambda_role_arn" {
   description = "ARN of the Lambda execution role"
@@ -97,10 +93,6 @@ output "entra_app_scope_client_credentials" {
   value       = "${azuread_application.agentcore_app.client_id}/.default"
 }
 
-output "entra_app_scope_m365_copilot" {
-  description = "Entra ID application scope for Microsoft 365 Copilot integration (same as client credentials)"
-  value       = "${azuread_application.agentcore_app.client_id}/.default"
-}
 
 output "entra_app_name" {
   description = "Entra ID application name"
