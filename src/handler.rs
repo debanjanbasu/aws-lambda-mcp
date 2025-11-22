@@ -119,4 +119,14 @@ mod tests {
         assert_eq!(strip_gateway_prefix(""), "");
         assert_eq!(strip_gateway_prefix("no_prefix"), "no_prefix");
     }
+
+    #[tokio::test]
+    async fn test_route_tool_unknown() {
+        let event_payload = serde_json::json!({"name": "unknown_tool"});
+        let result = route_tool("unknown_tool", event_payload).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error_type, "UnknownTool");
+        assert!(err.error_message.contains("Unknown tool: unknown_tool"));
+    }
 }
