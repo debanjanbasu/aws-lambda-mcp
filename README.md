@@ -35,7 +35,7 @@ Client → Entra ID (PKCE) → AgentCore Gateway → Lambda (Rust) → External 
                             JWT Validation (OIDC)
 ```
 
-**Stack**: ARM64 Lambda (~1.3MB UPX) | Entra ID OAuth | CloudWatch (3d retention)
+**Stack**: ARM64 Lambda (~1.3MB UPX) | Entra ID OAuth | CloudWatch (90d retention)
 
 **License**: MIT
 
@@ -52,6 +52,7 @@ The Bedrock AgentCore Gateway is configured with a `SEMANTIC` search type, which
 - **JWT Validation** - OIDC discovery per request
 - **Zero Unsafe** - No `unwrap/expect/panic/unsafe`, strict lints
 - **Structured Tracing** - JSON logs for CloudWatch
+- **Dead Letter Queue** - Failed invocations stored in SQS for debugging
 - **Auto Schemas** - Generated from code annotations
 - **Fast Cold Start** - Minimal deps, optimized binary
 - **Free Tier** - Typical usage $0/month

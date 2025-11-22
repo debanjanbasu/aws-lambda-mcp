@@ -9,6 +9,15 @@ data "archive_file" "lambda_zip" {
   output_path = "${path.module}/.terraform/lambda.zip"
 }
 
+# SQS Dead Letter Queue for Lambda
+resource "aws_sqs_queue" "lambda_dlq" {
+  name                       = "${local.project_name_with_suffix}-dlq"
+  message_retention_seconds  = 1209600  # 14 days
+  visibility_timeout_seconds = 30
+
+  tags = var.common_tags
+}
+
 # Lambda Function
 resource "aws_lambda_function" "bedrock_agent_gateway" {
   function_name = local.project_name_with_suffix
@@ -20,8 +29,14 @@ resource "aws_lambda_function" "bedrock_agent_gateway" {
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
-  memory_size = var.lambda_memory_size
-  timeout     = var.lambda_timeout
+  memory_size                    = var.lambda_memory_size
+  timeout                        = var.lambda_timeout
+  reserved_concurrent_executions = 100
+
+  # Dead Letter Queue configuration
+  dead_letter_config {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
 
   # X-Ray tracing disabled to reduce costs (can enable if needed)
   # tracing_config {
@@ -94,6 +109,23 @@ data "aws_iam_policy_document" "gateway_assume_role" {
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   role       = aws_iam_role.lambda_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# SQS DLQ Policy for Lambda
+resource "aws_iam_role_policy" "lambda_sqs_dlq" {
+  name = "${local.project_name_with_suffix}-lambda-sqs-dlq"
+  role = aws_iam_role.lambda_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "sqs:SendMessage"
+      ]
+      Resource = aws_sqs_queue.lambda_dlq.arn
+    }]
+  })
 }
 
 # X-Ray Tracing Policy (disabled to reduce costs)
