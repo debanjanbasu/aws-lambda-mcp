@@ -20,7 +20,9 @@ jobs:
     if: |
       github.event_name == 'issues' ||
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'failure' &&
+       github.event.workflow_run.actor.login != 'brown-ninja-bot[bot]')
     runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write
