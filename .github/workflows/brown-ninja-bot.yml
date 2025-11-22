@@ -20,7 +20,9 @@ jobs:
     if: |
       github.event_name == 'issues' ||
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'failure' &&
+       github.event.workflow_run.actor.login != 'brown-ninja-bot[bot]')
     runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write
@@ -177,8 +179,21 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
+      - name: 💾 Cache opencode
+        id: cache-opencode
+        uses: actions/cache@v4
+        with:
+          path: ~/.opencode
+          key: ${{ runner.os }}-opencode
+          restore-keys: |
+            ${{ runner.os }}-opencode
       - name: 📥 Install opencode
+        if: steps.cache-opencode.outputs.cache-hit != 'true'
         run: curl -fsSL https://opencode.ai/install | bash
+      - name: 🔧 Add opencode to PATH
+        run: echo "$HOME/.opencode/bin" >> $GITHUB_PATH
+      - name: ⬆️ Upgrade opencode
+        run: opencode upgrade
       - name: 🚀 Fix Issue & Create PR
         run: |
           # Authenticate gh with installation token
@@ -209,20 +224,22 @@ jobs:
           - AWS CLI authenticated
           - Azure CLI authenticated
           - All build tools: upx, jq, make
-          - Can run: make build, make test, cargo clippy, terraform validate
-          Requirements:
-          1. Analyze root cause with surgical precision
-          2. Implement minimal, elegant fix following AGENTS.md standards
-          3. Write comprehensive tests for new functionality
-          4. Ensure all tests pass (make test)
-          5. Verify code passes linting (cargo clippy)
+           - Can run: make build, make test, cargo clippy, terraform validate
+           Requirements:
+           1. Analyze root cause with surgical precision
+           2. Implement minimal, elegant fix following AGENTS.md standards
+           3. Write comprehensive tests for new functionality
+           4. Ensure all tests pass (make test)
+           5. Verify code passes linting (use cargo clippy, not cargo check)
           6. Update documentation and comments
           7. Consider edge cases and error scenarios
           Note: DO NOT run make deploy - the PR workflow will automatically deploy to ephemeral environment for testing.
           Note: DO NOT modify any files in .github/workflows/ - workflow changes are not permitted.
           Write production-quality code with proper error handling, tests, and documentation."
-          opencode run --agent build -m opencode/grok-code "$PROMPT" > fix_output.txt
-          if git diff --quiet; then
+           opencode run --agent build -m opencode/grok-code "$PROMPT" > fix_output.txt
+           # Ensure code passes linting
+           cargo clippy
+           if git diff --quiet; then
             echo "No changes made"
             [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🤖 Analyzed but no code changes needed. See analysis:\n\n$(cat fix_output.txt)"
             exit 0

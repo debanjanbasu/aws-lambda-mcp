@@ -170,15 +170,24 @@ setup-backend: ## ⚙️ Create S3 backend for Terraform state (native locking)
 		echo ""; \
 		cat iac/backend.config | sed "s/^/  /"; \
 		echo ""; \
+		echo -e "$(CYAN)💡 Don't worry! Your existing config will be automatically backed up.$(RESET)"; \
+		echo ""; \
 		read -p "Do you want to proceed and create a new backend? (y/N): " CONFIRM; \
 		if [ "$$CONFIRM" != "y" ] && [ "$$CONFIRM" != "Y" ]; then \
 			echo -e "$(GREEN)✅ Aborted. Existing backend preserved.$(RESET)"; \
 			exit 0; \
 		fi; \
+		BACKUP_FILE="iac/backend.config.backup.$$(date +%Y%m%d_%H%M%S)"; \
+		cp iac/backend.config "$$BACKUP_FILE"; \
+		echo -e "$(GREEN)✅ Backed up existing config to $$BACKUP_FILE$(RESET)"; \
+		echo -e "$(CYAN)💡 You can restore it anytime by copying it back to iac/backend.config$(RESET)"; \
 	fi; \
 	command -v aws >/dev/null 2>&1 || (echo -e "$(RED)❌ AWS CLI not found. Install: https://aws.amazon.com/cli/$(RESET)" && exit 1); \
 	aws sts get-caller-identity >/dev/null 2>&1 || (echo -e "$(RED)❌ AWS CLI not configured. Run: aws configure$(RESET)" && exit 1); \
-	read -p "Enter a globally unique S3 bucket name for Terraform state: " BUCKET_NAME; \
+	BUCKET_NAME=$${BUCKET_NAME:-}; \
+	if [ -z "$$BUCKET_NAME" ]; then \
+		read -p "Enter a globally unique S3 bucket name for Terraform state: " BUCKET_NAME; \
+	fi; \
 	if [ -z "$$BUCKET_NAME" ]; then \
 		echo -e "$(RED)❌ Bucket name cannot be empty.$(RESET)"; \
 		exit 1; \
@@ -193,8 +202,16 @@ setup-backend: ## ⚙️ Create S3 backend for Terraform state (native locking)
 	aws s3api put-bucket-versioning --bucket $$BUCKET_NAME --versioning-configuration Status=Enabled > /dev/null; \
 	aws s3api put-bucket-encryption --bucket $$BUCKET_NAME --server-side-encryption-configuration '\''{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'\'' > /dev/null; \
 	echo -e "$(BLUE)▶️ Creating '\''iac/backend.config'\'' for local use...$(RESET)"; \
+	ENVIRONMENT_NAME=$${ENVIRONMENT_NAME:-}; \
+	if [ -z "$$ENVIRONMENT_NAME" ]; then \
+		read -p "Enter environment/branch name for Terraform state (optional, e.g., 'dev', 'feat-branch', or leave blank for default): " ENVIRONMENT_NAME; \
+	fi; \
+	TF_STATE_KEY="aws-lambda-mcp/$${ENVIRONMENT_NAME}/terraform.tfstate"; \
+	if [ -z "$$ENVIRONMENT_NAME" ]; then \
+		TF_STATE_KEY="aws-lambda-mcp/terraform.tfstate"; \
+	fi; \
 	echo "bucket         = \"$$BUCKET_NAME\"" > iac/backend.config; \
-	echo "key            = \"aws-lambda-mcp/terraform.tfstate\"" >> iac/backend.config; \
+	echo "key            = \"$$TF_STATE_KEY\"" >> iac/backend.config; \
 	echo "region         = \"$(AWS_REGION)\"" >> iac/backend.config; \
 	echo "use_lockfile   = true" >> iac/backend.config; \
 	echo -e "$(GREEN)✅ Backend setup complete!$(RESET)"; \
@@ -253,5 +270,10 @@ update-secrets: ## 🔐 Update GitHub repository secrets from a .env file (for G
 	@echo "$(BLUE)Setting secrets for Dependabot...$(RESET)"
 	@gh secret set -f .env --app dependabot
 	@echo "$(GREEN)✅ GitHub secrets updated for both GitHub Actions and Dependabot!$(RESET)"
+
+
+test-preview-inspector: deploy ## 🧪 Deploy and launch MCP Inspector with OAuth token for preview environment
+	@echo "$(BLUE)🚀 Deploying and launching MCP Inspector for preview environment...$(RESET)"
+	@cd iac && $(MAKE) test-token
 
 .DEFAULT_GOAL := help

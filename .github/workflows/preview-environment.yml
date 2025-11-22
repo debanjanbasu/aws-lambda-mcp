@@ -88,6 +88,7 @@ jobs:
           BRANCH: ${{ github.head_ref }}
           PR_NUMBER: ${{ github.event.number || inputs.pr_number }}
           TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
         run: |
           COMMENT="## 🌱 Ephemeral Environment Deployed ✅
           Your Preview environment has been deployed successfully!
@@ -98,21 +99,20 @@ jobs:
           3. Use an OAuth token to authenticate in the Inspector UI
           🔐 **Token Generation** (run locally with Azure CLI):
           \`\`\`bash
-          # Recommended: Use Azure CLI with the preview environment's scope
-          az account get-access-token --resource $SCOPE --query accessToken -o tsv
-          # Alternative: Manual client credentials flow
-          curl -X POST \"https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token\" \\
-            -H \"Content-Type: application/x-www-form-urlencoded\" \\
-            -d \"client_id=$CLIENT_ID\" \\
-            -d \"client_secret=<CLIENT_SECRET_FROM_TERRAFORM_OUTPUT>\" \\
-            -d \"grant_type=client_credentials\" \\
-            -d \"scope=$SCOPE\"
+          # Get OAuth token using Azure CLI (Azure CLI is pre-authorized for this app)
+          az account get-access-token --resource $CLIENT_ID --query accessToken -o tsv
           \`\`\`
           📋 **Environment Details**:
           - Environment: \`$ENVIRONMENT\`
           - Branch: \`$BRANCH\`
           - Client ID: \`$CLIENT_ID\`
-          - Scope: \`$SCOPE\`
+          
+          🛠️ **Local Development Setup** (optional):
+          To work with this preview environment locally, configure your Terraform backend with this single command:
+          \`\`\`bash
+          BUCKET_NAME="${{ secrets.TF_BACKEND_BUCKET }}" ENVIRONMENT_NAME="$(echo "$ENVIRONMENT" | sed 's/^preview-//')" make setup-backend && cd iac && terraform init -reconfigure -backend-config=backend.config
+          \`\`\`
+          
           ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
           gh api repos/${{ github.repository }}/issues/$PR_NUMBER/comments -f body="$COMMENT" >/dev/null 2>&1 || true
   terraform_destroy_preview:

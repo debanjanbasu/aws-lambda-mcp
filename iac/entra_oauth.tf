@@ -36,6 +36,10 @@ resource "azuread_application" "agentcore_app" {
       user_consent_display_name  = "Access ${local.project_display_name}"
       value                      = var.entra_oauth_scope_value
     }
+
+    # Pre-authorize common Microsoft developer tools to access this API without requiring admin consent
+    # This enables seamless local development and testing workflows
+    known_client_applications = values(local.microsoft_developer_tools)
   }
 
   # Public client configuration - supports authorization code with PKCE
@@ -74,22 +78,13 @@ resource "azuread_application" "agentcore_app" {
       type = "Role"
     }
 
-    # openid - OpenID Connect authentication
-    resource_access {
-      id   = local.openid_scope_id
-      type = "Scope"
-    }
-
-    # profile - Access to user's profile claims (given_name, family_name)
-    resource_access {
-      id   = local.profile_scope_id
-      type = "Scope"
-    }
-
-    # email - Access to user's email address
-    resource_access {
-      id   = local.email_scope_id
-      type = "Scope"
+    # OpenID Connect scopes (openid, profile, email)
+    dynamic "resource_access" {
+      for_each = local.microsoft_graph_scopes
+      content {
+        id   = resource_access.value
+        type = "Scope"
+      }
     }
   }
 
@@ -132,40 +127,5 @@ resource "azuread_application" "agentcore_app" {
       owners,
       password,
     ]
-  }
-}
-
-
-
-# Data source for Microsoft Graph service principal
-data "azuread_service_principal" "microsoft_graph" {
-  client_id = local.microsoft_graph_app_id
-}
-
-# Wait for application to be fully replicated before creating service principal
-resource "time_sleep" "wait_for_app_replication" {
-  depends_on = [azuread_application.agentcore_app]
-
-  create_duration = "60s"
-}
-
-# Create Service Principal for the application in the current tenant
-resource "azuread_service_principal" "agentcore_sp" {
-  client_id                    = azuread_application.agentcore_app.client_id
-  app_role_assignment_required = false
-
-  depends_on = [time_sleep.wait_for_app_replication]
-
-  lifecycle {
-    ignore_changes = [
-      owners
-    ]
-  }
-
-  timeouts {
-    create = "15m"
-    read   = "15m"
-    update = "15m"
-    delete = "15m"
   }
 }

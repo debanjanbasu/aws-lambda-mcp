@@ -134,15 +134,17 @@ jobs:
       - name: ✅ Terraform Validate
         if: inputs.command == 'validate' || inputs.command == 'deploy'
         run: cd iac && terraform validate
-      - name: 🚀 Terraform Deploy (Plan + Apply)
+      - name: 🚀 Terraform Deploy (Apply)
         if: inputs.command == 'deploy'
         run: |
           cd iac
-          terraform plan -out=tfplan ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
-          terraform apply tfplan
+          terraform apply -auto-approve ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
       - name: 💥 Terraform Destroy
         if: inputs.command == 'destroy'
         run: |
+          # Create dummy bootstrap file to satisfy archive_file data source during destroy
+          mkdir -p target/lambda/aws-lambda-mcp
+          touch target/lambda/aws-lambda-mcp/bootstrap
           cd iac
           terraform destroy -auto-approve ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
       - name: 📤 Capture Terraform Outputs
