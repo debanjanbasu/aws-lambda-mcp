@@ -12,9 +12,19 @@ locals {
   microsoft_graph_user_read_all_app_role_id = "df021288-bdef-4463-88db-98f22de89214"
 
   # OpenID Connect scope IDs for Microsoft Graph
-  openid_scope_id  = "37f7f235-527c-4136-accd-4a02d197296e"
-  profile_scope_id = "14dad69e-099b-42c9-810b-d002981feec1"
-  email_scope_id   = "64a6cdd6-aab1-4aaf-94b8-3cc8405e90d0"
+  microsoft_graph_scopes = {
+    openid  = "37f7f235-527c-4136-accd-4a02d197296e"
+    profile = "14dad69e-099b-42c9-810b-d002981feec1"
+    email   = "64a6cdd6-aab1-4aaf-94b8-3cc8405e90d0"
+  }
+
+  # Well-known Microsoft client application IDs for developer tools
+  microsoft_developer_tools = {
+    azure_cli        = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
+    azure_powershell = "1950a258-227b-4e31-a9cf-717495945fc2"
+    visual_studio    = "872cd9fa-d31f-45e0-9eab-6e460a02d1f1"
+    vscode           = "aebc6443-996d-45c2-90f0-388ff96faa56"
+  }
 
   # Derived paths (binary name matches Cargo package name)
   lambda_binary_path = "../target/lambda/aws-lambda-mcp/bootstrap"

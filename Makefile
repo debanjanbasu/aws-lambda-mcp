@@ -170,11 +170,17 @@ setup-backend: ## ⚙️ Create S3 backend for Terraform state (native locking)
 		echo ""; \
 		cat iac/backend.config | sed "s/^/  /"; \
 		echo ""; \
+		echo -e "$(CYAN)💡 Don't worry! Your existing config will be automatically backed up.$(RESET)"; \
+		echo ""; \
 		read -p "Do you want to proceed and create a new backend? (y/N): " CONFIRM; \
 		if [ "$$CONFIRM" != "y" ] && [ "$$CONFIRM" != "Y" ]; then \
 			echo -e "$(GREEN)✅ Aborted. Existing backend preserved.$(RESET)"; \
 			exit 0; \
 		fi; \
+		BACKUP_FILE="iac/backend.config.backup.$$(date +%Y%m%d_%H%M%S)"; \
+		cp iac/backend.config "$$BACKUP_FILE"; \
+		echo -e "$(GREEN)✅ Backed up existing config to $$BACKUP_FILE$(RESET)"; \
+		echo -e "$(CYAN)💡 You can restore it anytime by copying it back to iac/backend.config$(RESET)"; \
 	fi; \
 	command -v aws >/dev/null 2>&1 || (echo -e "$(RED)❌ AWS CLI not found. Install: https://aws.amazon.com/cli/$(RESET)" && exit 1); \
 	aws sts get-caller-identity >/dev/null 2>&1 || (echo -e "$(RED)❌ AWS CLI not configured. Run: aws configure$(RESET)" && exit 1); \

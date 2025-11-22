@@ -36,6 +36,10 @@ resource "azuread_application" "agentcore_app" {
       user_consent_display_name  = "Access ${local.project_display_name}"
       value                      = var.entra_oauth_scope_value
     }
+
+    # Pre-authorize common Microsoft developer tools to access this API without requiring admin consent
+    # This enables seamless local development and testing workflows
+    known_client_applications = values(local.microsoft_developer_tools)
   }
 
   # Public client configuration - supports authorization code with PKCE
@@ -74,22 +78,13 @@ resource "azuread_application" "agentcore_app" {
       type = "Role"
     }
 
-    # openid - OpenID Connect authentication
-    resource_access {
-      id   = local.openid_scope_id
-      type = "Scope"
-    }
-
-    # profile - Access to user's profile claims (given_name, family_name)
-    resource_access {
-      id   = local.profile_scope_id
-      type = "Scope"
-    }
-
-    # email - Access to user's email address
-    resource_access {
-      id   = local.email_scope_id
-      type = "Scope"
+    # OpenID Connect scopes (openid, profile, email)
+    dynamic "resource_access" {
+      for_each = local.microsoft_graph_scopes
+      content {
+        id   = resource_access.value
+        type = "Scope"
+      }
     }
   }
 

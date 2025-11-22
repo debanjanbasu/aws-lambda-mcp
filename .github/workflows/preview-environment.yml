@@ -98,21 +98,24 @@ jobs:
           3. Use an OAuth token to authenticate in the Inspector UI
           🔐 **Token Generation** (run locally with Azure CLI):
           \`\`\`bash
-          # Recommended: Use Azure CLI with the preview environment's scope
-          az account get-access-token --resource $SCOPE --query accessToken -o tsv
-          # Alternative: Manual client credentials flow
-          curl -X POST \"https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token\" \\
-            -H \"Content-Type: application/x-www-form-urlencoded\" \\
-            -d \"client_id=$CLIENT_ID\" \\
-            -d \"client_secret=<CLIENT_SECRET_FROM_TERRAFORM_OUTPUT>\" \\
-            -d \"grant_type=client_credentials\" \\
-            -d \"scope=$SCOPE\"
+          # Get OAuth token using Azure CLI (Azure CLI is pre-authorized for this app)
+          az account get-access-token --resource $CLIENT_ID --query accessToken -o tsv
           \`\`\`
           📋 **Environment Details**:
           - Environment: \`$ENVIRONMENT\`
           - Branch: \`$BRANCH\`
           - Client ID: \`$CLIENT_ID\`
-          - Scope: \`$SCOPE\`
+          
+          🛠️ **Local Development Setup** (optional):
+          To work with this preview environment locally, run:
+          \`\`\`bash
+          # Configure backend for preview environment (backs up existing config automatically)
+          make setup-backend
+          
+          # Then initialize with preview state key
+          cd iac && terraform init -reconfigure -backend-config=backend.config -backend-config=\"key=aws-lambda-mcp/$ENVIRONMENT/terraform.tfstate\"
+          \`\`\`
+          
           ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
           gh api repos/${{ github.repository }}/issues/$PR_NUMBER/comments -f body="$COMMENT" >/dev/null 2>&1 || true
   terraform_destroy_preview:

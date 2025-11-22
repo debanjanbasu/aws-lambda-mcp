@@ -32,6 +32,7 @@ fix_output.txt
 
 # Terraform
 iac/backend.config
+iac/backend.config.backup.*
 iac/*.tfvars
 !iac/terraform.tfvars.example
 iac/terraform.tfstate*
