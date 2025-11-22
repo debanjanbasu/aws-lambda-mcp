@@ -226,8 +226,9 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
         lambda_arn = aws_lambda_function.bedrock_agent_gateway.arn
 
         # Load tool schemas from tool_schema.json using dynamic blocks
+        # Use try() to handle missing file during destroy operations
         dynamic "tool_schema" {
-          for_each = jsondecode(file(local.tool_schema_path))
+          for_each = jsondecode(try(file(local.tool_schema_path), "[]"))
           content {
             inline_payload {
               name        = tool_schema.value.name
