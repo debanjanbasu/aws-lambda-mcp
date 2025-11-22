@@ -191,8 +191,9 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
         lambda_arn = aws_lambda_function.bedrock_agent_gateway.arn
 
         # Load tool schemas from tool_schema.json using dynamic blocks
+        # Convert array to map keyed by tool name for for_each compatibility
         dynamic "tool_schema" {
-          for_each = jsondecode(file(local.tool_schema_path))
+          for_each = { for tool in jsondecode(file(local.tool_schema_path)) : tool.name => tool }
           content {
             inline_payload {
               name        = tool_schema.value.name
