@@ -200,7 +200,9 @@ setup-backend: ## ⚙️ Create S3 backend for Terraform state (native locking)
 	echo -e "$(GREEN)✅ Backend setup complete!$(RESET)"; \
 	echo -e "$(CYAN)ℹ️  Using native S3 state locking (Terraform 1.10+)$(RESET)"; \
 	echo -e "Run '\''$(CYAN)make tf-init$(RESET)'\'' to initialize Terraform with the new backend."; \
-	echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\"" >> .env \
+	# Safely update or add TF_BACKEND_BUCKET to .env file
+	(grep -v '^TF_BACKEND_BUCKET=' .env 2>/dev/null; echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\"") > .env.tmp && mv .env.tmp .env; \
+	echo -e "$(GREEN)✅ .env file updated with TF_BACKEND_BUCKET=$(RESET)"; \
 	'
 
 login: ## 🔑 Authenticate AWS + Azure CLIs
