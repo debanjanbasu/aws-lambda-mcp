@@ -142,10 +142,19 @@ data "azuread_service_principal" "microsoft_graph" {
   client_id = local.microsoft_graph_app_id
 }
 
+# Wait for application to be fully replicated before creating service principal
+resource "time_sleep" "wait_for_app_replication" {
+  depends_on = [azuread_application.agentcore_app]
+
+  create_duration = "60s"
+}
+
 # Create Service Principal for the application in the current tenant
 resource "azuread_service_principal" "agentcore_sp" {
   client_id                    = azuread_application.agentcore_app.client_id
   app_role_assignment_required = false
+
+  depends_on = [time_sleep.wait_for_app_replication]
 
   lifecycle {
     ignore_changes = [
