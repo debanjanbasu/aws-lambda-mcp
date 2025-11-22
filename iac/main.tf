@@ -179,55 +179,71 @@ resource "aws_bedrockagentcore_gateway" "main" {
 }
 
 # Amazon Bedrock AgentCore Gateway Target (Lambda)
-# Tool schemas loaded directly from programmatically generated tool_schema.json
+# Tool schemas hardcoded for the weather tool
 resource "aws_bedrockagentcore_gateway_target" "lambda" {
   name               = "${local.project_name_with_suffix}-target"
   gateway_identifier = aws_bedrockagentcore_gateway.main.gateway_id
-  description        = "Lambda target with MCP tools from tool_schema.json"
+  description        = "Lambda target with MCP weather tool"
 
   target_configuration {
     mcp {
       lambda {
         lambda_arn = aws_lambda_function.bedrock_agent_gateway.arn
 
-        # Load tool schemas from tool_schema.json using dynamic blocks
-        dynamic "tool_schema" {
-          for_each = jsondecode(file(local.tool_schema_path))
-          content {
-            inline_payload {
-              name        = tool_schema.value.name
-              description = tool_schema.value.description
+        tool_schema {
+          inline_payload {
+            name        = "get_weather"
+            description = "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide."
 
-              input_schema {
-                type        = tool_schema.value.inputSchema.type
-                description = try(tool_schema.value.inputSchema.description, null)
+            input_schema {
+              type        = "object"
+              description = "Request for weather information"
 
-                # Dynamically create property blocks from inputSchema.properties
-                dynamic "property" {
-                  for_each = try(tool_schema.value.inputSchema.properties, {})
-                  content {
-                    name        = property.key
-                    type        = property.value.type
-                    description = try(property.value.description, null)
-                    required    = contains(try(tool_schema.value.inputSchema.required, []), property.key)
-                  }
-                }
+              property {
+                name        = "location"
+                type        = "string"
+                description = "Location name (city, address, or place)"
+                required    = true
+              }
+            }
+
+            output_schema {
+              type        = "object"
+              description = "Response containing weather information"
+
+              property {
+                name        = "location"
+                type        = "string"
+                description = "Location name"
+                required    = true
               }
 
-              output_schema {
-                type        = tool_schema.value.outputSchema.type
-                description = try(tool_schema.value.outputSchema.description, null)
+              property {
+                name        = "temperature"
+                type        = "number"
+                description = "Temperature value"
+                required    = true
+              }
 
-                # Dynamically create property blocks from outputSchema.properties
-                dynamic "property" {
-                  for_each = try(tool_schema.value.outputSchema.properties, {})
-                  content {
-                    name        = property.key
-                    type        = property.value.type
-                    description = try(property.value.description, null)
-                    required    = contains(try(tool_schema.value.outputSchema.required, []), property.key)
-                  }
-                }
+              property {
+                name        = "temperature_unit"
+                type        = "string"
+                description = "The unit of temperature (Celsius or Fahrenheit)"
+                required    = true
+              }
+
+              property {
+                name        = "weather_code"
+                type        = "integer"
+                description = "WMO weather code"
+                required    = true
+              }
+
+              property {
+                name        = "wind_speed"
+                type        = "number"
+                description = "Wind speed in km/h"
+                required    = true
               }
             }
           }
