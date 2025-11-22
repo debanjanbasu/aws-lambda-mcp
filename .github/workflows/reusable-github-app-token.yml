@@ -26,6 +26,7 @@ jobs:
         env:
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
         run: |
+          set -x
           if [ -z "$APP_PRIVATE_KEY" ]; then
             echo "Missing APP_PRIVATE_KEY" >&2
             exit 2
@@ -38,6 +39,7 @@ jobs:
         env:
           APP_ID: ${{ secrets.APP_ID }}
         run: |
+          set -x
           if [ -z "$APP_ID" ]; then
             echo "Missing APP_ID" >&2
             exit 2
