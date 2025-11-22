@@ -23,7 +23,6 @@ locals {
     azure_cli        = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
     azure_powershell = "1950a258-227b-4e31-a9cf-717495945fc2"
     visual_studio    = "872cd9fa-d31f-45e0-9eab-6e460a02d1f1"
-    vscode           = "aebc6443-996d-45c2-90f0-388ff96faa56"
   }
 
   # Derived paths (binary name matches Cargo package name)
