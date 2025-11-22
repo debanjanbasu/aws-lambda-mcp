@@ -2,6 +2,11 @@ name: "🔑 Reusable: GitHub App Installation Token"
 
 on:
   workflow_call:
+    secrets:
+      APP_ID:
+        required: true
+      APP_PRIVATE_KEY:
+        required: true
     outputs:
       installation_token:
         description: "Short-lived installation access token"
@@ -9,7 +14,7 @@ on:
 
 jobs:
   make_token:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write
       contents: read
