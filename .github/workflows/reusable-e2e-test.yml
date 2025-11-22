@@ -57,9 +57,10 @@ jobs:
       - name: 📥 Install opencode
         if: steps.cache-opencode.outputs.cache-hit != 'true'
         run: curl -fsSL https://opencode.ai/install | bash
-      
       - name: 🔧 Add opencode to PATH
         run: echo "$HOME/.opencode/bin" >> $GITHUB_PATH
+      - name: ⬆️ Upgrade opencode
+        run: opencode upgrade
       - name: 🧪 E2E Test - AI Dynamic Discovery
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
