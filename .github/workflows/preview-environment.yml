@@ -88,6 +88,7 @@ jobs:
           BRANCH: ${{ github.head_ref }}
           PR_NUMBER: ${{ github.event.number || inputs.pr_number }}
           TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
         run: |
           COMMENT="## 🌱 Ephemeral Environment Deployed ✅
           Your Preview environment has been deployed successfully!
@@ -107,13 +108,9 @@ jobs:
           - Client ID: \`$CLIENT_ID\`
           
           🛠️ **Local Development Setup** (optional):
-          To work with this preview environment locally, run:
+          To work with this preview environment locally, configure your Terraform backend with this single command:
           \`\`\`bash
-          # Configure backend for preview environment (backs up existing config automatically)
-          make setup-backend
-          
-          # Then initialize with preview state key
-          cd iac && terraform init -reconfigure -backend-config=backend.config -backend-config=\"key=aws-lambda-mcp/$ENVIRONMENT/terraform.tfstate\"
+          BUCKET_NAME="${{ secrets.TF_BACKEND_BUCKET }}" ENVIRONMENT_NAME="$(echo "$ENVIRONMENT" | sed 's/^preview-//')" make setup-backend && cd iac && terraform init -reconfigure -backend-config=backend.config
           \`\`\`
           
           ℹ️ This environment will be automatically destroyed when the PR is closed or merged."
