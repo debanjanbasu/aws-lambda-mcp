@@ -269,8 +269,10 @@ jobs:
             --base main \
             --head "$BRANCH")
           # Add automerge label so the automerge workflow will pick this up
-          PR_NUMBER=$(echo "$PR_URL" | awk -F'/' '{print $NF}')
-          gh pr edit $PR_NUMBER --add-label automerge || true
-          [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🥷 Fix implemented! PR: $PR_URL"
+           PR_NUMBER=$(echo "$PR_URL" | awk -F'/' '{print $NF}')
+           if [ "${{ github.event_name }}" = "workflow_run" ] && [ "${{ github.event.workflow_run.name }}" = "🤖 Auto-merge" ] && [ "${{ github.event.workflow_run.conclusion }}" = "failure" ]; then
+             gh pr edit $PR_NUMBER --add-label automerge || true
+           fi
+           [ -n "$ISSUE_NUM" ] && gh issue comment $ISSUE_NUM --body "🥷 Fix implemented! PR: $PR_URL"
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
