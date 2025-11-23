@@ -226,41 +226,41 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
         lambda_arn = aws_lambda_function.bedrock_agent_gateway.arn
 
         # Load tool schemas from tool_schema.json using dynamic blocks
-        dynamic "tool_schema" {
-          for_each = jsondecode(file(local.tool_schema_path))
-          content {
-            inline_payload {
-              name        = tool_schema.value.name
-              description = tool_schema.value.description
+        tool_schema {
+          dynamic "inline_payload" {
+            for_each = jsondecode(file(local.tool_schema_path))
+            content {
+              name        = inline_payload.value.name
+              description = inline_payload.value.description
 
               input_schema {
-                type        = tool_schema.value.inputSchema.type
-                description = try(tool_schema.value.inputSchema.description, null)
+                type        = inline_payload.value.inputSchema.type
+                description = try(inline_payload.value.inputSchema.description, null)
 
                 # Dynamically create property blocks from inputSchema.properties
                 dynamic "property" {
-                  for_each = try(tool_schema.value.inputSchema.properties, {})
+                  for_each = try(inline_payload.value.inputSchema.properties, {})
                   content {
                     name        = property.key
                     type        = property.value.type
                     description = try(property.value.description, null)
-                    required    = contains(try(tool_schema.value.inputSchema.required, []), property.key)
+                    required    = contains(try(inline_payload.value.inputSchema.required, []), property.key)
                   }
                 }
               }
 
               output_schema {
-                type        = tool_schema.value.outputSchema.type
-                description = try(tool_schema.value.outputSchema.description, null)
+                type        = inline_payload.value.outputSchema.type
+                description = try(inline_payload.value.outputSchema.description, null)
 
                 # Dynamically create property blocks from outputSchema.properties
                 dynamic "property" {
-                  for_each = try(tool_schema.value.outputSchema.properties, {})
+                  for_each = try(inline_payload.value.outputSchema.properties, {})
                   content {
                     name        = property.key
                     type        = property.value.type
                     description = try(property.value.description, null)
-                    required    = contains(try(tool_schema.value.outputSchema.required, []), property.key)
+                    required    = contains(try(inline_payload.value.outputSchema.required, []), property.key)
                   }
                 }
               }
