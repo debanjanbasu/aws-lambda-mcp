@@ -241,16 +241,19 @@ For more information, see the [opencode.ai GitHub documentation](https://opencod
 src/
 ├── main.rs              # Lambda bootstrap + tracing
 ├── handler.rs           # Event handler
+├── lib.rs               # Library crate
 ├── models/              # Request/response types (JsonSchema)
-│   └── weather.rs
+│   ├── mod.rs
+│   ├── weather.rs
+│   └── open_meteo.rs
 ├── tools/               # Tool implementations (#[tool] macro)
+│   ├── mod.rs
 │   └── weather.rs
-├── http/                # Global HTTP_CLIENT
+├── http/                # Global HTTP client
+│   ├── mod.rs
+│   └── client.rs
 └── bin/
     └── generate_schema.rs
-
-macros/                  # Custom #[tool] proc macro
-└── src/lib.rs
 ```
 
 ## Usage
@@ -262,6 +265,8 @@ make build     # Debug build
 make release   # ARM64 + UPX (~1.3MB)
 make test      # Run tests
 make all       # Test + release build
+cargo clippy   # Run clippy lints
+cargo fmt      # Format code
 ```
 
 ### Deploy
@@ -285,6 +290,7 @@ make clean        # Remove tokens/backups
 make tf-init   # Initialize Terraform
 make tf-plan   # Plan changes
 make tf-apply  # Apply changes
+make tf-destroy # Destroy infrastructure
 ```
 
 For full infrastructure commands: `cd iac && make help`
@@ -365,19 +371,20 @@ Redeploy and view: `make logs`
 | `make tf-init` | Initialize Terraform (smart backend checking) |
 | `make tf-plan` | Plan Terraform changes |
 | `make tf-apply` | Apply Terraform changes |
-| `make tf-destroy` | Destroy infrastructure |
+| `make tf-destroy` | Destroy infrastructure (generate schema first) |
 | `make clean` | Remove tokens/backups |
 | `make oauth-config` | Display OAuth configuration details |
-| `make add-redirect-url` | Add custom OAuth redirect URL to terraform.tfvars |
+| `make add-redirect-url` | Add custom OAuth redirect URL to Entra ID app |
+| `make remove-redirect-url` | Remove custom OAuth redirect URL from Entra ID app |
 
 For advanced infrastructure commands: `cd iac && make help`
 
 ## Schema Generation
 
-Generates Amazon Bedrock AgentCore schemas from code using custom `#[tool]` macro (not MCP):
+Generates Amazon Bedrock AgentCore schemas from code using `rmcp` crate's `#[tool]` macro:
 
 ```rust
-use crate::macros::tool;
+use rmcp::tool;
 
 #[tool(description = "Get current weather for a location")]
 #[instrument(fields(location = %request.location))]
@@ -419,7 +426,11 @@ pub async fn your_tool(request: YourRequest) -> Result<YourResponse> {
 
 **3. Register** in `src/bin/generate_schema.rs`:
 ```rust
-tool_entry!(your_tool::YOUR_TOOL_METADATA, YourRequest, YourResponse),
+tool_entry!(
+    aws_lambda_mcp::tools::your_tool::your_tool_tool_attr(),
+    YourRequest,
+    YourResponse
+),
 ```
 
 **4. Generate**: `make schema`
@@ -446,11 +457,13 @@ See [AGENTS.md](./AGENTS.md) for full guidelines.
 - ✅ `Result<T>` + `?` with `.context()`
 - ✅ `#[instrument]` for tracing
 - ✅ `#[must_use]` on pure functions
+- ✅ `#[derive(Debug, Serialize, Deserialize, JsonSchema)]` on types
 - ❌ No `unwrap/expect/panic/unsafe`
 - ❌ No blocking I/O in async
 - ❌ No wildcard imports
+- ❌ No hardcoded secrets
 
-**Dependencies**: `lambda_runtime` | `tokio` | `serde` | `schemars` | `reqwest` | `tracing` | `anyhow`
+**Dependencies**: `lambda_runtime` | `tokio` | `serde` | `schemars` | `reqwest` | `tracing` | `anyhow` | `rmcp`
 
 ## Contributing
 
@@ -458,3 +471,4 @@ See [AGENTS.md](./AGENTS.md) for full guidelines.
 2. `cargo clippy -- -D warnings`
 3. `make schema` if models changed
 4. `make release` succeeds
+5. `make test` passes
