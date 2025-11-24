@@ -139,6 +139,14 @@ jobs:
         run: |
           cd iac
           terraform apply -auto-approve ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
+      - name: ⚙️ Setup Rust toolchain
+        if: inputs.command == 'destroy'
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - name: 📄 Generate Tool Schema (required for Terraform destroy)
+        if: inputs.command == 'destroy'
+        run: cargo run --bin generate-schema --features schema-gen
       - name: 💥 Terraform Destroy
         if: inputs.command == 'destroy'
         run: |
