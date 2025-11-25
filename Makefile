@@ -112,14 +112,17 @@ schema: ## 📄 Generate tool_schema.json
 build: schema ## 🐳 Build Lambda (debug)
 	@echo "$(BLUE)🔨 Building debug version...$(RESET)"
 	@cargo lambda build --bin aws-lambda-mcp --color=always
+	@cargo lambda build --bin interceptor --color=always
 
 release: schema check-tools ## 📦 Build Lambda (release, ARM64) with UPX compression
 	@echo "$(BLUE)🚀 Building release version (ARM64 + UPX)...$(RESET)"
 	@cargo lambda build --release --arm64 --bin aws-lambda-mcp --color=always
-	@echo "$(BLUE)📦 Compressing binary with UPX (--best --lzma)...$(RESET)"
+	@cargo lambda build --release --arm64 --bin interceptor --color=always
+	@echo "$(BLUE)📦 Compressing binaries with UPX (--best --lzma)...$(RESET)"
 	@upx --best --lzma target/lambda/aws-lambda-mcp/bootstrap
-	@echo "$(GREEN)📊 Final size:$(RESET)"
-	@ls -lh target/lambda/aws-lambda-mcp/bootstrap
+	@upx --best --lzma target/lambda/interceptor/bootstrap
+	@echo "$(GREEN)📊 Final sizes:$(RESET)"
+	@ls -lh target/lambda/aws-lambda-mcp/bootstrap target/lambda/interceptor/bootstrap
 
 test: ## 🧪 Run tests
 	@echo "$(BLUE)🧪 Running tests...$(RESET)"

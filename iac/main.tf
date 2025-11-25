@@ -9,6 +9,13 @@ data "archive_file" "lambda_zip" {
   output_path = "${path.module}/.terraform/lambda.zip"
 }
 
+# Create zip file from interceptor Lambda binary
+data "archive_file" "interceptor_lambda_zip" {
+  type        = "zip"
+  source_file = local.interceptor_lambda_binary_path
+  output_path = "${path.module}/.terraform/interceptor-lambda.zip"
+}
+
 # SQS Dead Letter Queue for Lambda
 resource "aws_sqs_queue" "lambda_dlq" {
   name                       = "${local.project_name_with_suffix}-dlq"
@@ -61,6 +68,37 @@ resource "aws_lambda_function" "bedrock_agent_gateway" {
   ]
 }
 
+# Interceptor Lambda Function
+resource "aws_lambda_function" "gateway_interceptor" {
+  function_name = "${local.project_name_with_suffix}-interceptor"
+  role          = aws_iam_role.lambda_execution.arn
+  handler       = "bootstrap"
+  runtime       = "provided.al2023"
+  architectures = ["arm64"]
+
+  filename         = data.archive_file.interceptor_lambda_zip.output_path
+  source_code_hash = data.archive_file.interceptor_lambda_zip.output_base64sha256
+
+  memory_size = 256
+  timeout     = 30
+
+  # Dead Letter Queue configuration
+  dead_letter_config {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
+
+  environment {
+    variables = {
+      RUST_LOG = var.rust_log_level
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.lambda_basic,
+    aws_cloudwatch_log_group.interceptor_lambda_logs,
+  ]
+}
+
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "lambda_logs" {
   name              = "/aws/lambda/${local.project_name_with_suffix}"
@@ -68,6 +106,12 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 
   # KMS encryption disabled to reduce costs (free tier uses SSE)
   # kms_key_id = var.cloudwatch_kms_key_arn
+}
+
+# CloudWatch Log Group for Interceptor Lambda
+resource "aws_cloudwatch_log_group" "interceptor_lambda_logs" {
+  name              = "/aws/lambda/${local.project_name_with_suffix}-interceptor"
+  retention_in_days = var.log_retention_days
 }
 
 # IAM Role for Lambda
@@ -283,6 +327,22 @@ resource "aws_lambda_permission" "agentcore_gateway_invoke" {
   function_name = aws_lambda_function.bedrock_agent_gateway.function_name
   principal     = "bedrock.amazonaws.com"
   source_arn    = aws_bedrockagentcore_gateway.main.gateway_arn
+}
+
+# CloudFormation stack to add interceptor to the gateway
+resource "aws_cloudformation_stack" "gateway_interceptor" {
+  name         = "${local.project_name_with_suffix}-interceptor"
+  template_body = file("${path.module}/gateway-with-interceptor.yaml")
+
+  parameters = {
+    GatewayId           = aws_bedrockagentcore_gateway.main.gateway_id
+    InterceptorLambdaArn = aws_lambda_function.gateway_interceptor.arn
+  }
+
+  depends_on = [
+    aws_bedrockagentcore_gateway.main,
+    aws_lambda_function.gateway_interceptor,
+  ]
 }
 
 

@@ -19,6 +19,11 @@ name = "generate-schema"
 path = "src/bin/generate_schema.rs"
 required-features = ["schema-gen"]
 
+# interceptor is a Lambda binary for gateway request interception
+[[bin]]
+name = "interceptor"
+path = "src/bin/interceptor.rs"
+
 [dependencies]
 anyhow = "1"
 tokio = { version = "1", features = ["macros"] }
