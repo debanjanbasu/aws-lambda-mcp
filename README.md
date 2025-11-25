@@ -427,7 +427,8 @@ pub async fn your_tool(request: YourRequest) -> Result<YourResponse> {
 **3. Register** in `src/bin/generate_schema.rs`:
 ```rust
 tool_entry!(
-    aws_lambda_mcp::tools::your_tool::your_tool_tool_attr(),
+    "your_tool",
+    "Description of what your tool does",
     YourRequest,
     YourResponse
 ),
