@@ -16,6 +16,40 @@ data "archive_file" "interceptor_lambda_zip" {
   output_path = "${path.module}/.terraform/interceptor-lambda.zip"
 }
 
+# Get current AWS account information
+data "aws_caller_identity" "current" {}
+
+# SNS Topic for CloudFormation stack notifications
+resource "aws_sns_topic" "cloudformation_notifications" {
+  name = "${local.project_name_with_suffix}-cfn-notifications"
+
+  tags = var.common_tags
+}
+
+# SNS Topic Policy for CloudFormation notifications
+resource "aws_sns_topic_policy" "cloudformation_notifications" {
+  arn = aws_sns_topic.cloudformation_notifications.arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudformation.amazonaws.com"
+        }
+        Action   = "SNS:Publish"
+        Resource = aws_sns_topic.cloudformation_notifications.arn
+        Condition = {
+          StringEquals = {
+            "AWS:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
+}
+
 # SQS Dead Letter Queue for Lambda
 resource "aws_sqs_queue" "lambda_dlq" {
   name                       = "${local.project_name_with_suffix}-dlq"
@@ -41,7 +75,7 @@ resource "aws_lambda_function" "bedrock_agent_gateway" {
 
   memory_size                    = var.lambda_memory_size
   timeout                        = var.lambda_timeout
-  reserved_concurrent_executions = 100
+  reserved_concurrent_executions = var.lambda_concurrent_executions
 
   # Dead Letter Queue configuration
   dead_letter_config {
@@ -79,8 +113,9 @@ resource "aws_lambda_function" "gateway_interceptor" {
   filename         = data.archive_file.interceptor_lambda_zip.output_path
   source_code_hash = data.archive_file.interceptor_lambda_zip.output_base64sha256
 
-  memory_size = 256
-  timeout     = 30
+  memory_size                    = 128  # Minimum memory for cost optimization
+  timeout                        = 30   # Standard timeout for consistency
+  reserved_concurrent_executions = var.lambda_concurrent_executions * 2
 
   # Dead Letter Queue configuration
   dead_letter_config {
@@ -339,9 +374,13 @@ resource "aws_cloudformation_stack" "gateway_interceptor" {
     InterceptorLambdaArn = aws_lambda_function.gateway_interceptor.arn
   }
 
+  # Send CloudFormation events to SNS topic
+  notification_arns = [aws_sns_topic.cloudformation_notifications.arn]
+
   depends_on = [
     aws_bedrockagentcore_gateway.main,
     aws_lambda_function.gateway_interceptor,
+    aws_sns_topic_policy.cloudformation_notifications,
   ]
 }
 

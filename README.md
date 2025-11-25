@@ -35,7 +35,7 @@ Client → Entra ID (PKCE) → AgentCore Gateway → Interceptor Lambda → Main
                             JWT Validation (OIDC)        Header Propagation & Token Exchange
 ```
 
-**Stack**: ARM64 Lambdas (~1.3MB UPX each) | Entra ID OAuth | CloudWatch (90d retention) | CloudFormation
+**Stack**: ARM64 Lambdas (128MB, ~1.3MB UPX each) | Configurable concurrency | Entra ID OAuth | CloudWatch (3d retention) | CloudFormation
 
 **License**: MIT
 
@@ -52,10 +52,13 @@ The Bedrock AgentCore Gateway is configured with a `SEMANTIC` search type, which
 - **JWT Validation** - OIDC discovery per request
 - **Gateway Interceptor** - Header propagation and token exchange between gateway and tools
 - **Zero Unsafe** - No `unwrap/expect/panic/unsafe`, strict lints
+- **High Concurrency** - Configurable base concurrency (Interceptor = 2× Main Lambda)
+- **Event Notifications** - CloudFormation stack events sent to SNS topic
 - **Structured Tracing** - JSON logs for CloudWatch
 - **Dead Letter Queue** - Failed invocations stored in encrypted SQS for debugging
 - **Auto Schemas** - Generated from code annotations
 - **Fast Cold Start** - Minimal deps, optimized binary
+- **Cost Optimized** - Minimum memory (128MB), conservative timeouts, low concurrency limits
 - **Free Tier** - Typical usage $0/month
 
 ## One-Time Backend Setup
