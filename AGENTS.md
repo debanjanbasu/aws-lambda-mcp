@@ -33,7 +33,7 @@ The AWS Lambda MCP is a Rust-based server implementing MCP for Bedrock AgentCore
 - `cargo clippy` - Run clippy with strict lints (denies unsafe code, unwrap, panic, etc.)
 - `cargo fmt` - Format code
 - `cargo fmt --check` - Validate code formatting
-- `make schema` - Generate tool schemas (run after changing models/tools)
+- `make schema` - Generate tool schemas (run after changing models/tools). Note: Schema generation happens automatically in CI/CD workflows.
 - `make check-tools` - Install/check required tools (Rust, Zig, cargo-lambda, UPX, jq, Terraform) *(Optional - called automatically by deploy)*
 - `make help` - Show all available make commands
 - `make all` - Run tests and build release
