@@ -46,6 +46,7 @@ This document provides guidelines for AI assistants working on the infrastructur
 - **Validation**: Test CloudFormation templates with `aws cloudformation validate-template`
 - **Dependencies**: Use `depends_on` to ensure proper deployment order
 - **Updates**: CloudFormation handles resource updates automatically
+- **Cleanup**: Implement proper resource cleanup in Delete handlers to prevent orphaned resources
 
 ## AWS Resource Best Practices
 
@@ -61,8 +62,10 @@ This document provides guidelines for AI assistants working on the infrastructur
 ## Security Considerations
 
 - **Secrets Management**: Never hardcode secrets; use environment variables or AWS Secrets Manager
-- **IAM Roles**: Restrict permissions to minimum required; use condition keys
+- **Data Encryption**: SNS topics encrypted with AWS managed keys, Lambda environment variables encrypted
+- **IAM Roles**: Restrict permissions to minimum required; use condition keys and resource ARNs
 - **Network Security**: Use VPC endpoints where possible; avoid public IPs
+- **CloudFormation**: Scope IAM policies to specific resources, avoid wildcard permissions
 - **Logging**: Enable CloudTrail, avoid logging sensitive data
 - **Compliance**: Follow AWS security best practices; regular audits
 

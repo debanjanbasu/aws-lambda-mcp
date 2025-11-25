@@ -29,7 +29,7 @@ MCP Client → Entra ID (PKCE) → Bedrock Gateway (JWT) → Interceptor Lambda 
                               JWT Validation (OIDC)        Header Propagation & Token Exchange
 ```
 
-Secretless PKCE flow, JWT validation via OIDC, ARM64 Lambdas with UPX compression, CloudFormation for advanced gateway configuration with SNS event notifications.
+Secretless PKCE flow, JWT validation via OIDC, ARM64 Lambdas with UPX compression, CloudFormation for advanced gateway configuration with encrypted SNS event notifications.
 
 ## Configuration
 

@@ -23,6 +23,9 @@ data "aws_caller_identity" "current" {}
 resource "aws_sns_topic" "cloudformation_notifications" {
   name = "${local.project_name_with_suffix}-cfn-notifications"
 
+  # Enable server-side encryption using AWS managed SNS key (free)
+  kms_master_key_id = "alias/aws/sns"
+
   tags = var.common_tags
 }
 

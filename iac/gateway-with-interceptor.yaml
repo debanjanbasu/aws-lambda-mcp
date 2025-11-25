@@ -42,8 +42,12 @@ Resources:
                 Action:
                   - bedrock-agentcore-control:UpdateGateway
                   - bedrock-agentcore-control:GetGateway
+                Resource: !Sub 'arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/${GatewayId}'
+              - Effect: Allow
+                Action:
                   - lambda:AddPermission
-                Resource: '*'
+                  - lambda:RemovePermission
+                Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*interceptor*'
 
   # Lambda function that calls the UpdateGateway API with interceptor configuration
   GatewayInterceptorUpdaterFunction:
@@ -113,8 +117,31 @@ Resources:
                       })
 
                   elif request_type == 'Delete':
-                      # On delete, we could remove interceptor configurations
-                      # For now, just succeed since Terraform will handle cleanup
+                      # Clean up: remove interceptor configuration and Lambda permission
+                      try:
+                          # First, remove the interceptor configuration from the gateway
+                          client.update_gateway(
+                              gatewayIdentifier=gateway_id,
+                              interceptorConfigurations=[]  # Empty list removes all interceptors
+                          )
+                          print(f"Removed interceptor configuration from gateway {gateway_id}")
+                      except Exception as e:
+                          print(f"Warning: Could not remove interceptor configuration: {e}")
+
+                      try:
+                          # Then, remove the Lambda permission that was added
+                          lambda_client = boto3.client('lambda')
+                          lambda_client.remove_permission(
+                              FunctionName=interceptor_arn,
+                              StatementId=f'AllowGatewayInvoke-{gateway_id.replace("/", "-")}'
+                          )
+                          print(f"Removed Lambda permission for {interceptor_arn}")
+                      except lambda_client.exceptions.ResourceNotFoundException:
+                          # Permission already removed or doesn't exist
+                          print(f"Lambda permission already removed or does not exist")
+                      except Exception as e:
+                          print(f"Warning: Could not remove Lambda permission: {e}")
+
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
 
               except Exception as e:

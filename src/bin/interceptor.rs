@@ -2,7 +2,11 @@ use lambda_runtime::{Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, warn};
+
+// Header key constants for maintainability
+const AUTH_HEADER: &str = "authorization";
+const CUSTOM_HEADER: &str = "customHeaderKey";
 
 /// Simplified interceptor event structure - only handles REQUEST interception
 #[derive(Deserialize, Debug)]
@@ -29,12 +33,12 @@ struct InterceptorResponse {
 
 /// Extract authorization token from headers
 fn extract_auth_header(headers: &HashMap<String, String>) -> Option<String> {
-    headers.get("authorization").cloned()
+    headers.get(AUTH_HEADER).cloned()
 }
 
 /// Extract custom header for propagation
 fn extract_custom_header(headers: &HashMap<String, String>) -> Option<String> {
-    headers.get("customHeaderKey").cloned()
+    headers.get(CUSTOM_HEADER).cloned()
 }
 
 /// Perform token exchange (placeholder)
@@ -59,21 +63,28 @@ async fn interceptor_handler(event: LambdaEvent<InterceptorEvent>) -> Result<Int
         let exchanged_credentials = auth_token.as_ref().map(|token| exchange_token(token));
 
         // Modify request body to include extracted data
-        if let Some(ref mut body_str) = gateway_request.body
-            && let Ok(mut body) = serde_json::from_str::<Value>(body_str)
-            && let Some(params) = body.get_mut("params")
-            && let Some(args) = params.get_mut("arguments")
-            && let Some(args_obj) = args.as_object_mut() {
-            // Add exchanged credentials if we have an auth token
-            if let Some(creds) = exchanged_credentials {
-                args_obj.insert("exchanged_credentials".to_string(), json!(creds));
+        if let Some(ref mut body_str) = gateway_request.body {
+            match serde_json::from_str::<Value>(body_str) {
+                Ok(mut body) => {
+                    if let Some(params) = body.get_mut("params")
+                        && let Some(args) = params.get_mut("arguments")
+                        && let Some(args_obj) = args.as_object_mut() {
+                        // Add exchanged credentials if we have an auth token
+                        if let Some(creds) = exchanged_credentials {
+                            args_obj.insert("exchanged_credentials".to_string(), json!(creds));
+                        }
+                        // Add custom header if present
+                        if let Some(custom) = custom_header {
+                            args_obj.insert(CUSTOM_HEADER.to_string(), json!(custom));
+                        }
+                        // Update the body
+                        *body_str = body.to_string();
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "Failed to parse request body as JSON. Body will be passed through unmodified.");
+                }
             }
-            // Add custom header if present
-            if let Some(custom) = custom_header {
-                args_obj.insert("customHeaderKey".to_string(), json!(custom));
-            }
-            // Update the body
-            *body_str = body.to_string();
         }
     }
 

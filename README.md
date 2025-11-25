@@ -52,13 +52,15 @@ The Bedrock AgentCore Gateway is configured with a `SEMANTIC` search type, which
 - **JWT Validation** - OIDC discovery per request
 - **Gateway Interceptor** - Header propagation and token exchange between gateway and tools
 - **Zero Unsafe** - No `unwrap/expect/panic/unsafe`, strict lints
-- **High Concurrency** - Configurable base concurrency (Interceptor = 2× Main Lambda)
-- **Event Notifications** - CloudFormation stack events sent to SNS topic
+- **Concurrency Limits** - Function-level concurrent execution limits to prevent cost overruns
+- **Event Notifications** - CloudFormation stack events sent to encrypted SNS topic
 - **Structured Tracing** - JSON logs for CloudWatch
 - **Dead Letter Queue** - Failed invocations stored in encrypted SQS for debugging
 - **Auto Schemas** - Generated from code annotations
 - **Fast Cold Start** - Minimal deps, optimized binary
 - **Cost Optimized** - Minimum memory (128MB), conservative timeouts, low concurrency limits
+- **Principle of Least Privilege** - IAM policies scoped to specific resources
+- **Resource Cleanup** - CloudFormation stacks properly clean up interceptor configurations
 - **Free Tier** - Typical usage $0/month
 
 ## One-Time Backend Setup
