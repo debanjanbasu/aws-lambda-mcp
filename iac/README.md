@@ -24,10 +24,12 @@ Configure these secrets in your repository's Settings > Secrets and variables > 
 ## Architecture
 
 ```
-MCP Client → Entra ID (PKCE) → Bedrock Gateway (JWT) → Lambda → APIs
+MCP Client → Entra ID (PKCE) → Bedrock Gateway (JWT) → Interceptor Lambda → Main Lambda → APIs
+                                      ↓                              ↓
+                              JWT Validation (OIDC)        Header Propagation & Token Exchange
 ```
 
-Secretless PKCE flow, JWT validation via OIDC, ARM64 Lambda with UPX compression.
+Secretless PKCE flow, JWT validation via OIDC, ARM64 Lambdas with UPX compression, CloudFormation for advanced gateway configuration.
 
 ## Configuration
 
@@ -146,7 +148,8 @@ curl -X POST "$(terraform output -raw bedrock_gateway_url)" \
 
 ## Files
 
-- `main.tf` - Lambda, Gateway, IAM
+- `main.tf` - Main Lambda, Gateway, IAM, CloudFormation stack
+- `gateway-with-interceptor.yaml` - CloudFormation template for gateway interceptor
 - `entra_oauth.tf` - Entra ID app (PKCE)
 - `variables.tf` - All configuration
 - `outputs.tf` - Client ID, tenant, gateway URL

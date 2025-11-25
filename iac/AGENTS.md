@@ -16,7 +16,8 @@ This document provides guidelines for AI assistants working on the infrastructur
 
 ## Key Infrastructure Files
 
-- `main.tf` - Main Terraform resources (Lambda, API Gateway, Bedrock)
+- `main.tf` - Main Terraform resources (Lambda, API Gateway, Bedrock, CloudFormation)
+- `gateway-with-interceptor.yaml` - CloudFormation template for gateway interceptor configuration
 - `variables.tf` - Input variables with defaults and validation
 - `outputs.tf` - Output values for other systems
 - `locals.tf` - Computed values and constants
@@ -36,9 +37,21 @@ This document provides guidelines for AI assistants working on the infrastructur
 - **Dependencies**: Use `depends_on` sparingly; prefer implicit dependencies
 - **Formatting**: Run `terraform fmt` before committing
 
+## CloudFormation Guidelines
+
+- **Purpose**: Use CloudFormation for AWS features not yet supported by Terraform providers
+- **Integration**: Deploy CloudFormation stacks via Terraform's `aws_cloudformation_stack` resource
+- **Naming**: Follow consistent naming conventions matching Terraform resources
+- **Parameters**: Pass Terraform outputs as CloudFormation parameters
+- **Validation**: Test CloudFormation templates with `aws cloudformation validate-template`
+- **Dependencies**: Use `depends_on` to ensure proper deployment order
+- **Updates**: CloudFormation handles resource updates automatically
+
 ## AWS Resource Best Practices
 
 - **Lambda**: Use ARM64 architecture, set appropriate memory/timeout, enable CloudWatch logs
+- **Bedrock AgentCore Gateway**: Configure with interceptor for header propagation when needed
+- **CloudFormation**: Use for advanced AWS features not in Terraform providers
 - **API Gateway**: Use regional deployment, enable logging, configure CORS properly
 - **IAM**: Follow least privilege; use managed policies where possible
 - **S3**: Enable versioning, encryption, and access logging for state buckets
