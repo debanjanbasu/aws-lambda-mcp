@@ -128,4 +128,11 @@ resource "azuread_application" "agentcore_app" {
       password,
     ]
   }
+
+  timeouts {
+    create = "15m"
+    read = "15m"
+    update = "15m"
+    delete = "15m"
+  }
 }
