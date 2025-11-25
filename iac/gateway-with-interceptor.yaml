@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Update Existing Amazon Bedrock AgentCore Gateway with Interceptor Configuration'
+
+Parameters:
+  GatewayId:
+    Type: String
+    Description: 'ID of the existing AgentCore Gateway to update'
+
+  InterceptorLambdaArn:
+    Type: String
+    Description: 'ARN of the interceptor Lambda function'
+
+Resources:
+  # Custom resource to update existing gateway with interceptor configuration
+  # Uses native CloudFormation approach with custom resource for API calls
+  GatewayInterceptorConfiguration:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt GatewayInterceptorUpdaterFunction.Arn
+      GatewayId: !Ref GatewayId
+      InterceptorLambdaArn: !Ref InterceptorLambdaArn
+
+  # IAM Role for the updater function
+  GatewayInterceptorUpdaterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: GatewayInterceptorPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock-agentcore-control:UpdateGateway
+                  - bedrock-agentcore-control:GetGateway
+                Resource: !Sub 'arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/${GatewayId}'
+              - Effect: Allow
+                Action:
+                  - lambda:AddPermission
+                  - lambda:RemovePermission
+                Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*interceptor*'
+
+  # Lambda function that calls the UpdateGateway API with interceptor configuration
+  GatewayInterceptorUpdaterFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'gateway-interceptor-updater-${GatewayId}'
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt GatewayInterceptorUpdaterRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import json
+
+          def handler(event, context):
+              try:
+                  request_type = event['RequestType']
+                  gateway_id = event['ResourceProperties']['GatewayId']
+                  interceptor_arn = event['ResourceProperties']['InterceptorLambdaArn']
+
+                  client = boto3.client('bedrock-agentcore-control')
+
+                  if request_type in ['Create', 'Update']:
+                      # Configure interceptor using the native API structure
+                      interceptor_configurations = [{
+                          'interceptor': {
+                              'lambda': {
+                                  'arn': interceptor_arn
+                              }
+                          },
+                          'interceptionPoints': ['REQUEST'],
+                          'inputConfiguration': {
+                              'passRequestHeaders': True
+                          }
+                      }]
+
+                      # Update gateway with interceptor configuration
+                      response = client.update_gateway(
+                          gatewayIdentifier=gateway_id,
+                          interceptorConfigurations=interceptor_configurations
+                      )
+
+                      # Add Lambda permission for gateway to invoke interceptor
+                      lambda_client = boto3.client('lambda')
+                      try:
+                          # Get gateway details for the source ARN
+                          gateway_response = client.get_gateway(gatewayIdentifier=gateway_id)
+                          gateway_arn = gateway_response['gatewayArn']
+
+                          lambda_client.add_permission(
+                              FunctionName=interceptor_arn,
+                              StatementId=f'AllowGatewayInvoke-{gateway_id.replace("/", "-")}',
+                              Action='lambda:InvokeFunction',
+                              Principal='bedrock-agentcore.amazonaws.com',
+                              SourceArn=gateway_arn
+                          )
+                      except lambda_client.exceptions.ResourceConflictException:
+                          # Permission already exists
+                          pass
+                      except Exception as e:
+                          print(f"Warning: Could not add Lambda permission: {e}")
+
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                          'GatewayId': gateway_id,
+                          'InterceptorArn': interceptor_arn
+                      })
+
+                  elif request_type == 'Delete':
+                      # Clean up: remove interceptor configuration and Lambda permission
+                      try:
+                          # First, remove the interceptor configuration from the gateway
+                          client.update_gateway(
+                              gatewayIdentifier=gateway_id,
+                              interceptorConfigurations=[]  # Empty list removes all interceptors
+                          )
+                          print(f"Removed interceptor configuration from gateway {gateway_id}")
+                      except Exception as e:
+                          print(f"Warning: Could not remove interceptor configuration: {e}")
+
+                      try:
+                          # Then, remove the Lambda permission that was added
+                          lambda_client = boto3.client('lambda')
+                          lambda_client.remove_permission(
+                              FunctionName=interceptor_arn,
+                              StatementId=f'AllowGatewayInvoke-{gateway_id.replace("/", "-")}'
+                          )
+                          print(f"Removed Lambda permission for {interceptor_arn}")
+                      except lambda_client.exceptions.ResourceNotFoundException:
+                          # Permission already removed or doesn't exist
+                          print(f"Lambda permission already removed or does not exist")
+                      except Exception as e:
+                          print(f"Warning: Could not remove Lambda permission: {e}")
+
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+
+              except Exception as e:
+                  print(f"Error in interceptor updater: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+      Timeout: 300
+      MemorySize: 256
+
+Outputs:
+  GatewayId:
+    Description: 'Gateway ID that was updated with interceptor'
+    Value: !Ref GatewayId
+
+  InterceptorArn:
+    Description: 'ARN of the interceptor Lambda that was configured'
+    Value: !Ref InterceptorLambdaArn

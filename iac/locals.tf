@@ -8,9 +8,6 @@ locals {
   microsoft_graph_app_id             = "00000003-0000-0000-c000-000000000000"
   microsoft_graph_user_read_scope_id = "e1fe6dd8-ba31-4d61-89e7-88639da4683d"
 
-  # Microsoft Graph App Role IDs (for application permissions)
-  microsoft_graph_user_read_all_app_role_id = "df021288-bdef-4463-88db-98f22de89214"
-
   # OpenID Connect scope IDs for Microsoft Graph
   microsoft_graph_scopes = {
     openid  = "37f7f235-527c-4136-accd-4a02d197296e"
@@ -26,8 +23,9 @@ locals {
   }
 
   # Derived paths (binary name matches Cargo package name)
-  lambda_binary_path = "../target/lambda/aws-lambda-mcp/bootstrap"
-  tool_schema_path   = "../tool_schema.json"
+  lambda_binary_path            = "../target/lambda/aws-lambda-mcp/bootstrap"
+  interceptor_lambda_binary_path = "../target/lambda/interceptor/bootstrap"
+  tool_schema_path              = "../tool_schema.json"
 
   # Entra ID OAuth configuration
   entra_tenant_id     = data.azuread_client_config.current.tenant_id

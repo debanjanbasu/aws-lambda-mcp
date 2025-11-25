@@ -9,6 +9,50 @@ data "archive_file" "lambda_zip" {
   output_path = "${path.module}/.terraform/lambda.zip"
 }
 
+# Create zip file from interceptor Lambda binary
+data "archive_file" "interceptor_lambda_zip" {
+  type        = "zip"
+  source_file = local.interceptor_lambda_binary_path
+  output_path = "${path.module}/.terraform/interceptor-lambda.zip"
+}
+
+# Get current AWS account information
+data "aws_caller_identity" "current" {}
+
+# SNS Topic for CloudFormation stack notifications
+resource "aws_sns_topic" "cloudformation_notifications" {
+  name = "${local.project_name_with_suffix}-cfn-notifications"
+
+  # Enable server-side encryption using AWS managed SNS key (free)
+  kms_master_key_id = "alias/aws/sns"
+
+  tags = var.common_tags
+}
+
+# SNS Topic Policy for CloudFormation notifications
+resource "aws_sns_topic_policy" "cloudformation_notifications" {
+  arn = aws_sns_topic.cloudformation_notifications.arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudformation.amazonaws.com"
+        }
+        Action   = "SNS:Publish"
+        Resource = aws_sns_topic.cloudformation_notifications.arn
+        Condition = {
+          StringEquals = {
+            "AWS:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
+}
+
 # SQS Dead Letter Queue for Lambda
 resource "aws_sqs_queue" "lambda_dlq" {
   name                       = "${local.project_name_with_suffix}-dlq"
@@ -34,7 +78,7 @@ resource "aws_lambda_function" "bedrock_agent_gateway" {
 
   memory_size                    = var.lambda_memory_size
   timeout                        = var.lambda_timeout
-  reserved_concurrent_executions = 100
+  reserved_concurrent_executions = var.lambda_concurrent_executions
 
   # Dead Letter Queue configuration
   dead_letter_config {
@@ -61,6 +105,38 @@ resource "aws_lambda_function" "bedrock_agent_gateway" {
   ]
 }
 
+# Interceptor Lambda Function
+resource "aws_lambda_function" "gateway_interceptor" {
+  function_name = "${local.project_name_with_suffix}-interceptor"
+  role          = aws_iam_role.lambda_execution.arn
+  handler       = "bootstrap"
+  runtime       = "provided.al2023"
+  architectures = ["arm64"]
+
+  filename         = data.archive_file.interceptor_lambda_zip.output_path
+  source_code_hash = data.archive_file.interceptor_lambda_zip.output_base64sha256
+
+  memory_size                    = 128  # Minimum memory for cost optimization
+  timeout                        = 30   # Standard timeout for consistency
+  reserved_concurrent_executions = var.lambda_concurrent_executions * 2
+
+  # Dead Letter Queue configuration
+  dead_letter_config {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
+
+  environment {
+    variables = {
+      RUST_LOG = var.rust_log_level
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.lambda_basic,
+    aws_cloudwatch_log_group.interceptor_lambda_logs,
+  ]
+}
+
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "lambda_logs" {
   name              = "/aws/lambda/${local.project_name_with_suffix}"
@@ -68,6 +144,12 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 
   # KMS encryption disabled to reduce costs (free tier uses SSE)
   # kms_key_id = var.cloudwatch_kms_key_arn
+}
+
+# CloudWatch Log Group for Interceptor Lambda
+resource "aws_cloudwatch_log_group" "interceptor_lambda_logs" {
+  name              = "/aws/lambda/${local.project_name_with_suffix}-interceptor"
+  retention_in_days = var.log_retention_days
 }
 
 # IAM Role for Lambda
@@ -283,6 +365,26 @@ resource "aws_lambda_permission" "agentcore_gateway_invoke" {
   function_name = aws_lambda_function.bedrock_agent_gateway.function_name
   principal     = "bedrock.amazonaws.com"
   source_arn    = aws_bedrockagentcore_gateway.main.gateway_arn
+}
+
+# CloudFormation stack to add interceptor to the gateway
+resource "aws_cloudformation_stack" "gateway_interceptor" {
+  name         = "${local.project_name_with_suffix}-interceptor"
+  template_body = file("${path.module}/gateway-with-interceptor.yaml")
+
+  parameters = {
+    GatewayId           = aws_bedrockagentcore_gateway.main.gateway_id
+    InterceptorLambdaArn = aws_lambda_function.gateway_interceptor.arn
+  }
+
+  # Send CloudFormation events to SNS topic
+  notification_arns = [aws_sns_topic.cloudformation_notifications.arn]
+
+  depends_on = [
+    aws_bedrockagentcore_gateway.main,
+    aws_lambda_function.gateway_interceptor,
+    aws_sns_topic_policy.cloudformation_notifications,
+  ]
 }
 
 

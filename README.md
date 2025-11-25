@@ -30,12 +30,12 @@ Production-ready Model Context Protocol server implementation using Amazon Bedro
 ## Architecture
 
 ```
-Client → Entra ID (PKCE) → AgentCore Gateway → Lambda (Rust) → External APIs
-                                    ↓
-                            JWT Validation (OIDC)
+Client → Entra ID (PKCE) → AgentCore Gateway → Interceptor Lambda → Main Lambda (Rust) → External APIs
+                                    ↓                              ↓
+                            JWT Validation (OIDC)        Header Propagation & Token Exchange
 ```
 
-**Stack**: ARM64 Lambda (~1.3MB UPX) | Entra ID OAuth | CloudWatch (90d retention)
+**Stack**: ARM64 Lambdas (128MB, ~1.3MB UPX each) | Configurable concurrency | Entra ID OAuth | CloudWatch (3d retention) | CloudFormation
 
 **License**: MIT
 
@@ -47,14 +47,20 @@ The Bedrock AgentCore Gateway is configured with a `SEMANTIC` search type, which
 
 ## Features
 
-- **ARM64/Graviton** - 20% cheaper, UPX compressed to 1.3MB
+- **ARM64/Graviton** - 20% cheaper, UPX compressed to 1.3MB per Lambda
 - **Secretless OAuth** - PKCE flow, no client secrets
 - **JWT Validation** - OIDC discovery per request
+- **Gateway Interceptor** - Header propagation and token exchange between gateway and tools
 - **Zero Unsafe** - No `unwrap/expect/panic/unsafe`, strict lints
+- **Concurrency Limits** - Function-level concurrent execution limits to prevent cost overruns
+- **Event Notifications** - CloudFormation stack events sent to encrypted SNS topic
 - **Structured Tracing** - JSON logs for CloudWatch
 - **Dead Letter Queue** - Failed invocations stored in encrypted SQS for debugging
 - **Auto Schemas** - Generated from code annotations
 - **Fast Cold Start** - Minimal deps, optimized binary
+- **Cost Optimized** - Minimum memory (128MB), conservative timeouts, low concurrency limits
+- **Principle of Least Privilege** - IAM policies scoped to specific resources
+- **Resource Cleanup** - CloudFormation stacks properly clean up interceptor configurations
 - **Free Tier** - Typical usage $0/month
 
 ## One-Time Backend Setup
@@ -239,8 +245,8 @@ For more information, see the [opencode.ai GitHub documentation](https://opencod
 
 ```
 src/
-├── main.rs              # Lambda bootstrap + tracing
-├── handler.rs           # Event handler
+├── main.rs              # Main Lambda bootstrap + tracing
+├── handler.rs           # Main Lambda event handler
 ├── lib.rs               # Library crate
 ├── models/              # Request/response types (JsonSchema)
 │   ├── mod.rs
@@ -253,7 +259,12 @@ src/
 │   ├── mod.rs
 │   └── client.rs
 └── bin/
-    └── generate_schema.rs
+    ├── generate_schema.rs  # Schema generation utility
+    └── interceptor.rs      # Gateway interceptor Lambda
+iac/
+├── main.tf              # Terraform infrastructure
+├── gateway-with-interceptor.yaml  # CloudFormation for interceptor
+└── ...
 ```
 
 ## Usage

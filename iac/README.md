@@ -24,10 +24,12 @@ Configure these secrets in your repository's Settings > Secrets and variables > 
 ## Architecture
 
 ```
-MCP Client → Entra ID (PKCE) → Bedrock Gateway (JWT) → Lambda → APIs
+MCP Client → Entra ID (PKCE) → Bedrock Gateway (JWT) → Interceptor Lambda → Main Lambda → APIs
+                                      ↓                              ↓
+                              JWT Validation (OIDC)        Header Propagation & Token Exchange
 ```
 
-Secretless PKCE flow, JWT validation via OIDC, ARM64 Lambda with UPX compression.
+Secretless PKCE flow, JWT validation via OIDC, ARM64 Lambdas with UPX compression, CloudFormation for advanced gateway configuration with encrypted SNS event notifications.
 
 ## Configuration
 
@@ -35,9 +37,10 @@ All variables have defaults in `variables.tf`. Override in `terraform.tfvars`:
 
 ```hcl
 entra_sign_in_audience  = "AzureADMultipleOrgs"  # Any Entra ID tenant
-lambda_memory_size      = 128                     # Minimal for cost
-lambda_timeout          = 30
-log_retention_days      = 3
+lambda_memory_size      = 128                     # Minimum memory (128MB)
+lambda_timeout          = 30                      # Standard timeout (30s)
+lambda_concurrent_executions      = 100           # Main Lambda: 100, Interceptor: 200 (2x)
+log_retention_days      = 3                       # Short retention to minimize costs
 rust_log_level          = "info"                  # info (prod), debug/trace (troubleshooting)
 gateway_exception_level = null                    # Gateway exception level (DEBUG/INFO/WARN/ERROR/null)
 ```
@@ -146,7 +149,8 @@ curl -X POST "$(terraform output -raw bedrock_gateway_url)" \
 
 ## Files
 
-- `main.tf` - Lambda, Gateway, IAM
+- `main.tf` - Main Lambda, Gateway, IAM, CloudFormation stack
+- `gateway-with-interceptor.yaml` - CloudFormation template for gateway interceptor
 - `entra_oauth.tf` - Entra ID app (PKCE)
 - `variables.tf` - All configuration
 - `outputs.tf` - Client ID, tenant, gateway URL

@@ -57,28 +57,16 @@ resource "azuread_application" "agentcore_app" {
     }
   }
 
-  # Required resource access - Microsoft Graph for user info and OpenID scopes
-  # IMPORTANT: Azure AD scope combination rules:
-  # When requesting tokens, the '.default' scope for a custom API (e.g., api://{client_id}/.default)
-  # CANNOT be combined with other explicit scopes (e.g., User.Read, openid, profile, email)
-  # in the same request.
+  # Required resource access - Microsoft Graph for OpenID Connect scopes only
+  # IMPORTANT: For Bedrock AgentCore Gateway, we only need delegated permissions (scopes)
+  # for user authentication. Application permissions like User.Read.All are not required
+  # and would grant excessive privileges.
   #
-  # Choose one approach for client applications:
-  # 1. Request only the custom API's '.default' scope: "api://{client_id}/.default"
-  #    (This grants all permissions defined for the custom API)
-  # 2. Request explicit scopes, including custom API scopes (e.g., "api://{client_id}/YourCustomScope")
-  #    alongside standard scopes like "User.Read openid profile email".
-  #    DO NOT include '.default' in this case.
+  # We only request: openid, profile, email scopes for basic user authentication
   required_resource_access {
     resource_app_id = local.microsoft_graph_app_id
 
-    # User.Read.All - basic profile access (app role version)
-    resource_access {
-      id   = local.microsoft_graph_user_read_all_app_role_id
-      type = "Role"
-    }
-
-    # OpenID Connect scopes (openid, profile, email)
+    # OpenID Connect scopes (openid, profile, email) - delegated permissions only
     dynamic "resource_access" {
       for_each = local.microsoft_graph_scopes
       content {

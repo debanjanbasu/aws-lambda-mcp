@@ -16,18 +16,29 @@ This document provides guidelines for AI assistants working on the AWS Lambda MC
 
 ## Project Overview
 
-The AWS Lambda MCP is a Rust-based server implementing MCP for Bedrock AgentCore, enabling AI agents to discover and use external tools securely. Key technologies: Rust (2024 edition), AWS Lambda (ARM64), Entra ID OAuth, CloudWatch logging, Terraform for infrastructure.
+The AWS Lambda MCP is a Rust-based server implementing MCP for Bedrock AgentCore, enabling AI agents to discover and use external tools securely. Features a gateway interceptor for header propagation and token exchange. Key technologies: Rust (2024 edition), AWS Lambda (ARM64), Entra ID OAuth, CloudWatch logging, Terraform for infrastructure, CloudFormation for advanced gateway configuration.
 
 **Developer Quick Start:**
 - `make login` - Authenticate AWS and Azure CLIs
-- `make deploy` - Build and deploy Lambda to AWS (auto-installs tools if needed)
+- `make deploy` - Build and deploy Lambdas to AWS (auto-installs tools if needed)
 - `make test-token` - Get OAuth token and launch MCP Inspector for testing
+
+## Gateway Interceptor
+
+The project includes a gateway interceptor Lambda that sits between the AgentCore Gateway and the main MCP Lambda. The interceptor:
+
+- Extracts authorization headers and custom headers from incoming requests
+- Performs token exchange/validation (placeholder for actual implementation)
+- Adds exchanged credentials and custom headers to the MCP request arguments
+- Enables secure header propagation and token exchange workflows
+
+The interceptor is deployed via CloudFormation to add interceptor configuration to the existing Terraform-managed gateway.
 
 ## Commands
 
 ### Build & Test
-- `make build` - Debug build
-- `make release` - ARM64 production build with UPX compression
+- `make build` - Debug build (main + interceptor Lambdas)
+- `make release` - ARM64 production build with UPX compression (main + interceptor Lambdas)
 - `make test` - Run all tests
 - `cargo test <test_name>` - Run single test (e.g., `cargo test weather_integration`)
 - `cargo clippy` - Run clippy with strict lints (denies unsafe code, unwrap, panic, etc.)
@@ -39,8 +50,8 @@ The AWS Lambda MCP is a Rust-based server implementing MCP for Bedrock AgentCore
 - `make all` - Run tests and build release
 
 ### Deployment
-- `make deploy` - Build and deploy Lambda to AWS (requires backend config)
-- `make release` - Build optimized ARM64 Lambda binary with UPX compression
+- `make deploy` - Build and deploy Lambdas to AWS (requires backend config)
+- `make release` - Build optimized ARM64 Lambda binaries with UPX compression
 
 ### Infrastructure Setup
 - `make setup-backend` - Create S3 backend for Terraform state with native locking
