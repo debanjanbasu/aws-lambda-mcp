@@ -6,7 +6,9 @@ use aws_lambda_mcp::tools::get_weather;
 async fn test_get_weather_integration() -> Result<()> {
     // This test requires network access to Open-Meteo APIs
     // Skip in CI or when network is unavailable
-    if std::env::var("SKIP_INTEGRATION_TESTS").is_ok() {
+    if std::env::var("SKIP_INTEGRATION_TESTS").is_ok()
+        || std::env::var("CI").is_ok()
+        || std::env::var("GITHUB_ACTIONS").is_ok() {
         return Ok(());
     }
 
