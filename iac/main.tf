@@ -19,39 +19,7 @@ data "archive_file" "interceptor_lambda_zip" {
 # Get current AWS account information
 data "aws_caller_identity" "current" {}
 
-# SNS Topic for CloudFormation stack notifications
-resource "aws_sns_topic" "cloudformation_notifications" {
-  name = "${local.project_name_with_suffix}-cfn-notifications"
 
-  # Enable server-side encryption using AWS managed SNS key (free)
-  kms_master_key_id = "alias/aws/sns"
-
-  tags = var.common_tags
-}
-
-# SNS Topic Policy for CloudFormation notifications
-resource "aws_sns_topic_policy" "cloudformation_notifications" {
-  arn = aws_sns_topic.cloudformation_notifications.arn
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "cloudformation.amazonaws.com"
-        }
-        Action   = "SNS:Publish"
-        Resource = aws_sns_topic.cloudformation_notifications.arn
-        Condition = {
-          StringEquals = {
-            "AWS:SourceAccount" = data.aws_caller_identity.current.account_id
-          }
-        }
-      }
-    ]
-  })
-}
 
 # SQS Dead Letter Queue for Lambda
 resource "aws_sqs_queue" "lambda_dlq" {
@@ -290,9 +258,9 @@ resource "aws_bedrockagentcore_gateway" "main" {
   # in error responses. Use DEBUG/INFO only for troubleshooting, not production.
   #
   # Reference: https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway#exception_level-1
-  exception_level = var.gateway_exception_level
+   exception_level = var.gateway_exception_level
 
-  tags = var.common_tags
+   tags = var.common_tags
 }
 
 # Amazon Bedrock AgentCore Gateway Target (Lambda)
@@ -377,15 +345,13 @@ resource "aws_cloudformation_stack" "gateway_interceptor" {
     InterceptorLambdaArn = aws_lambda_function.gateway_interceptor.arn
   }
 
-  # Send CloudFormation events to SNS topic
-  notification_arns = [aws_sns_topic.cloudformation_notifications.arn]
-
   depends_on = [
     aws_bedrockagentcore_gateway.main,
     aws_lambda_function.gateway_interceptor,
-    aws_sns_topic_policy.cloudformation_notifications,
   ]
 }
+
+
 
 
 
