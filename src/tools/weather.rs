@@ -17,6 +17,7 @@ use crate::models::{
 ///
 /// Returns an error if the geocoding or weather API calls fail.
 #[tool(
+    name = "get_weather",
     description = "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide."
 )]
 #[instrument(fields(location = %request.location))]
