@@ -82,7 +82,7 @@ async fn interceptor_handler(event: LambdaEvent<InterceptorEvent>) -> Result<Int
                     }
                 }
                 Err(e) => {
-                    tracing::warn!(error = %e, "Failed to parse request body as JSON. Body will be passed through unmodified.");
+                    warn!(error = %e, "Failed to parse request body as JSON. Body will be passed through unmodified.");
                 }
             }
         }
