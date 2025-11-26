@@ -2,7 +2,7 @@ use lambda_runtime::{Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument};
 
 // Header key constants for maintainability
 const AUTH_HEADER: &str = "authorization";
@@ -112,4 +112,114 @@ async fn main() -> Result<(), Error> {
     info!("Starting Bedrock AgentCore Gateway interceptor");
 
     lambda_runtime::run(lambda_runtime::service_fn(interceptor_handler)).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lambda_runtime::LambdaEvent;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_interceptor_no_headers() {
+        let event = LambdaEvent::new(
+            InterceptorEvent {
+                gateway_request: GatewayRequest {
+                    headers: None,
+                    body: Some(json!({"params": {"arguments": {}}}).to_string()),
+                },
+            },
+            lambda_runtime::Context::default(),
+        );
+
+        let result = interceptor_handler(event).await.unwrap();
+        assert_eq!(result.version, "1.0");
+        // Body should remain unchanged
+        assert_eq!(result.transformed_gateway_request.body.unwrap(), json!({"params": {"arguments": {}}}).to_string());
+    }
+
+    #[tokio::test]
+    async fn test_interceptor_with_auth_header() {
+        let mut headers = HashMap::new();
+        headers.insert(AUTH_HEADER.to_string(), "Bearer token123".to_string());
+
+        let event = LambdaEvent::new(
+            InterceptorEvent {
+                gateway_request: GatewayRequest {
+                    headers: Some(headers),
+                    body: Some(json!({"params": {"arguments": {}}}).to_string()),
+                },
+            },
+            lambda_runtime::Context::default(),
+        );
+
+        let result = interceptor_handler(event).await.unwrap();
+        let body: Value = serde_json::from_str(&result.transformed_gateway_request.body.unwrap()).unwrap();
+        assert_eq!(body["params"]["arguments"]["exchanged_credentials"], "exchanged_token_placeholder");
+    }
+
+    #[tokio::test]
+    async fn test_interceptor_with_custom_header() {
+        let mut headers = HashMap::new();
+        headers.insert(CUSTOM_HEADER.to_string(), "custom_value".to_string());
+
+        let event = LambdaEvent::new(
+            InterceptorEvent {
+                gateway_request: GatewayRequest {
+                    headers: Some(headers),
+                    body: Some(json!({"params": {"arguments": {}}}).to_string()),
+                },
+            },
+            lambda_runtime::Context::default(),
+        );
+
+        let result = interceptor_handler(event).await.unwrap();
+        let body: Value = serde_json::from_str(&result.transformed_gateway_request.body.unwrap()).unwrap();
+        assert_eq!(body["params"]["arguments"]["customHeaderKey"], "custom_value");
+    }
+
+    #[tokio::test]
+    async fn test_interceptor_malformed_json_body() {
+        let mut headers = HashMap::new();
+        headers.insert(AUTH_HEADER.to_string(), "Bearer token123".to_string());
+
+        let event = LambdaEvent::new(
+            InterceptorEvent {
+                gateway_request: GatewayRequest {
+                    headers: Some(headers),
+                    body: Some("invalid json".to_string()),
+                },
+            },
+            lambda_runtime::Context::default(),
+        );
+
+        let result = interceptor_handler(event).await.unwrap();
+        // Body should remain unchanged
+        assert_eq!(result.transformed_gateway_request.body.unwrap(), "invalid json");
+    }
+
+    #[tokio::test]
+    async fn test_extract_auth_header() {
+        let mut headers = HashMap::new();
+        headers.insert(AUTH_HEADER.to_string(), "Bearer token".to_string());
+        assert_eq!(extract_auth_header(&headers), Some("Bearer token".to_string()));
+
+        let empty_headers = HashMap::new();
+        assert_eq!(extract_auth_header(&empty_headers), None);
+    }
+
+    #[tokio::test]
+    async fn test_extract_custom_header() {
+        let mut headers = HashMap::new();
+        headers.insert(CUSTOM_HEADER.to_string(), "value".to_string());
+        assert_eq!(extract_custom_header(&headers), Some("value".to_string()));
+
+        let empty_headers = HashMap::new();
+        assert_eq!(extract_custom_header(&empty_headers), None);
+    }
+
+    #[tokio::test]
+    async fn test_exchange_token() {
+        assert_eq!(exchange_token("input"), "exchanged_token_placeholder");
+    }
 }
