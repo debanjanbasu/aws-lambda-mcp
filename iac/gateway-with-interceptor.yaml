@@ -40,9 +40,9 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - bedrock-agentcore-control:UpdateGateway
-                  - bedrock-agentcore-control:GetGateway
-                Resource: !Sub 'arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/${GatewayId}'
+                  - bedrock:UpdateGateway
+                  - bedrock:GetGateway
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:gateway/${GatewayId}'
               - Effect: Allow
                 Action:
                   - lambda:AddPermission
@@ -69,7 +69,7 @@ Resources:
                   gateway_id = event['ResourceProperties']['GatewayId']
                   interceptor_arn = event['ResourceProperties']['InterceptorLambdaArn']
 
-                  client = boto3.client('bedrock-agentcore-control')
+                   client = boto3.client('bedrock')
 
                   if request_type in ['Create', 'Update']:
                       # Configure interceptor using the native API structure
