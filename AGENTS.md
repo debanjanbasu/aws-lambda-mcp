@@ -42,12 +42,13 @@ The interceptor is deployed via CloudFormation to add interceptor configuration 
 - `make test` - Run all tests
 - `cargo test <test_name>` - Run single test (e.g., `cargo test weather_integration`)
 - `cargo clippy` - Run clippy with strict lints (denies unsafe code, unwrap, panic, etc.)
+- `make clippy` - Run clippy linter
 - `cargo fmt` - Format code
 - `cargo fmt --check` - Validate code formatting
 - `make schema` - Generate tool schemas (run after changing models/tools)
 - `make check-tools` - Install/check required tools (Rust, Zig, cargo-lambda, UPX, jq, Terraform) *(Optional - called automatically by deploy)*
 - `make help` - Show all available make commands
-- `make all` - Run tests and build release
+- `make all` - Run tests, linting, and build release
 
 ### Deployment
 - `make deploy` - Build and deploy Lambdas to AWS (requires backend config)

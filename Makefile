@@ -128,13 +128,17 @@ test: ## 🧪 Run tests
 	@echo "$(BLUE)🧪 Running tests...$(RESET)"
 	@cargo test --color=always
 
+clippy: ## 🔍 Run clippy linter
+	@echo "$(BLUE)🔍 Running clippy...$(RESET)"
+	@cargo clippy --color=always
+
 update-deps: ## ⬆️ Update all dependencies to their latest versions
 	@echo "$(BLUE)📦 Updating dependencies...$(RESET)"
 	@cargo update
 	@cd iac && terraform init -upgrade
 	@echo "$(GREEN)✅ Dependencies updated!$(RESET)"
 
-all: test release ## ✨ Run tests and build release
+all: test clippy release ## ✨ Run tests, linting, and build release
 
 # Deployment Commands (Smart - checks backend config)
 deploy: ## 🚀 Build and deploy to AWS (requires backend config)
