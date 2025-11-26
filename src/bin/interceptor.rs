@@ -1,6 +1,6 @@
 use lambda_runtime::{Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use tracing::{debug, info, instrument, warn};
 
@@ -47,7 +47,9 @@ fn exchange_token(_auth_token: &str) -> String {
 }
 
 #[instrument(skip(event))]
-async fn interceptor_handler(event: LambdaEvent<InterceptorEvent>) -> Result<InterceptorResponse, Error> {
+async fn interceptor_handler(
+    event: LambdaEvent<InterceptorEvent>,
+) -> Result<InterceptorResponse, Error> {
     let payload = event.payload;
     let mut gateway_request = payload.gateway_request;
 
@@ -68,7 +70,8 @@ async fn interceptor_handler(event: LambdaEvent<InterceptorEvent>) -> Result<Int
                 Ok(mut body) => {
                     if let Some(params) = body.get_mut("params")
                         && let Some(args) = params.get_mut("arguments")
-                        && let Some(args_obj) = args.as_object_mut() {
+                        && let Some(args_obj) = args.as_object_mut()
+                    {
                         // Add exchanged credentials if we have an auth token
                         if let Some(creds) = exchanged_credentials {
                             args_obj.insert("exchanged_credentials".to_string(), json!(creds));
@@ -82,7 +85,7 @@ async fn interceptor_handler(event: LambdaEvent<InterceptorEvent>) -> Result<Int
                     }
                 }
                 Err(e) => {
-                    tracing::warn!(error = %e, "Failed to parse request body as JSON. Body will be passed through unmodified.");
+                    warn!(error = %e, "Failed to parse request body as JSON. Body will be passed through unmodified.");
                 }
             }
         }
