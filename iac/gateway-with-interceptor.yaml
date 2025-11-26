@@ -54,7 +54,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub 'gateway-interceptor-updater-${GatewayId}'
-      Runtime: python3.13
+      Runtime: python3.12
       Handler: index.handler
       Role: !GetAtt GatewayInterceptorUpdaterRole.Arn
       Code:
