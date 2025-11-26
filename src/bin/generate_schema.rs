@@ -20,31 +20,12 @@ macro_rules! tool_entry {
     ($attr_fn:expr, $input_ty:ty, $output_ty:ty) => {{
         let attr = $attr_fn;
         Tool {
-            name: attr.name.into(),
-            description: attr.description.unwrap_or_default().into(),
+            name: attr.name.to_string(),
+            description: attr.description.map(|s| s.to_string()).unwrap_or_default(),
             input_schema: generate_bedrock_schema::<$input_ty>(),
             output_schema: generate_bedrock_schema::<$output_ty>(),
         }
     }};
-}
-
-fn main() {
-    let tools = vec![
-        tool_entry!(
-            aws_lambda_mcp::tools::weather::get_weather_tool_attr(),
-            aws_lambda_mcp::models::WeatherRequest,
-            aws_lambda_mcp::models::WeatherResponse
-        ),
-        // Add new tools here:
-        // tool_entry!(
-        //     aws_lambda_mcp::tools::example::another_tool_tool_attr(),
-        //     aws_lambda_mcp::models::AnotherInput,
-        //     aws_lambda_mcp::models::AnotherOutput
-        // ),
-    ];
-
-    write_schema(&tools);
-    println!("✅ Generated tool_schema.json with {} tool(s)", tools.len());
 }
 
 // Generates a schema in Amazon Bedrock format for the given type
@@ -92,6 +73,27 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
 
     schema
 }
+
+fn main() {
+    let tools = vec![
+        tool_entry!(
+            aws_lambda_mcp::tools::weather::get_weather_tool_attr(),
+            aws_lambda_mcp::models::WeatherRequest,
+            aws_lambda_mcp::models::WeatherResponse
+        ),
+        // Add new tools here:
+        // tool_entry!(
+        //     aws_lambda_mcp::tools::example::another_tool_attr(),
+        //     aws_lambda_mcp::models::AnotherInput,
+        //     aws_lambda_mcp::models::AnotherOutput
+        // ),
+    ];
+
+    write_schema(&tools);
+    println!("✅ Generated tool_schema.json with {} tool(s)", tools.len());
+}
+
+
 
 // Writes the tools schema to tool_schema.json
 fn write_schema(tools: &[Tool]) {
