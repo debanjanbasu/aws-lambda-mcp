@@ -120,7 +120,6 @@ release: schema check-tools ## 📦 Build Lambda (release, ARM64) with UPX compr
 	@cargo lambda build --release --arm64 --bin interceptor --color=always
 	@echo "$(BLUE)📦 Compressing binaries with UPX (--best --lzma)...$(RESET)"
 	@upx --best --lzma target/lambda/aws-lambda-mcp/bootstrap
-	@upx --best --lzma target/lambda/interceptor/bootstrap
 	@echo "$(GREEN)📊 Final sizes:$(RESET)"
 	@ls -lh target/lambda/aws-lambda-mcp/bootstrap target/lambda/interceptor/bootstrap
 
