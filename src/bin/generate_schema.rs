@@ -15,32 +15,23 @@ struct Tool {
     output_schema: Value,
 }
 
-// Macro to create a tool entry with automatic schema generation
-macro_rules! tool_entry {
-    ($attr_fn:expr, $input_ty:ty, $output_ty:ty) => {{
-        let attr = $attr_fn;
-        Tool {
-            name: attr.name.into(),
-            description: attr.description.unwrap_or_default().into(),
-            input_schema: generate_bedrock_schema::<$input_ty>(),
-            output_schema: generate_bedrock_schema::<$output_ty>(),
-        }
-    }};
-}
+
 
 fn main() {
     let tools = vec![
-        tool_entry!(
-            aws_lambda_mcp::tools::weather::get_weather_tool_attr(),
-            aws_lambda_mcp::models::WeatherRequest,
-            aws_lambda_mcp::models::WeatherResponse
-        ),
+        Tool {
+            name: "get_weather".to_string(),
+            description: "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide.".to_string(),
+            input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::WeatherRequest>(),
+            output_schema: generate_bedrock_schema::<aws_lambda_mcp::models::WeatherResponse>(),
+        },
         // Add new tools here:
-        // tool_entry!(
-        //     aws_lambda_mcp::tools::example::another_tool_tool_attr(),
-        //     aws_lambda_mcp::models::AnotherInput,
-        //     aws_lambda_mcp::models::AnotherOutput
-        // ),
+        // Tool {
+        //     name: "another_tool".to_string(),
+        //     description: "Description of another tool".to_string(),
+        //     input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::AnotherInput>(),
+        //     output_schema: generate_bedrock_schema::<aws_lambda_mcp::models::AnotherOutput>(),
+        // },
     ];
 
     write_schema(&tools);
@@ -116,4 +107,104 @@ fn write_schema(tools: &[Tool]) {
         eprintln!("Failed to write tool_schema.json: {e}");
         std::process::exit(1);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    #[test]
+    fn test_generate_bedrock_schema_weather_request() {
+        let schema = generate_bedrock_schema::<aws_lambda_mcp::models::WeatherRequest>();
+        let schema_value: Value = serde_json::from_value(schema).unwrap();
+
+        // Check that required fields are present
+        assert!(schema_value.get("type").is_some());
+        assert!(schema_value.get("properties").is_some());
+
+        // Check that location field exists
+        let properties = schema_value.get("properties").unwrap().as_object().unwrap();
+        assert!(properties.contains_key("location"));
+
+        // Check that format field is removed (Bedrock doesn't support it)
+        let location = properties.get("location").unwrap().as_object().unwrap();
+        assert!(!location.contains_key("format"));
+    }
+
+    #[test]
+    fn test_generate_bedrock_schema_weather_response() {
+        let schema = generate_bedrock_schema::<aws_lambda_mcp::models::WeatherResponse>();
+        let schema_value: Value = serde_json::from_value(schema).unwrap();
+
+        // Check that required fields are present
+        assert!(schema_value.get("type").is_some());
+        assert!(schema_value.get("properties").is_some());
+
+        // Check that all expected fields exist
+        let properties = schema_value.get("properties").unwrap().as_object().unwrap();
+        assert!(properties.contains_key("location"));
+        assert!(properties.contains_key("temperature"));
+        assert!(properties.contains_key("temperature_unit"));
+        assert!(properties.contains_key("weather_code"));
+        assert!(properties.contains_key("wind_speed"));
+    }
+
+    #[test]
+    fn test_write_schema() {
+        let tools = vec![
+            Tool {
+                name: "test_tool".to_string(),
+                description: "A test tool".to_string(),
+                input_schema: serde_json::json!({"type": "object"}),
+                output_schema: serde_json::json!({"type": "string"}),
+            }
+        ];
+
+        write_schema(&tools);
+
+        // Check that file was created
+        assert!(std::path::Path::new("tool_schema.json").exists());
+
+        // Check content
+        let content = fs::read_to_string("tool_schema.json").unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+
+        assert!(parsed.is_array());
+        let array = parsed.as_array().unwrap();
+        assert_eq!(array.len(), 1);
+
+        let tool = &array[0];
+        assert_eq!(tool["name"], "test_tool");
+        assert_eq!(tool["description"], "A test tool");
+
+        // Clean up
+        fs::remove_file("tool_schema.json").unwrap();
+    }
+
+    #[test]
+    fn test_main_generates_valid_schema() {
+        // This test calls main() which writes to tool_schema.json
+        main();
+
+        // Check that file was created
+        assert!(std::path::Path::new("tool_schema.json").exists());
+
+        // Check content is valid JSON
+        let content = fs::read_to_string("tool_schema.json").unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+
+        assert!(parsed.is_array());
+        let array = parsed.as_array().unwrap();
+        assert!(!array.is_empty());
+
+        // Check that weather tool is present
+        let weather_tool = array.iter().find(|t| t["name"] == "get_weather").unwrap();
+        assert!(weather_tool["description"].as_str().unwrap().contains("weather"));
+        assert!(weather_tool["inputSchema"].is_object());
+        assert!(weather_tool["outputSchema"].is_object());
+
+        // Clean up
+        fs::remove_file("tool_schema.json").unwrap();
+    }
 }

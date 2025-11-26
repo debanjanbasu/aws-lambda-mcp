@@ -437,11 +437,12 @@ pub async fn your_tool(request: YourRequest) -> Result<YourResponse> {
 
 **3. Register** in `src/bin/generate_schema.rs`:
 ```rust
-tool_entry!(
-    aws_lambda_mcp::tools::your_tool::your_tool_tool_attr(),
-    YourRequest,
-    YourResponse
-),
+Tool {
+    name: "your_tool".to_string(),
+    description: "Clear, detailed description".to_string(),
+    input_schema: generate_bedrock_schema::<YourRequest>(),
+    output_schema: generate_bedrock_schema::<YourResponse>(),
+},
 ```
 
 **4. Generate**: `make schema`
