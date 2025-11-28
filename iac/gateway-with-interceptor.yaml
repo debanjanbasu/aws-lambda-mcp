@@ -71,45 +71,45 @@ Resources:
 
                   client = boto3.client('bedrock-agentcore-control')
 
-                  if request_type in ['Create', 'Update']:
-                      # Configure interceptor using the native API structure
-                      interceptor_configurations = [{
-                          'interceptor': {
-                              'lambda': {
-                                  'arn': interceptor_arn
-                              }
-                          },
-                          'interceptionPoints': ['REQUEST'],
-                          'inputConfiguration': {
-                              'passRequestHeaders': True
-                          }
-                      }]
+                   if request_type in ['Create', 'Update']:
+                       # Add Lambda permission for gateway to invoke interceptor first
+                       lambda_client = boto3.client('lambda')
+                       try:
+                           # Get gateway details for the source ARN
+                           gateway_response = client.get_gateway(gatewayIdentifier=gateway_id)
+                           gateway_arn = gateway_response['gatewayArn']
 
-                      # Update gateway with interceptor configuration
-                      response = client.update_gateway(
-                          gatewayIdentifier=gateway_id,
-                          interceptorConfigurations=interceptor_configurations
-                      )
+                           lambda_client.add_permission(
+                               FunctionName=interceptor_arn,
+                               StatementId=f'AllowGatewayInvoke-{gateway_id.replace("/", "-")}',
+                               Action='lambda:InvokeFunction',
+                               Principal='bedrock-agentcore.amazonaws.com',
+                               SourceArn=gateway_arn
+                           )
+                       except lambda_client.exceptions.ResourceConflictException:
+                           # Permission already exists
+                           pass
+                       except Exception as e:
+                           print(f"Warning: Could not add Lambda permission: {e}")
 
-                      # Add Lambda permission for gateway to invoke interceptor
-                      lambda_client = boto3.client('lambda')
-                      try:
-                          # Get gateway details for the source ARN
-                          gateway_response = client.get_gateway(gatewayIdentifier=gateway_id)
-                          gateway_arn = gateway_response['gatewayArn']
+                       # Configure interceptor using the native API structure
+                       interceptor_configurations = [{
+                           'interceptor': {
+                               'lambda': {
+                                   'arn': interceptor_arn
+                               }
+                           },
+                           'interceptionPoints': ['REQUEST'],
+                           'inputConfiguration': {
+                               'passRequestHeaders': True
+                           }
+                       }]
 
-                          lambda_client.add_permission(
-                              FunctionName=interceptor_arn,
-                              StatementId=f'AllowGatewayInvoke-{gateway_id.replace("/", "-")}',
-                              Action='lambda:InvokeFunction',
-                              Principal='bedrock-agentcore.amazonaws.com',
-                              SourceArn=gateway_arn
-                          )
-                      except lambda_client.exceptions.ResourceConflictException:
-                          # Permission already exists
-                          pass
-                      except Exception as e:
-                          print(f"Warning: Could not add Lambda permission: {e}")
+                       # Update gateway with interceptor configuration
+                       response = client.update_gateway(
+                           gatewayIdentifier=gateway_id,
+                           interceptorConfigurations=interceptor_configurations
+                       )
 
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {
                           'GatewayId': gateway_id,

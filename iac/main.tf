@@ -369,7 +369,7 @@ resource "aws_lambda_permission" "agentcore_gateway_invoke" {
 
 # CloudFormation stack to add interceptor to the gateway
 resource "aws_cloudformation_stack" "gateway_interceptor" {
-  name         = "${local.project_name_with_suffix}-interceptor"
+  name         = "${local.project_name_with_suffix}-interceptor-config"
   template_body = file("${path.module}/gateway-with-interceptor.yaml")
 
   parameters = {
