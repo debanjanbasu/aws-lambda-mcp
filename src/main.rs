@@ -13,6 +13,7 @@ async fn main() -> Result<(), Error> {
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         // Disable ANSI colors for CloudWatch compatibility
+        // This also prevents potential ANSI escape sequence injection vulnerabilities
         .with_ansi(false)
         // Use AWS Lambda's built-in timestamps
         .without_time()
