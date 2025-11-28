@@ -71,45 +71,70 @@ Resources:
 
                   client = boto3.client('bedrock-agentcore-control')
 
-                  if request_type in ['Create', 'Update']:
-                      # Configure interceptor using the native API structure
-                      interceptor_configurations = [{
-                          'interceptor': {
-                              'lambda': {
-                                  'arn': interceptor_arn
-                              }
-                          },
-                          'interceptionPoints': ['REQUEST'],
-                          'inputConfiguration': {
-                              'passRequestHeaders': True
-                          }
-                      }]
+                   if request_type in ['Create', 'Update']:
+                       # First, clear any existing interceptor configurations
+                       try:
+                           client.update_gateway(
+                               gatewayIdentifier=gateway_id,
+                               interceptorConfigurations=[]
+                           )
+                           print(f"Cleared existing interceptor configurations for gateway {gateway_id}")
+                       except Exception as e:
+                           print(f"Warning: Could not clear existing interceptors: {e}")
 
-                      # Update gateway with interceptor configuration
-                      response = client.update_gateway(
-                          gatewayIdentifier=gateway_id,
-                          interceptorConfigurations=interceptor_configurations
-                      )
+                       # Configure interceptor using the native API structure
+                       interceptor_configurations = [{
+                           'interceptor': {
+                               'lambda': {
+                                   'arn': interceptor_arn
+                               }
+                           },
+                           'interceptionPoints': ['REQUEST'],
+                           'inputConfiguration': {
+                               'passRequestHeaders': True
+                           }
+                       }]
 
-                      # Add Lambda permission for gateway to invoke interceptor
-                      lambda_client = boto3.client('lambda')
-                      try:
-                          # Get gateway details for the source ARN
-                          gateway_response = client.get_gateway(gatewayIdentifier=gateway_id)
-                          gateway_arn = gateway_response['gatewayArn']
+                       # Update gateway with interceptor configuration
+                       response = client.update_gateway(
+                           gatewayIdentifier=gateway_id,
+                           interceptorConfigurations=interceptor_configurations
+                       )
 
-                          lambda_client.add_permission(
-                              FunctionName=interceptor_arn,
-                              StatementId=f'AllowGatewayInvoke-{gateway_id.replace("/", "-")}',
-                              Action='lambda:InvokeFunction',
-                              Principal='bedrock-agentcore.amazonaws.com',
-                              SourceArn=gateway_arn
-                          )
-                      except lambda_client.exceptions.ResourceConflictException:
-                          # Permission already exists
-                          pass
-                      except Exception as e:
-                          print(f"Warning: Could not add Lambda permission: {e}")
+                       # Add Lambda permission for gateway to invoke interceptor
+                       lambda_client = boto3.client('lambda')
+                       try:
+                           # Get gateway details for the source ARN
+                           gateway_response = client.get_gateway(gatewayIdentifier=gateway_id)
+                           gateway_arn = gateway_response['gatewayArn']
+
+                           # First, try to remove any existing permission
+                           try:
+                               lambda_client.remove_permission(
+                                   FunctionName=interceptor_arn,
+                                   StatementId=f'AllowGatewayInvoke-{gateway_id.replace("/", "-")}'
+                               )
+                               print(f"Removed existing Lambda permission for {interceptor_arn}")
+                           except lambda_client.exceptions.ResourceNotFoundException:
+                               # Permission doesn't exist, that's fine
+                               pass
+                           except Exception as e:
+                               print(f"Warning: Could not remove existing Lambda permission: {e}")
+
+                           # Now add the new permission
+                           lambda_client.add_permission(
+                               FunctionName=interceptor_arn,
+                               StatementId=f'AllowGatewayInvoke-{gateway_id.replace("/", "-")}',
+                               Action='lambda:InvokeFunction',
+                               Principal='bedrock-agentcore.amazonaws.com',
+                               SourceArn=gateway_arn
+                           )
+                           print(f"Added Lambda permission for {interceptor_arn}")
+                       except lambda_client.exceptions.ResourceConflictException:
+                           # Permission already exists
+                           print(f"Lambda permission already exists for {interceptor_arn}")
+                       except Exception as e:
+                           print(f"Warning: Could not add Lambda permission: {e}")
 
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {
                           'GatewayId': gateway_id,
