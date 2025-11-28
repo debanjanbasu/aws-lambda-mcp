@@ -11,6 +11,7 @@ data "archive_file" "lambda_zip" {
 
 # Create zip file from interceptor Lambda binary
 data "archive_file" "interceptor_lambda_zip" {
+  count       = local.is_preview ? 0 : 1
   type        = "zip"
   source_file = local.interceptor_lambda_binary_path
   output_path = "${path.module}/.terraform/interceptor-lambda.zip"
@@ -106,15 +107,17 @@ resource "aws_lambda_function" "bedrock_agent_gateway" {
 }
 
 # Interceptor Lambda Function
+# Skipped for preview environments to simplify ephemeral deployments and avoid destroy issues
 resource "aws_lambda_function" "gateway_interceptor" {
+  count        = local.is_preview ? 0 : 1
   function_name = "${local.project_name_with_suffix}-interceptor"
   role          = aws_iam_role.lambda_execution.arn
   handler       = "bootstrap"
   runtime       = "provided.al2023"
   architectures = ["arm64"]
 
-  filename         = data.archive_file.interceptor_lambda_zip.output_path
-  source_code_hash = data.archive_file.interceptor_lambda_zip.output_base64sha256
+  filename         = data.archive_file.interceptor_lambda_zip[0].output_path
+  source_code_hash = data.archive_file.interceptor_lambda_zip[0].output_base64sha256
 
   memory_size                    = 128  # Minimum memory for cost optimization
   timeout                        = 30   # Standard timeout for consistency
@@ -148,6 +151,7 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 
 # CloudWatch Log Group for Interceptor Lambda
 resource "aws_cloudwatch_log_group" "interceptor_lambda_logs" {
+  count             = local.is_preview ? 0 : 1
   name              = "/aws/lambda/${local.project_name_with_suffix}-interceptor"
   retention_in_days = var.log_retention_days
 }
@@ -368,13 +372,16 @@ resource "aws_lambda_permission" "agentcore_gateway_invoke" {
 }
 
 # CloudFormation stack to add interceptor to the gateway
+# CloudFormation stack for gateway interceptor
+# Skipped for preview environments to simplify ephemeral deployments and avoid destroy issues
 resource "aws_cloudformation_stack" "gateway_interceptor" {
+  count        = local.is_preview ? 0 : 1
   name         = "${local.project_name_with_suffix}-interceptor"
   template_body = file("${path.module}/gateway-with-interceptor.yaml")
 
   parameters = {
     GatewayId           = aws_bedrockagentcore_gateway.main.gateway_id
-    InterceptorLambdaArn = aws_lambda_function.gateway_interceptor.arn
+    InterceptorLambdaArn = aws_lambda_function.gateway_interceptor[0].arn
   }
 
   # Send CloudFormation events to SNS topic

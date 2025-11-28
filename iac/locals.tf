@@ -43,4 +43,7 @@ locals {
 
   # Generate Entra app tags from project type
   entra_app_tags = ["agentcore-gateway", "oauth2", "pkce", "terraform-managed"]
+
+  # Check if this is a preview environment
+  is_preview = length(regexall("preview", var.project_name)) > 0
 }
