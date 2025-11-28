@@ -2,7 +2,7 @@ use lambda_runtime::{Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument};
 
 // Header key constants for maintainability
 const AUTH_HEADER: &str = "authorization";
