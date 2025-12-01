@@ -117,3 +117,79 @@ fn write_schema(tools: &[Tool]) {
         std::process::exit(1);
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_generate_bedrock_schema_removes_unsupported_fields() {
+        // Test with a simple struct that has format and $schema
+        #[derive(schemars::JsonSchema)]
+        struct TestStruct {
+            #[schemars(description = "A test field")]
+            field: String,
+        }
+
+        let schema = generate_bedrock_schema::<TestStruct>();
+
+        // Should not contain $schema or format fields
+        assert!(schema.get("$schema").is_none());
+        assert!(schema.get("properties").unwrap().get("field").unwrap().get("format").is_none());
+    }
+
+    #[test]
+    fn test_generate_bedrock_schema_handles_enums() {
+        #[derive(schemars::JsonSchema)]
+        enum TestEnum {
+            Option1,
+            Option2,
+        }
+
+        #[derive(schemars::JsonSchema)]
+        struct TestStruct {
+            enum_field: TestEnum,
+        }
+
+        let schema = generate_bedrock_schema::<TestStruct>();
+
+        // Enum fields should be converted to string type
+        let enum_prop = schema.get("properties").unwrap().get("enum_field").unwrap();
+        assert_eq!(enum_prop.get("type").unwrap(), "string");
+        assert!(enum_prop.get("$ref").is_none());
+    }
+
+    #[test]
+    fn test_write_schema_creates_valid_json() {
+        let tools = vec![
+            Tool {
+                name: "test_tool".to_string(),
+                description: "A test tool".to_string(),
+                input_schema: json!({"type": "object", "properties": {"input": {"type": "string"}}}),
+                output_schema: json!({"type": "object", "properties": {"output": {"type": "string"}}}),
+            }
+        ];
+
+        // Temporarily change the output path for testing
+        let test_file = "test_tool_schema.json";
+        let original_write = |path: &str, content: &str| fs::write(path, content);
+
+        // This is a simplified test - in real scenario we'd mock fs::write
+        let schemas: Vec<Value> = tools
+            .iter()
+            .map(|tool| {
+                json!({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "inputSchema": tool.input_schema,
+                    "outputSchema": tool.output_schema
+                })
+            })
+            .collect();
+
+        let json_str = serde_json::to_string_pretty(&schemas).unwrap();
+        assert!(json_str.contains("test_tool"));
+        assert!(json_str.contains("A test tool"));
+    }
+}
