@@ -23,7 +23,7 @@ struct JwtClaims {
     preferred_username: String,
 }
 
-/// Interceptor event structure matching AWS Bedrock AgentCore Gateway specification
+/// Interceptor event structure matching AWS Bedrock `AgentCore` Gateway specification
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct InterceptorEvent {
@@ -49,7 +49,7 @@ struct GatewayRequest {
     body: Option<Value>,
 }
 
-/// Interceptor response matching AWS Bedrock AgentCore Gateway specification
+/// Interceptor response matching AWS Bedrock `AgentCore` Gateway specification
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct InterceptorResponse {
@@ -92,8 +92,8 @@ fn extract_user_info_from_token(token: &str) -> Option<(String, String)> {
     
     // Add padding if needed
     let padded_payload = match payload.len() % 4 {
-        2 => format!("{}==", payload),
-        3 => format!("{}=", payload),
+        2 => format!("{payload}=="),
+        3 => format!("{payload}="),
         0 => payload.to_string(),
         _ => return None,
     };
@@ -115,17 +115,17 @@ fn extract_user_info_from_token(token: &str) -> Option<(String, String)> {
         return None;
     };
     
-    let user_name = if !claims.name.is_empty() {
-        claims.name
-    } else {
+    let user_name = if claims.name.is_empty() {
         user_id.clone()
+    } else {
+        claims.name
     };
     
     Some((user_id, user_name))
 }
 
 async fn interceptor_handler(event: LambdaEvent<Value>) -> Result<InterceptorResponse, Error> {
-    let interceptor_event: InterceptorEvent = serde_json::from_value(event.payload.clone())?;
+    let interceptor_event: InterceptorEvent = serde_json::from_value(event.payload)?;
     let mut gateway_request = interceptor_event.mcp.gateway_request;
 
     // Only process tools/call requests
@@ -156,8 +156,8 @@ async fn interceptor_handler(event: LambdaEvent<Value>) -> Result<InterceptorRes
         let custom_header = extract_custom_header(headers);
 
         // Modify request body to include extracted data
-        if let Some(body) = &mut gateway_request.body {
-            if let Some(params) = body.get_mut("params")
+        if let Some(body) = &mut gateway_request.body
+            && let Some(params) = body.get_mut("params")
                 && let Some(args) = params.get_mut("arguments")
                 && let Some(args_obj) = args.as_object_mut() {
                 // Add authorization token if we have one
@@ -175,7 +175,6 @@ async fn interceptor_handler(event: LambdaEvent<Value>) -> Result<InterceptorRes
                     args_obj.insert(CUSTOM_HEADER.to_string(), json!(custom));
                 }
             }
-        }
     }
 
     info!("Request processing complete");
