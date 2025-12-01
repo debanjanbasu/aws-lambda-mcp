@@ -1,7 +1,8 @@
 //! Schema generator for Amazon Bedrock Agent tools.
 //!
-//! This binary scans registered tools and generates `tool_schema.json`,
-//! which contains the input/output schemas in Amazon Bedrock format.
+//! This binary generates `tool_schema.json` with hardcoded tool schemas
+//! for Amazon Bedrock AgentCore compatibility. Tool schemas are defined
+//! directly in code to ensure reliable generation across environments.
 
 use schemars::{JsonSchema, schema_for};
 use serde_json::{Value, json};
@@ -15,32 +16,21 @@ struct Tool {
     output_schema: Value,
 }
 
-// Macro to create a tool entry with automatic schema generation
-macro_rules! tool_entry {
-    ($attr_fn:expr, $input_ty:ty, $output_ty:ty) => {{
-        let attr = $attr_fn;
-        Tool {
-            name: attr.name.into(),
-            description: attr.description.unwrap_or_default().into(),
-            input_schema: generate_bedrock_schema::<$input_ty>(),
-            output_schema: generate_bedrock_schema::<$output_ty>(),
-        }
-    }};
-}
-
 fn main() {
     let tools = vec![
-        tool_entry!(
-            aws_lambda_mcp::tools::weather::get_weather_tool_attr(),
-            aws_lambda_mcp::models::WeatherRequest,
-            aws_lambda_mcp::models::WeatherResponse
-        ),
+        Tool {
+            name: "get_weather".into(),
+            description: "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide.".into(),
+            input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::WeatherRequest>(),
+            output_schema: generate_bedrock_schema::<aws_lambda_mcp::models::WeatherResponse>(),
+        },
         // Add new tools here:
-        // tool_entry!(
-        //     aws_lambda_mcp::tools::example::another_tool_tool_attr(),
-        //     aws_lambda_mcp::models::AnotherInput,
-        //     aws_lambda_mcp::models::AnotherOutput
-        // ),
+        // Tool {
+        //     name: "another_tool".into(),
+        //     description: "Description".into(),
+        //     input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::AnotherInput>(),
+        //     output_schema: generate_bedrock_schema::<aws_lambda_mcp::models::AnotherOutput>(),
+        // },
     ];
 
     write_schema(&tools);

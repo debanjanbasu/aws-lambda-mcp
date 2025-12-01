@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use rmcp::tool;
 use std::time::Duration;
-use tracing::{debug, instrument};
+use tracing::debug;
 
 use crate::http::HTTP_CLIENT;
 use crate::models::{
@@ -19,7 +19,6 @@ use crate::models::{
 #[tool(
     description = "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide."
 )]
-#[instrument(fields(location = %request.location))]
 pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
     let geocoding_url = format!(
         "https://geocoding-api.open-meteo.com/v1/search?name={}&count=1&language=en&format=json",
