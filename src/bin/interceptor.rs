@@ -2,7 +2,7 @@ use lambda_runtime::{Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use lambda_runtime::tracing::{debug, info};
+use tracing::{debug, info};
 use serde::Deserialize as SerdeDeserialize;
 use base64::{engine::general_purpose, Engine as _};
 
@@ -188,8 +188,8 @@ async fn interceptor_handler(event: LambdaEvent<Value>) -> Result<InterceptorRes
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    // Use Lambda runtime's built-in tracing subscriber for CloudWatch Logs
-    lambda_runtime::tracing::init_default_subscriber();
+    // Use tracing subscriber for CloudWatch Logs
+    tracing_subscriber::fmt::init();
 
     lambda_runtime::run(lambda_runtime::service_fn(interceptor_handler)).await
 }

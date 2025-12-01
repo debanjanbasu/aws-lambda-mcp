@@ -1,7 +1,7 @@
 use anyhow::Result;
 use lambda_runtime::{Context, Diagnostic, LambdaEvent};
 use serde_json::Value;
-use lambda_runtime::tracing::{debug, error, info};
+use tracing::{debug, error, info};
 
 use crate::models::WeatherRequest;
 use crate::tools::weather::get_weather;

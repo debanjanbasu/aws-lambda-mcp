@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use rmcp::tool;
 use std::time::Duration;
-use lambda_runtime::tracing::debug;
 
 use crate::http::HTTP_CLIENT;
 use crate::models::{
@@ -40,13 +39,7 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
         .and_then(|mut r: Vec<_>| r.pop())
         .context("Location not found")?;
 
-    debug!(
-        name = %geo_result.name,
-        lat = %geo_result.latitude,
-        lon = %geo_result.longitude,
-        country = ?geo_result.country_code,
-        "Geocoding result"
-    );
+
 
     let weather_url = format!(
         "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&current=temperature_2m,weather_code,wind_speed_10m",
@@ -71,12 +64,7 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
     let temperature =
         temperature_unit.convert_from_celsius(weather_response.current.temperature_2m);
 
-    debug!(
-        temp_celsius = %weather_response.current.temperature_2m,
-        temp_converted = %temperature,
-        unit = ?temperature_unit,
-        "Temperature converted"
-    );
+
 
     Ok(WeatherResponse {
         location: geo_result.name,
