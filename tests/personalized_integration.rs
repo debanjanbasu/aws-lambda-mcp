@@ -13,10 +13,11 @@ async fn test_get_personalized_greeting() {
     let result = get_personalized_greeting(request).await;
     assert!(result.is_ok());
 
-    let response = result.expect("Failed to get personalized greeting");
-    assert!(response.greeting.contains("John Doe"));
-    assert_eq!(response.user_name, "John Doe");
-    assert!(!response.timestamp.is_empty());
+    if let Ok(response) = result {
+        assert!(response.greeting.contains("John Doe"));
+        assert_eq!(response.user_name, "John Doe");
+        assert!(!response.timestamp.is_empty());
+    }
 }
 
 #[tokio::test]
@@ -30,8 +31,9 @@ async fn test_get_personalized_greeting_no_name() {
     let result = get_personalized_greeting(request).await;
     assert!(result.is_ok());
 
-    let response = result.expect("Failed to get personalized greeting with no name");
-    assert!(response.greeting.contains("user123"));
-    assert_eq!(response.user_name, "");
-    assert!(!response.timestamp.is_empty());
+    if let Ok(response) = result {
+        assert!(response.greeting.contains("user123"));
+        assert_eq!(response.user_name, "");
+        assert!(!response.timestamp.is_empty());
+    }
 }
