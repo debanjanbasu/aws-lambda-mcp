@@ -28,9 +28,10 @@ The AWS Lambda MCP is a Rust-based server implementing MCP for Bedrock AgentCore
 The project includes a gateway interceptor Lambda that sits between the AgentCore Gateway and the main MCP Lambda. The interceptor:
 
 - Extracts authorization headers and custom headers from incoming requests
-- Performs token exchange/validation (placeholder for actual implementation)
-- Adds exchanged credentials and custom headers to the MCP request arguments
-- Enables secure header propagation and token exchange workflows
+- Parses JWT tokens to extract user identity information
+- Adds user information and custom headers to the MCP request arguments
+- Enables secure header propagation and user context workflows
+- Demonstrates how to enrich requests with contextual data
 
 The interceptor is deployed via CloudFormation to add interceptor configuration to the existing Terraform-managed gateway.
 

@@ -35,6 +35,11 @@ fn main() {
             aws_lambda_mcp::models::WeatherRequest,
             aws_lambda_mcp::models::WeatherResponse
         ),
+        tool_entry!(
+            aws_lambda_mcp::tools::personalized::get_personalized_greeting_tool_attr(),
+            aws_lambda_mcp::tools::personalized::PersonalizedGreetingRequest,
+            aws_lambda_mcp::tools::personalized::PersonalizedGreetingResponse
+        ),
         // Add new tools here:
         // tool_entry!(
         //     aws_lambda_mcp::tools::example::another_tool_tool_attr(),

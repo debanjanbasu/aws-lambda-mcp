@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use rmcp::tool;
 use std::time::Duration;
-use tracing::{debug, instrument};
+use lambda_runtime::tracing::debug;
 
 use crate::http::HTTP_CLIENT;
 use crate::models::{
@@ -19,7 +19,6 @@ use crate::models::{
 #[tool(
     description = "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide."
 )]
-#[instrument(fields(location = %request.location))]
 pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
     let geocoding_url = format!(
         "https://geocoding-api.open-meteo.com/v1/search?name={}&count=1&language=en&format=json",
@@ -32,13 +31,13 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
         .send()
         .await
         .context("Failed to fetch geocoding data")?
-        .json()
+        .json::<GeocodingResponse>()
         .await
         .context("Failed to parse geocoding response")?;
 
     let geo_result = geo_response
         .results
-        .and_then(|mut r| r.pop())
+        .and_then(|mut r: Vec<_>| r.pop())
         .context("Location not found")?;
 
     debug!(
@@ -60,7 +59,7 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
         .send()
         .await
         .context("Failed to fetch weather data")?
-        .json()
+        .json::<OpenMeteoResponse>()
         .await
         .context("Failed to parse weather response")?;
 

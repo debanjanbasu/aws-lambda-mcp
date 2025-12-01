@@ -59,7 +59,7 @@ variable "lambda_concurrent_executions" {
 variable "log_retention_days" {
   description = "CloudWatch Logs retention period in days"
   type        = number
-  default     = 3  # Short retention for cost optimization
+  default     = 3  # 3 days retention for cost optimization
 }
 
 

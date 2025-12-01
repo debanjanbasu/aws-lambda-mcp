@@ -16,8 +16,7 @@ This document provides guidelines for AI assistants working on the infrastructur
 
 ## Key Infrastructure Files
 
-- `main.tf` - Main Terraform resources (Lambda, API Gateway, Bedrock, CloudFormation)
-- `gateway-with-interceptor.yaml` - CloudFormation template for gateway interceptor configuration
+- `main.tf` - Main Terraform resources (Lambda, API Gateway, Bedrock, interceptor configuration)
 - `variables.tf` - Input variables with defaults and validation
 - `outputs.tf` - Output values for other systems
 - `locals.tf` - Computed values and constants
@@ -37,22 +36,22 @@ This document provides guidelines for AI assistants working on the infrastructur
 - **Dependencies**: Use `depends_on` sparingly; prefer implicit dependencies
 - **Formatting**: Run `terraform fmt` before committing
 
-## CloudFormation Guidelines
+## AWS CLI Provisioner Guidelines
 
-- **Purpose**: Use CloudFormation for AWS features not yet supported by Terraform providers
-- **Integration**: Deploy CloudFormation stacks via Terraform's `aws_cloudformation_stack` resource
+- **Purpose**: Use AWS CLI provisioners for AWS features not yet supported by Terraform providers
+- **Integration**: Deploy via Terraform's `null_resource` with `local-exec` provisioners
 - **Naming**: Follow consistent naming conventions matching Terraform resources
-- **Parameters**: Pass Terraform outputs as CloudFormation parameters
-- **Validation**: Test CloudFormation templates with `aws cloudformation validate-template`
+- **Parameters**: Pass Terraform outputs as command-line parameters
+- **Validation**: Test AWS CLI commands manually before implementing
 - **Dependencies**: Use `depends_on` to ensure proper deployment order
-- **Updates**: CloudFormation handles resource updates automatically
-- **Cleanup**: Implement proper resource cleanup in Delete handlers to prevent orphaned resources
+- **Updates**: AWS CLI provisioners handle resource updates automatically
+- **Cleanup**: Implement proper resource cleanup in destroy handlers to prevent orphaned resources
 
 ## AWS Resource Best Practices
 
 - **Lambda**: Use ARM64 architecture, set appropriate memory/timeout, enable CloudWatch logs
 - **Bedrock AgentCore Gateway**: Configure with interceptor for header propagation when needed
-- **CloudFormation**: Use for advanced AWS features not in Terraform providers
+- **AWS CLI Provisioners**: Use for advanced AWS features not in Terraform providers
 - **API Gateway**: Use regional deployment, enable logging, configure CORS properly
 - **IAM**: Follow least privilege; use managed policies where possible
 - **S3**: Enable versioning, encryption, and access logging for state buckets
@@ -65,7 +64,7 @@ This document provides guidelines for AI assistants working on the infrastructur
 - **Data Encryption**: SNS topics encrypted with AWS managed keys, Lambda environment variables encrypted
 - **IAM Roles**: Restrict permissions to minimum required; use condition keys and resource ARNs
 - **Network Security**: Use VPC endpoints where possible; avoid public IPs
-- **CloudFormation**: Scope IAM policies to specific resources, avoid wildcard permissions
+- **AWS CLI Provisioners**: Scope IAM policies to specific resources, avoid wildcard permissions
 - **Logging**: Enable CloudTrail, avoid logging sensitive data
 - **Compliance**: Follow AWS security best practices; regular audits
 
@@ -76,6 +75,7 @@ This document provides guidelines for AI assistants working on the infrastructur
 - **State Locks**: Use `terraform force-unlock` only as last resort
 - **Resource Conflicts**: Check for naming collisions; use unique suffixes
 - **Plan Failures**: Validate syntax with `terraform validate`; check variable values
+- **AWS CLI Provisioner Issues**: Check AWS CLI commands manually; verify IAM permissions
 
 ## Contributing
 

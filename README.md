@@ -134,6 +134,14 @@ Included working tool demonstrates the pattern:
 - Returns temperature in local units (°C/°F by country)
 - WMO weather code + wind speed
 
+## Example: Personalized Greeting Tool
+
+New personalized greeting tool demonstrates:
+- Gateway interceptor JWT token parsing
+- User identity extraction from OAuth tokens
+- Contextual tool responses based on user information
+- Secure header propagation between gateway and tools
+
 ## Prerequisites
 
 - **Rust** (edition 2024)
@@ -254,7 +262,8 @@ src/
 │   └── open_meteo.rs
 ├── tools/               # Tool implementations (#[tool] macro)
 │   ├── mod.rs
-│   └── weather.rs
+│   ├── weather.rs
+│   └── personalized.rs
 ├── http/                # Global HTTP client
 │   ├── mod.rs
 │   └── client.rs
@@ -419,12 +428,12 @@ pub struct YourRequest {
     #[schemars(description = "Input description")]
     pub input: String,
 }
-
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct YourResponse {
-    pub result: String,
-}
 ```
+
+See `src/tools/personalized.rs` for a complete example that demonstrates:
+- Extracting user information from interceptor-passed data
+- Creating personalized responses
+- Proper error handling with context
 
 **2. Tool** (`src/tools/your_tool.rs`):
 ```rust

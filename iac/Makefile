@@ -74,67 +74,122 @@ apply: init ## Apply changes
 deploy: init apply ## Deploy infrastructure (init + apply)
 	@echo "$(GREEN)✅ Infrastructure deployed successfully!$(RESET)"
 
-test-token: ## Get OAuth token + launch MCP Inspector
-	@echo "$(BLUE)🔑 Generating OAuth token...$(RESET)"
-	@bash -c ' \
-	set -e; \
+test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User Authentication)
+	@echo "$(BLUE)🔑 Getting user OAuth token for MCP testing...$(RESET)"
+	@bash -c 'set -e; \
 	command -v jq >/dev/null 2>&1 || { echo -e "$(RED)❌ jq not found. Install: brew install jq$(RESET)" >&2; exit 1; }; \
 	command -v curl >/dev/null 2>&1 || { echo -e "$(RED)❌ curl not found. Install: brew install curl$(RESET)" >&2; exit 1; }; \
 	command -v npx >/dev/null 2>&1 || { echo -e "$(RED)❌ npx not found. Install Node.js and npm.$(RESET)" >&2; exit 1; }; \
 	CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
-	CLIENT_SECRET=$$(terraform output -raw entra_client_secret 2>/dev/null); \
-	CLIENT_CREDENTIALS_SCOPE=$$(terraform output -raw entra_app_scope_client_credentials 2>/dev/null); \
-	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$CLIENT_SECRET" ] || [ -z "$$CLIENT_CREDENTIALS_SCOPE" ]; then \
+	BASE_SCOPE=$$(terraform output -raw entra_app_scope 2>/dev/null); \
+	# Use only the base scope with essential OIDC scopes for user authentication \
+	SCOPE="$${BASE_SCOPE} openid profile email"; \
+	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo ""); \
+	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$GATEWAY_URL" ] || [ "$$GATEWAY_URL" = "null" ]; then \
 		echo "$(RED)❌ Missing Terraform outputs. Run \"make apply\" first to deploy infrastructure.$(RESET)" >&2; \
 		exit 1; \
 	fi; \
-	SCOPE="$${CLIENT_CREDENTIALS_SCOPE}"; \
-	TOKEN_RESPONSE=$$(curl -s -X POST "https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token" \
+	echo -e "$(CYAN)🔐 Starting OAuth device code flow...$(RESET)"; \
+	echo -e "$(CYAN)🔍 Client ID: $$CLIENT_ID$(RESET)"; \
+	echo -e "$(CYAN)🔍 Tenant ID: $$TENANT_ID$(RESET)"; \
+	echo -e "$(CYAN)🔍 Requested Scope: $$SCOPE$(RESET)"; \
+	DEVICE_RESPONSE=$$(curl -s -X POST "https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/devicecode" \
 		-H "Content-Type: application/x-www-form-urlencoded" \
 		-d "client_id=$$CLIENT_ID" \
-		-d "client_secret=$$CLIENT_SECRET" \
-		-d "grant_type=client_credentials" \
 		-d "scope=$$SCOPE"); \
-	if echo "$$TOKEN_RESPONSE" | jq -e ".error" >/dev/null 2>&1; then \
-		echo -e "$(RED)❌ Error getting token:$(RESET)" >&2; \
-		echo "$$TOKEN_RESPONSE" | jq -r ".error_description // .error" >&2; \
+	echo -e "$(CYAN)🔍 Device code response: $$DEVICE_RESPONSE$(RESET)" >&2; \
+	if echo "$$DEVICE_RESPONSE" | jq -e ".error" >/dev/null 2>&1; then \
+		echo -e "$(RED)❌ Error initiating device code flow:$(RESET)" >&2; \
+		echo "$$DEVICE_RESPONSE" | jq -r ".error_description // .error" >&2; \
 		exit 1; \
 	fi; \
-	ACCESS_TOKEN=$$(echo "$$TOKEN_RESPONSE" | jq -r ".access_token"); \
-	if [ -z "$$ACCESS_TOKEN" ] || [ "$$ACCESS_TOKEN" = \"null\" ]; then \
-		echo -e "$(RED)❌ Failed to get token. ACCESS_TOKEN is empty or null.$(RESET)" >&2; \
+	DEVICE_CODE=$$(echo "$$DEVICE_RESPONSE" | jq -r ".device_code"); \
+	USER_CODE=$$(echo "$$DEVICE_RESPONSE" | jq -r ".user_code"); \
+	VERIFICATION_URI=$$(echo "$$DEVICE_RESPONSE" | jq -r ".verification_uri"); \
+	MESSAGE=$$(echo "$$DEVICE_RESPONSE" | jq -r ".message"); \
+	echo -e "$(YELLOW)$${MESSAGE}$(RESET)"; \
+	if command -v pbcopy >/dev/null 2>&1; then \
+		echo "$$USER_CODE" | pbcopy; \
+		echo -e "$(CYAN)📋 Code copied to clipboard$(RESET)"; \
+	fi; \
+	echo -e "$(YELLOW)🌐 Opening browser to $$VERIFICATION_URI...$(RESET)"; \
+	if command -v open >/dev/null 2>&1; then \
+		open "$$VERIFICATION_URI"; \
+	elif command -v xdg-open >/dev/null 2>&1; then \
+		xdg-open "$$VERIFICATION_URI"; \
+	else \
+		echo -e "$(RED)❌ No browser opener found. Open manually: $$VERIFICATION_URI$(RESET)" >&2; \
 		exit 1; \
 	fi; \
+	echo -e "$(YELLOW)⏳ Polling for token (this may take a few minutes)...$(RESET)"; \
+	ACCESS_TOKEN=""; \
+	POLL_COUNT=0; \
+	MAX_POLLS=24; \
+	while [ -z "$$ACCESS_TOKEN" ] || [ "$$ACCESS_TOKEN" = "null" ]; do \
+		if [ $$POLL_COUNT -ge $$MAX_POLLS ]; then \
+			echo -e "$(RED)❌ Timeout waiting for token. Please try again.$(RESET)" >&2; \
+			exit 1; \
+		fi; \
+		sleep 5; \
+		POLL_COUNT=$$((POLL_COUNT + 1)); \
+		echo -e "$(CYAN)🔍 Poll attempt $$POLL_COUNT/$$MAX_POLLS...$(RESET)"; \
+		TOKEN_RESPONSE=$$(curl -s -X POST "https://login.microsoftonline.com/$$TENANT_ID/oauth2/v2.0/token" \
+			-H "Content-Type: application/x-www-form-urlencoded" \
+			-d "grant_type=device_code" \
+			-d "client_id=$$CLIENT_ID" \
+			-d "device_code=$$DEVICE_CODE"); \
+		echo -e "$(CYAN)🔍 Token response: $$TOKEN_RESPONSE$(RESET)" >&2; \
+		if echo "$$TOKEN_RESPONSE" | jq -e ".access_token" >/dev/null 2>&1; then \
+			ACCESS_TOKEN=$$(echo "$$TOKEN_RESPONSE" | jq -r ".access_token"); \
+			echo -e "$(GREEN)✅ Token received!$(RESET)"; \
+		elif echo "$$TOKEN_RESPONSE" | jq -e ".error" >/dev/null 2>&1; then \
+			ERROR=$$(echo "$$TOKEN_RESPONSE" | jq -r ".error"); \
+			ERROR_DESCRIPTION=$$(echo "$$TOKEN_RESPONSE" | jq -r ".error_description" 2>/dev/null || echo ""); \
+			if [ "$$ERROR" != "authorization_pending" ] && [ "$$ERROR" != "slow_down" ]; then \
+				echo -e "$(RED)❌ Error getting token: $$ERROR$(RESET)" >&2; \
+				if [ -n "$$ERROR_DESCRIPTION" ]; then \
+					echo -e "$(RED)   Description: $$ERROR_DESCRIPTION$(RESET)" >&2; \
+				fi; \
+				echo -e "$(YELLOW)💡 Troubleshooting tips:$(RESET)" >&2; \
+				echo -e "$(YELLOW)   1. Make sure you have consented to the application in the browser$(RESET)" >&2; \
+				echo -e "$(YELLOW)   2. Check that the application is properly configured in Azure AD$(RESET)" >&2; \
+				echo -e "$(YELLOW)   3. Run '\''make deploy'\'' to ensure the application is properly deployed$(RESET)" >&2; \
+				exit 1; \
+			else \
+				echo -e "$(YELLOW)⏳ Waiting for user to complete authentication...$(RESET)"; \
+			fi; \
+		fi; \
+	done; \
 	echo "# Generated: $$(date)" > .env; \
 	echo "export MCP_ACCESS_TOKEN=\"$$ACCESS_TOKEN\"" >> .env; \
 	echo "export MCP_CLIENT_ID=\"$$CLIENT_ID\"" >> .env; \
 	echo "export MCP_TENANT_ID=\"$$TENANT_ID\"" >> .env; \
-	echo -e "$(GREEN)✅ Token saved to .env$(RESET)"; \
-	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo ""); \
-	if [ -n "$$GATEWAY_URL" ] && [ "$$GATEWAY_URL" != \"null\" ]; then \
-		if command -v pbcopy >/dev/null 2>&1; then \
-			echo "$$ACCESS_TOKEN" | pbcopy; \
-			echo -e "$(CYAN)📋 Token copied to clipboard$(RESET)"; \
-		fi; \
-		echo -e "$(CYAN)🔗 Gateway URL: $$GATEWAY_URL$(RESET)"; \
-		echo -e "$(BLUE)🚀 Launching MCP Inspector...$(RESET)"; \
-		source .env && npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL" || { echo -e '\''$(RED)❌ Failed to launch MCP Inspector.$(RESET)'\'' >&2; exit 1; }; \
-	else \
-		echo -e "$(YELLOW)⚠️  Gateway not yet deployed. Deploy first with '\''make deploy'\''.$(RESET)" >&2; \
-		exit 1; \
-	fi'
+	echo -e "$(GREEN)✅ User token saved to .env$(RESET)"; \
+	if command -v pbcopy >/dev/null 2>&1; then \
+		echo "$$ACCESS_TOKEN" | pbcopy; \
+		echo -e "$(CYAN)📋 Token copied to clipboard$(RESET)"; \
+	fi; \
+	echo -e "$(CYAN)🔗 Gateway URL: $$GATEWAY_URL$(RESET)"; \
+	echo -e "$(BLUE)🚀 Launching MCP Inspector...$(RESET)"; \
+	source .env && npx @modelcontextprotocol/inspector --transport http --server-url "$$GATEWAY_URL" || { echo -e "$(RED)❌ Failed to launch MCP Inspector.$(RESET)" >&2; exit 1; }'
 
-test-lambda: ## Test Lambda directly
+test-lambda: ## Test Lambda directly (bypass Gateway)
 	@echo "$(BLUE)🧪 Testing Lambda function directly...$(RESET)"
-	@aws lambda invoke \
-		--function-name aws-agentcore-gateway \
+	@LAMBDA_NAME=$$(terraform output -raw lambda_function_name 2>/dev/null); \
+	if [ -z "$$LAMBDA_NAME" ]; then \
+		echo "$(RED)❌ Lambda function not found. Run \"make apply\" first.$(RESET)" >&2; \
+		exit 1; \
+	fi; \
+	echo "$(CYAN)📦 Invoking Lambda: $$LAMBDA_NAME$(RESET)"; \
+	aws lambda invoke \
+		--function-name "$$LAMBDA_NAME" \
 		--cli-binary-format raw-in-base64-out \
-		--payload '{"name":"get_weather","location":"Sydney"}' \
-		/tmp/test-response.json > /dev/null
-	@echo "Response:"
-	@cat /tmp/test-response.json | jq .
-	@echo "$(GREEN)✅ Lambda test complete!$(RESET)"
+		--payload '{"method":"tools/call","params":{"name":"get_weather","arguments":{"location":"Sydney"}}}' \
+		/tmp/test-response.json > /dev/null; \
+	echo "Response:"; \
+	cat /tmp/test-response.json | jq .; \
+	echo "$(GREEN)✅ Lambda test complete!$(RESET)"
 
 logs: ## Tail Lambda logs
 	@echo "$(BLUE)📜 Tailing Lambda logs (Ctrl+C to exit)...$(RESET)"

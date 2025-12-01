@@ -1,10 +1,12 @@
 use anyhow::Result;
 use lambda_runtime::{Context, Diagnostic, LambdaEvent};
 use serde_json::Value;
-use tracing::{debug, error, info, instrument};
+use lambda_runtime::tracing::{debug, error, info};
 
 use crate::models::WeatherRequest;
 use crate::tools::weather::get_weather;
+use crate::tools::personalized::get_personalized_greeting;
+use crate::tools::personalized::PersonalizedGreetingRequest;
 
 // Lambda event handler with conditional debug logging.
 // - Production (RUST_LOG=info/warn/error): Only event_size logged, event skipped from spans
@@ -43,38 +45,68 @@ fn strip_gateway_prefix(name: &str) -> String {
 
 /// Routes a tool request to the appropriate handler.
 async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, Diagnostic> {
-    if tool_name == "get_weather" {
-        let request: WeatherRequest = serde_json::from_value(event_payload).map_err(|e| {
-            error!(error = %e, "Failed to parse WeatherRequest");
-            Diagnostic {
-                error_type: "InvalidInput".to_string(),
-                error_message: format!("Failed to parse request: {e}"),
-            }
-        })?;
+    match tool_name {
+        "get_weather" => {
+            let request: WeatherRequest = serde_json::from_value(event_payload).map_err(|e| {
+                error!(error = %e, "Failed to parse WeatherRequest");
+                Diagnostic {
+                    error_type: "InvalidInput".to_string(),
+                    error_message: format!("Failed to parse request: {e}"),
+                }
+            })?;
 
-        let response = get_weather(request).await.map_err(|e| {
-            error!(error = %e, "Failed to get weather");
-            Diagnostic {
-                error_type: "ToolError".to_string(),
-                error_message: format!("Failed to get weather: {e}"),
-            }
-        })?;
+            let response = get_weather(request).await.map_err(|e| {
+                error!(error = %e, "Failed to get weather");
+                Diagnostic {
+                    error_type: "ToolError".to_string(),
+                    error_message: format!("Failed to get weather: {e}"),
+                }
+            })?;
 
-        info!("Weather data retrieved successfully");
+            info!("Weather data retrieved successfully");
 
-        serde_json::to_value(response).map_err(|e| {
-            error!(error = %e, "Failed to serialize response");
-            Diagnostic {
-                error_type: "SerializationError".to_string(),
-                error_message: format!("Failed to serialize response: {e}"),
-            }
-        })
-    } else {
-        error!(tool_name = %tool_name, "Unknown tool requested");
-        Err(Diagnostic {
-            error_type: "UnknownTool".to_string(),
-            error_message: format!("Unknown tool: {tool_name}"),
-        })
+            serde_json::to_value(response).map_err(|e| {
+                error!(error = %e, "Failed to serialize response");
+                Diagnostic {
+                    error_type: "SerializationError".to_string(),
+                    error_message: format!("Failed to serialize response: {e}"),
+                }
+            })
+        }
+        "get_personalized_greeting" => {
+            let request: PersonalizedGreetingRequest = serde_json::from_value(event_payload).map_err(|e| {
+                error!(error = %e, "Failed to parse PersonalizedGreetingRequest");
+                Diagnostic {
+                    error_type: "InvalidInput".to_string(),
+                    error_message: format!("Failed to parse request: {e}"),
+                }
+            })?;
+
+            let response = get_personalized_greeting(request).await.map_err(|e| {
+                error!(error = %e, "Failed to get personalized greeting");
+                Diagnostic {
+                    error_type: "ToolError".to_string(),
+                    error_message: format!("Failed to get personalized greeting: {e}"),
+                }
+            })?;
+
+            info!("Personalized greeting generated successfully");
+
+            serde_json::to_value(response).map_err(|e| {
+                error!(error = %e, "Failed to serialize response");
+                Diagnostic {
+                    error_type: "SerializationError".to_string(),
+                    error_message: format!("Failed to serialize response: {e}"),
+                }
+            })
+        }
+        _ => {
+            error!(tool_name = %tool_name, "Unknown tool requested");
+            Err(Diagnostic {
+                error_type: "UnknownTool".to_string(),
+                error_message: format!("Unknown tool: {tool_name}"),
+            })
+        }
     }
 }
 
@@ -89,7 +121,6 @@ async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, Diag
 /// - `ToolError`: The requested tool failed to execute
 /// - `SerializationError`: Failed to serialize the tool response back to JSON
 /// - `UnknownTool`: The requested tool name was not recognized
-#[instrument(skip(event), fields(req_id = %event.context.request_id))]
 pub async fn function_handler(event: LambdaEvent<Value>) -> Result<Value, Diagnostic> {
     // No point in trying to log event or context, they're obfuscated for privacy
     let (event_payload, context) = event.into_parts();

@@ -21,7 +21,7 @@ help: ## ✨ Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(check-backend-config|setup-backend|deploy|tf-destroy):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(GREEN)Development Tools:$(RESET)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(login|test-token|test-lambda|logs|clean|kill-inspector|oauth-config|add-redirect-url|clean-redirect-url|update-secrets):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(login|test-token|test-lambda|logs|clean|kill-inspector|oauth-config|add-redirect-url|update-secrets):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(GREEN)Terraform Commands:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(tf-init|tf-plan|tf-apply):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
@@ -115,13 +115,13 @@ build: schema ## 🐳 Build Lambda (debug)
 	@cargo lambda build --bin interceptor --color=always
 
 release: schema check-tools ## 📦 Build Lambda (release, ARM64) with UPX compression
-	@echo "$(BLUE)🚀 Building release version (ARM64 + UPX)...$(RESET)"
+	@echo "$(BLUE)🚀 Building release version (ARM64)...$(RESET)"
 	@cargo lambda build --release --arm64 --bin aws-lambda-mcp --color=always
 	@cargo lambda build --release --arm64 --bin interceptor --color=always
-	@echo "$(BLUE)📦 Compressing binaries with UPX (--best --lzma)...$(RESET)"
+	@echo "$(BLUE)🗜️  Compressing binaries with UPX (--best --lzma)...$(RESET)"
 	@upx --best --lzma target/lambda/aws-lambda-mcp/bootstrap
 	@upx --best --lzma target/lambda/interceptor/bootstrap
-	@echo "$(GREEN)📊 Final sizes:$(RESET)"
+	@echo "$(GREEN)📊 Final binary sizes:$(RESET)"
 	@ls -lh target/lambda/aws-lambda-mcp/bootstrap target/lambda/interceptor/bootstrap
 
 test: ## 🧪 Run tests
@@ -165,72 +165,76 @@ tf-destroy: ## 🧨 Destroy Terraform resources (requires backend config)
 
 # Infrastructure Commands
 setup-backend: ## ⚙️ Create S3 backend for Terraform state (native locking)
-	@bash -c ' \
-	set -e; \
-	echo -e "$(BLUE)⚙️  Setting up Terraform backend...$(RESET)"; \
+	@PROCEED=true; \
+	echo "$(BLUE)⚙️  Setting up Terraform backend...$(RESET)"; \
 	if [ -f iac/backend.config ]; then \
-		echo -e "$(YELLOW)⚠️  A backend configuration already exists:$(RESET)"; \
+		echo "$(YELLOW)⚠️  A backend configuration already exists:$(RESET)"; \
 		echo ""; \
 		cat iac/backend.config | sed "s/^/  /"; \
 		echo ""; \
-		echo -e "$(CYAN)💡 Don't worry! Your existing config will be automatically backed up.$(RESET)"; \
+		echo "$(CYAN)💡 Don't worry! Your existing config will be automatically backed up.$(RESET)"; \
 		echo ""; \
-		read -p "Do you want to proceed and create a new backend? (y/N): " CONFIRM; \
+		echo -n "Do you want to proceed and create a new backend? (y/N): "; \
+		read CONFIRM; \
 		if [ "$$CONFIRM" != "y" ] && [ "$$CONFIRM" != "Y" ]; then \
-			echo -e "$(GREEN)✅ Aborted. Existing backend preserved.$(RESET)"; \
-			exit 0; \
+			echo "$(GREEN)✅ Aborted. Existing backend preserved.$(RESET)"; \
+			PROCEED=false; \
+		else \
+			BACKUP_FILE="iac/backend.config.backup.$$(date +%Y%m%d_%H%M%S)"; \
+			cp iac/backend.config "$$BACKUP_FILE"; \
+			echo "$(GREEN)✅ Backed up existing config to $$BACKUP_FILE$(RESET)"; \
+			echo "$(CYAN)💡 You can restore it anytime by copying it back to iac/backend.config$(RESET)"; \
 		fi; \
-		BACKUP_FILE="iac/backend.config.backup.$$(date +%Y%m%d_%H%M%S)"; \
-		cp iac/backend.config "$$BACKUP_FILE"; \
-		echo -e "$(GREEN)✅ Backed up existing config to $$BACKUP_FILE$(RESET)"; \
-		echo -e "$(CYAN)💡 You can restore it anytime by copying it back to iac/backend.config$(RESET)"; \
 	fi; \
-	command -v aws >/dev/null 2>&1 || (echo -e "$(RED)❌ AWS CLI not found. Install: https://aws.amazon.com/cli/$(RESET)" && exit 1); \
-	aws sts get-caller-identity >/dev/null 2>&1 || (echo -e "$(RED)❌ AWS CLI not configured. Run: aws configure$(RESET)" && exit 1); \
-	BUCKET_NAME=$${BUCKET_NAME:-}; \
-	if [ -z "$$BUCKET_NAME" ]; then \
-		read -p "Enter a globally unique S3 bucket name for Terraform state: " BUCKET_NAME; \
-	fi; \
-	if [ -z "$$BUCKET_NAME" ]; then \
-		echo -e "$(RED)❌ Bucket name cannot be empty.$(RESET)"; \
-		exit 1; \
-	fi; \
-	echo -e "$(BLUE)▶️ Creating S3 bucket '\''$$BUCKET_NAME'\'' in region $(AWS_REGION)...$(RESET)"; \
-	if aws s3api head-bucket --bucket $$BUCKET_NAME --no-cli-pager 2>/dev/null; then \
-		echo -e "$(YELLOW)⚠️  Bucket '\''$$BUCKET_NAME'\'' already exists. Using existing bucket.$(RESET)"; \
-	else \
-		aws s3api create-bucket --bucket $$BUCKET_NAME --region $(AWS_REGION) --create-bucket-configuration LocationConstraint=$(AWS_REGION) --no-cli-pager > /dev/null; \
-	fi; \
-	echo -e "$(BLUE)▶️ Enabling versioning and encryption for '\''$$BUCKET_NAME'\''...$(RESET)"; \
-	aws s3api put-bucket-versioning --bucket $$BUCKET_NAME --versioning-configuration Status=Enabled > /dev/null; \
-	aws s3api put-bucket-encryption --bucket $$BUCKET_NAME --server-side-encryption-configuration '\''{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'\'' > /dev/null; \
-	echo -e "$(BLUE)▶️ Creating '\''iac/backend.config'\'' for local use...$(RESET)"; \
-	ENVIRONMENT_NAME=$${ENVIRONMENT_NAME:-}; \
-	if [ -z "$$ENVIRONMENT_NAME" ]; then \
-		read -p "Enter environment/branch name for Terraform state (optional, e.g., 'dev', 'feat-branch', or leave blank for default): " ENVIRONMENT_NAME; \
-	fi; \
-	TF_STATE_KEY="aws-lambda-mcp/$${ENVIRONMENT_NAME}/terraform.tfstate"; \
-	if [ -z "$$ENVIRONMENT_NAME" ]; then \
-		TF_STATE_KEY="aws-lambda-mcp/terraform.tfstate"; \
-	fi; \
-	echo "bucket         = \"$$BUCKET_NAME\"" > iac/backend.config; \
-	echo "key            = \"$$TF_STATE_KEY\"" >> iac/backend.config; \
-	echo "region         = \"$(AWS_REGION)\"" >> iac/backend.config; \
-	echo "use_lockfile   = true" >> iac/backend.config; \
-	echo -e "$(GREEN)✅ Backend setup complete!$(RESET)"; \
-	echo -e "$(CYAN)ℹ️  Using native S3 state locking (Terraform 1.10+)$(RESET)"; \
-	echo -e "Run '\''$(CYAN)make tf-init$(RESET)'\'' to initialize Terraform with the new backend."; \
-	# Safely update or add TF_BACKEND_BUCKET to .env file
-	(grep -v '^TF_BACKEND_BUCKET=' .env 2>/dev/null; echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\"") > .env.tmp && mv .env.tmp .env; \
-	echo -e "$(GREEN)✅ .env file updated with TF_BACKEND_BUCKET=$(RESET)"; \
-	'
+	if [ "$$PROCEED" = true ]; then \
+		command -v aws >/dev/null 2>&1 || { echo "$(RED)❌ AWS CLI not found. Install: https://aws.amazon.com/cli/$(RESET)"; exit 1; }; \
+		aws sts get-caller-identity >/dev/null 2>&1 || { echo "$(RED)❌ AWS CLI not configured. Run: aws configure$(RESET)"; exit 1; }; \
+		BUCKET_NAME=$${BUCKET_NAME:-}; \
+		if [ -z "$$BUCKET_NAME" ]; then \
+			echo -n "Enter a globally unique S3 bucket name for Terraform state: "; \
+			read BUCKET_NAME; \
+		fi; \
+		if [ -z "$$BUCKET_NAME" ]; then \
+			echo "$(RED)❌ Bucket name cannot be empty.$(RESET)"; \
+			exit 1; \
+		fi; \
+		REGION=$${AWS_REGION:-ap-southeast-2}; \
+		echo "$(BLUE)▶️ Creating S3 bucket '$$BUCKET_NAME' in region $$REGION...$(RESET)"; \
+		if aws s3api head-bucket --bucket $$BUCKET_NAME --no-cli-pager 2>/dev/null; then \
+			echo "$(YELLOW)⚠️  Bucket '$$BUCKET_NAME' already exists. Using existing bucket.$(RESET)"; \
+		else \
+			aws s3api create-bucket --bucket $$BUCKET_NAME --region $$REGION --create-bucket-configuration LocationConstraint=$$REGION --no-cli-pager > /dev/null; \
+		fi; \
+		echo "$(BLUE)▶️ Enabling versioning and encryption for '$$BUCKET_NAME'...$(RESET)"; \
+		aws s3api put-bucket-versioning --bucket $$BUCKET_NAME --versioning-configuration Status=Enabled > /dev/null; \
+		aws s3api put-bucket-encryption --bucket $$BUCKET_NAME --server-side-encryption-configuration '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}' > /dev/null; \
+		echo "$(BLUE)▶️ Creating 'iac/backend.config' for local use...$(RESET)"; \
+		ENVIRONMENT_NAME=$${ENVIRONMENT_NAME:-}; \
+		if [ -z "$$ENVIRONMENT_NAME" ]; then \
+			echo -n "Enter environment/branch name for Terraform state (optional, e.g., 'dev', 'feat-branch', or leave blank for default): "; \
+			read ENVIRONMENT_NAME; \
+		fi; \
+		TF_STATE_KEY="aws-lambda-mcp/$${ENVIRONMENT_NAME}/terraform.tfstate"; \
+		if [ -z "$$ENVIRONMENT_NAME" ]; then \
+			TF_STATE_KEY="aws-lambda-mcp/terraform.tfstate"; \
+		fi; \
+		echo "bucket         = \"$$BUCKET_NAME\"" > iac/backend.config; \
+		echo "key            = \"$$TF_STATE_KEY\"" >> iac/backend.config; \
+		echo "region         = \"$$REGION\"" >> iac/backend.config; \
+		echo "use_lockfile   = true" >> iac/backend.config; \
+		echo "$(GREEN)✅ Backend setup complete!$(RESET)"; \
+		echo "$(CYAN)ℹ️  Using native S3 state locking (Terraform 1.10+)$(RESET)"; \
+		echo "Run '$(CYAN)make tf-init$(RESET)' to initialize Terraform with the new backend."; \
+		{ grep -v '^TF_BACKEND_BUCKET=' .env 2>/dev/null; echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\""; } > .env.tmp && mv .env.tmp .env 2>/dev/null || echo "TF_BACKEND_BUCKET=\"$$BUCKET_NAME\"" > .env; \
+		echo "$(GREEN)✅ .env file updated with TF_BACKEND_BUCKET=$(RESET)"; \
+	fi
 
 login: ## 🔑 Authenticate AWS + Azure CLIs
 	@echo "$(BLUE)🔐 Authenticating AWS + Azure CLIs...$(RESET)"
 	@cd iac && $(MAKE) login
 
-test-token: ## 🔑 Get OAuth token + launch MCP Inspector
-	@echo "$(BLUE)🔑 Getting OAuth token...$(RESET)"
+test-token: ## 🔑 Get OAuth token via device code flow + launch MCP Inspector (User Authentication)
+	@echo "$(BLUE)🔑 Getting OAuth token via device code flow...$(RESET)"
 	@lsof -ti:6274,6277 2>/dev/null | xargs kill -9 2>/dev/null || true
 	@cd iac && $(MAKE) test-token
 
@@ -273,7 +277,6 @@ update-secrets: ## 🔐 Update GitHub repository secrets from a .env file (for G
 	@echo "$(BLUE)Setting secrets for Dependabot...$(RESET)"
 	@gh secret set -f .env --app dependabot
 	@echo "$(GREEN)✅ GitHub secrets updated for both GitHub Actions and Dependabot!$(RESET)"
-
 
 test-preview-inspector: deploy ## 🧪 Deploy and launch MCP Inspector with OAuth token for preview environment
 	@echo "$(BLUE)🚀 Deploying and launching MCP Inspector for preview environment...$(RESET)"

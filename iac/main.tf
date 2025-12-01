@@ -19,44 +19,10 @@ data "archive_file" "interceptor_lambda_zip" {
 # Get current AWS account information
 data "aws_caller_identity" "current" {}
 
-# SNS Topic for CloudFormation stack notifications
-resource "aws_sns_topic" "cloudformation_notifications" {
-  name = "${local.project_name_with_suffix}-cfn-notifications"
-
-  # Enable server-side encryption using AWS managed SNS key (free)
-  kms_master_key_id = "alias/aws/sns"
-
-  tags = var.common_tags
-}
-
-# SNS Topic Policy for CloudFormation notifications
-resource "aws_sns_topic_policy" "cloudformation_notifications" {
-  arn = aws_sns_topic.cloudformation_notifications.arn
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "cloudformation.amazonaws.com"
-        }
-        Action   = "SNS:Publish"
-        Resource = aws_sns_topic.cloudformation_notifications.arn
-        Condition = {
-          StringEquals = {
-            "AWS:SourceAccount" = data.aws_caller_identity.current.account_id
-          }
-        }
-      }
-    ]
-  })
-}
-
 # SQS Dead Letter Queue for Lambda
 resource "aws_sqs_queue" "lambda_dlq" {
   name                       = "${local.project_name_with_suffix}-dlq"
-  message_retention_seconds  = 1209600  # 14 days
+  message_retention_seconds  = 259200  # 3 days (259200 seconds)
   visibility_timeout_seconds = 30
 
   # Enable server-side encryption using AWS managed KMS key for SQS (free tier)
@@ -358,7 +324,7 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
   }
 }
 
-# Lambda permission for Amazon Bedrock AgentCore Gateway to invoke
+# Lambda permission for Amazon Bedrock AgentCore Gateway to invoke main Lambda
 resource "aws_lambda_permission" "agentcore_gateway_invoke" {
   statement_id  = "AllowAgentCoreGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -367,23 +333,93 @@ resource "aws_lambda_permission" "agentcore_gateway_invoke" {
   source_arn    = aws_bedrockagentcore_gateway.main.gateway_arn
 }
 
-# CloudFormation stack to add interceptor to the gateway
-resource "aws_cloudformation_stack" "gateway_interceptor" {
-  name         = "${local.project_name_with_suffix}-interceptor"
-  template_body = file("${path.module}/gateway-with-interceptor.yaml")
+# Lambda permission for Amazon Bedrock AgentCore Gateway to invoke interceptor Lambda
+resource "aws_lambda_permission" "agentcore_gateway_interceptor_invoke" {
+  statement_id  = "AllowAgentCoreGatewayInterceptorInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.gateway_interceptor.function_name
+  principal     = "bedrock-agentcore.amazonaws.com"
+  source_arn    = aws_bedrockagentcore_gateway.main.gateway_arn
+}
 
-  parameters = {
-    GatewayId           = aws_bedrockagentcore_gateway.main.gateway_id
-    InterceptorLambdaArn = aws_lambda_function.gateway_interceptor.arn
+# Additional permission for interceptor with bedrock.amazonaws.com principal
+resource "aws_lambda_permission" "agentcore_gateway_interceptor_invoke_bedrock" {
+  statement_id  = "AllowBedrockGatewayInterceptorInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.gateway_interceptor.function_name
+  principal     = "bedrock.amazonaws.com"
+  source_arn    = aws_bedrockagentcore_gateway.main.gateway_arn
+}
+
+# Configure interceptor on gateway via AWS CLI
+# The Terraform AWS provider doesn't yet support interceptor_configurations,
+# so we use a null_resource with local-exec to configure it via AWS CLI.
+resource "null_resource" "configure_gateway_interceptor" {
+  # Re-run when gateway or interceptor Lambda changes
+  triggers = {
+    gateway_id      = aws_bedrockagentcore_gateway.main.gateway_id
+    interceptor_arn = aws_lambda_function.gateway_interceptor.arn
   }
 
-  # Send CloudFormation events to SNS topic
-  notification_arns = [aws_sns_topic.cloudformation_notifications.arn]
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Configuring interceptor on gateway..."
+      
+      # Get current gateway configuration
+      GATEWAY_CONFIG=$(aws bedrock-agentcore-control get-gateway \
+        --gateway-identifier ${aws_bedrockagentcore_gateway.main.gateway_id} \
+        --output json)
+      
+      # Extract required fields
+      ROLE_ARN=$(echo "$GATEWAY_CONFIG" | jq -r '.roleArn')
+      PROTOCOL_TYPE=$(echo "$GATEWAY_CONFIG" | jq -r '.protocolType')
+      AUTHORIZER_TYPE=$(echo "$GATEWAY_CONFIG" | jq -r '.authorizerType')
+      PROTOCOL_CONFIG=$(echo "$GATEWAY_CONFIG" | jq -c '.protocolConfiguration')
+      AUTHORIZER_CONFIG=$(echo "$GATEWAY_CONFIG" | jq -c '.authorizerConfiguration')
+      EXCEPTION_LEVEL=$(echo "$GATEWAY_CONFIG" | jq -r '.exceptionLevel // empty')
+      
+      # Build the update command
+      UPDATE_CMD="aws bedrock-agentcore-control update-gateway \
+        --gateway-identifier ${aws_bedrockagentcore_gateway.main.gateway_id} \
+        --name ${aws_bedrockagentcore_gateway.main.name} \
+        --role-arn $ROLE_ARN \
+        --protocol-type $PROTOCOL_TYPE \
+        --authorizer-type $AUTHORIZER_TYPE \
+        --protocol-configuration '$PROTOCOL_CONFIG' \
+        --authorizer-configuration '$AUTHORIZER_CONFIG' \
+        --interceptor-configurations '[{\"interceptor\":{\"lambda\":{\"arn\":\"${aws_lambda_function.gateway_interceptor.arn}\"}},\"interceptionPoints\":[\"REQUEST\"],\"inputConfiguration\":{\"passRequestHeaders\":true}}]'"
+      
+      # Add exception level if set
+      if [ -n "$EXCEPTION_LEVEL" ]; then
+        UPDATE_CMD="$UPDATE_CMD --exception-level $EXCEPTION_LEVEL"
+      fi
+      
+      # Execute the update
+      eval $UPDATE_CMD
+      
+      # Wait for gateway to be ready
+      echo "Waiting for gateway to be ready..."
+      for i in {1..30}; do
+        STATUS=$(aws bedrock-agentcore-control get-gateway \
+          --gateway-identifier ${aws_bedrockagentcore_gateway.main.gateway_id} \
+          --query 'status' --output text)
+        if [ "$STATUS" = "READY" ]; then
+          echo "Gateway is ready with interceptor configured"
+          exit 0
+        fi
+        sleep 2
+      done
+      echo "Warning: Gateway did not reach READY state within timeout"
+    EOT
+  }
 
   depends_on = [
     aws_bedrockagentcore_gateway.main,
+    aws_bedrockagentcore_gateway_target.lambda,
     aws_lambda_function.gateway_interceptor,
-    aws_sns_topic_policy.cloudformation_notifications,
+    aws_lambda_permission.agentcore_gateway_invoke,
+    aws_lambda_permission.agentcore_gateway_interceptor_invoke,
+    aws_lambda_permission.agentcore_gateway_interceptor_invoke_bedrock
   ]
 }
 

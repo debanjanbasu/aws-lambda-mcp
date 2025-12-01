@@ -48,5 +48,53 @@
       ],
       "type": "object"
     }
+  },
+  {
+    "description": "Get a personalized greeting for the user. This tool demonstrates how the interceptor can extract user information from JWT tokens and pass it to the main Lambda function.",
+    "inputSchema": {
+      "description": "Input for the personalized greeting tool.",
+      "properties": {
+        "authorization_token": {
+          "default": "",
+          "description": "The authorization token (for demonstration purposes)",
+          "type": "string"
+        },
+        "user_id": {
+          "default": "",
+          "description": "The user's ID extracted by the interceptor",
+          "type": "string"
+        },
+        "user_name": {
+          "default": "",
+          "description": "The user's name extracted by the interceptor",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_personalized_greeting",
+    "outputSchema": {
+      "description": "Output from the personalized greeting tool.",
+      "properties": {
+        "greeting": {
+          "description": "A personalized greeting message",
+          "type": "string"
+        },
+        "timestamp": {
+          "description": "The current time",
+          "type": "string"
+        },
+        "user_name": {
+          "description": "The user's name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "greeting",
+        "user_name",
+        "timestamp"
+      ],
+      "type": "object"
+    }
   }
 ]

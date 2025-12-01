@@ -149,8 +149,7 @@ curl -X POST "$(terraform output -raw bedrock_gateway_url)" \
 
 ## Files
 
-- `main.tf` - Main Lambda, Gateway, IAM, CloudFormation stack
-- `gateway-with-interceptor.yaml` - CloudFormation template for gateway interceptor
+- `main.tf` - Main Lambda, Gateway, IAM, interceptor configuration
 - `entra_oauth.tf` - Entra ID app (PKCE)
 - `variables.tf` - All configuration
 - `outputs.tf` - Client ID, tenant, gateway URL
