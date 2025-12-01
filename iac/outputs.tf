@@ -13,17 +13,17 @@ output "project_name" {
 # Lambda Outputs
 output "lambda_function_arn" {
   description = "ARN of the Lambda function"
-  value       = aws_lambda_function.bedrock_agent_gateway.arn
+  value       = aws_lambda_function.bedrock_agentcore_gateway_main_lambda.arn
 }
 
 output "lambda_function_name" {
   description = "Name of the Lambda function"
-  value       = aws_lambda_function.bedrock_agent_gateway.function_name
+  value       = aws_lambda_function.bedrock_agentcore_gateway_main_lambda.function_name
 }
 
 output "lambda_function_version" {
   description = "Latest published version of Lambda function"
-  value       = aws_lambda_function.bedrock_agent_gateway.version
+  value       = aws_lambda_function.bedrock_agentcore_gateway_main_lambda.version
 }
 
 

@@ -83,9 +83,8 @@ test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User
 	CLIENT_ID=$$(terraform output -raw entra_app_client_id 2>/dev/null); \
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
 	BASE_SCOPE=$$(terraform output -raw entra_app_scope 2>/dev/null); \
-	# Use only the base scope with essential OIDC scopes for user authentication \
 	SCOPE="$${BASE_SCOPE} openid profile email"; \
-	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo ""); \
+	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null); \
 	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$GATEWAY_URL" ] || [ "$$GATEWAY_URL" = "null" ]; then \
 		echo "$(RED)❌ Missing Terraform outputs. Run \"make apply\" first to deploy infrastructure.$(RESET)" >&2; \
 		exit 1; \
@@ -98,7 +97,6 @@ test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User
 		-H "Content-Type: application/x-www-form-urlencoded" \
 		-d "client_id=$$CLIENT_ID" \
 		-d "scope=$$SCOPE"); \
-	echo -e "$(CYAN)🔍 Device code response: $$DEVICE_RESPONSE$(RESET)" >&2; \
 	if echo "$$DEVICE_RESPONSE" | jq -e ".error" >/dev/null 2>&1; then \
 		echo -e "$(RED)❌ Error initiating device code flow:$(RESET)" >&2; \
 		echo "$$DEVICE_RESPONSE" | jq -r ".error_description // .error" >&2; \
@@ -139,7 +137,6 @@ test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User
 			-d "grant_type=device_code" \
 			-d "client_id=$$CLIENT_ID" \
 			-d "device_code=$$DEVICE_CODE"); \
-		echo -e "$(CYAN)🔍 Token response: $$TOKEN_RESPONSE$(RESET)" >&2; \
 		if echo "$$TOKEN_RESPONSE" | jq -e ".access_token" >/dev/null 2>&1; then \
 			ACCESS_TOKEN=$$(echo "$$TOKEN_RESPONSE" | jq -r ".access_token"); \
 			echo -e "$(GREEN)✅ Token received!$(RESET)"; \
