@@ -42,7 +42,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 ] }
 urlencoding = "2.1"
 rmcp = { version = "0.9", features = ["macros", "schemars"] }
-jsonwebtoken = "9"
+jsonwebtoken = "10"
 chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.21"
 
