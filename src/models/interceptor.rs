@@ -29,9 +29,7 @@ pub struct GatewayRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub headers: Option<HashMap<String, String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub body: Option<Value>,
-    pub http_method: Option<String>,
-    pub path: Option<String>,
+    pub body: Option<Value>
 }
 
 /// Interceptor response matching AWS Bedrock `AgentCore` Gateway specification
