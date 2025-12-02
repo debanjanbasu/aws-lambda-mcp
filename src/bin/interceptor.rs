@@ -59,6 +59,7 @@ fn extract_user_info_from_token(token: &str) -> Option<(String, String)> {
 }
 
 async fn interceptor_handler(event: LambdaEvent<Value>) -> Result<InterceptorResponse, Error> {
+    info!(payload = ?event.payload, "Interceptor handler invoked");
     let interceptor_event: InterceptorEvent = serde_json::from_value(event.payload)?;
     let mut gateway_request = interceptor_event.mcp.gateway_request;
 

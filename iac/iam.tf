@@ -101,7 +101,41 @@ resource "aws_iam_role_policy" "gateway_lambda_invoke" {
       Action = [
         "lambda:InvokeFunction"
       ]
-      Resource = aws_lambda_function.bedrock_agentcore_gateway_main_lambda.arn
+      Resource = [
+        aws_lambda_function.bedrock_agentcore_gateway_main_lambda.arn,
+        aws_lambda_function.gateway_interceptor.arn,
+      ]
+    }]
+  })
+}
+
+# -----------------------------------------------------------------------------
+# Interceptor Lambda Role
+# -----------------------------------------------------------------------------
+
+resource "aws_iam_role" "interceptor_lambda_execution" {
+  name               = "${local.project_name_with_suffix}-interceptor-lambda-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+  tags               = var.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "interceptor_lambda_basic" {
+  role       = aws_iam_role.interceptor_lambda_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "interceptor_lambda_sqs_dlq" {
+  name = "${local.project_name_with_suffix}-interceptor-lambda-sqs-dlq"
+  role = aws_iam_role.interceptor_lambda_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "sqs:SendMessage"
+      ]
+      Resource = aws_sqs_queue.lambda_dlq.arn
     }]
   })
 }

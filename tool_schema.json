@@ -1,98 +1,154 @@
 [
   {
-    "description": "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide.",
+    "description": "Fetches weather data from the Open-Meteo API.",
     "inputSchema": {
-      "description": "Request for weather information",
       "properties": {
-        "location": {
-          "description": "Location name (city, address, or place)",
+        "daily": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "latitude": {
+          "type": "number"
+        },
+        "longitude": {
+          "type": "number"
+        },
+        "timezone": {
           "type": "string"
         }
       },
       "required": [
-        "location"
+        "latitude",
+        "longitude",
+        "daily",
+        "timezone"
       ],
       "type": "object"
     },
     "name": "get_weather",
     "outputSchema": {
-      "description": "Response containing weather information",
       "properties": {
-        "location": {
-          "description": "Location name",
-          "type": "string"
+        "daily": {
+          "properties": {
+            "temperature2mMax": {
+              "items": {
+                "format": "double",
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "temperature2mMin": {
+              "items": {
+                "format": "double",
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "time": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "weatherCode": {
+              "items": {
+                "format": "int32",
+                "type": "integer"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "time",
+            "weatherCode",
+            "temperature2mMax",
+            "temperature2mMin"
+          ],
+          "type": "object"
         },
-        "temperature": {
-          "description": "Temperature value",
+        "dailyUnits": {
+          "properties": {
+            "temperature2mMax": {
+              "type": "string"
+            },
+            "temperature2mMin": {
+              "type": "string"
+            },
+            "time": {
+              "type": "string"
+            },
+            "weatherCode": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "time",
+            "weatherCode",
+            "temperature2mMax",
+            "temperature2mMin"
+          ],
+          "type": "object"
+        },
+        "elevation": {
           "type": "number"
         },
-        "temperature_unit": {
-          "description": "The unit of temperature (Celsius or Fahrenheit)",
+        "generationtimeMs": {
+          "type": "number"
+        },
+        "latitude": {
+          "type": "number"
+        },
+        "longitude": {
+          "type": "number"
+        },
+        "timezone": {
           "type": "string"
         },
-        "weather_code": {
-          "description": "WMO weather code",
+        "timezoneAbbreviation": {
+          "type": "string"
+        },
+        "utcOffsetSeconds": {
           "type": "integer"
-        },
-        "wind_speed": {
-          "description": "Wind speed in km/h",
-          "type": "number"
         }
       },
       "required": [
-        "location",
-        "temperature",
-        "temperature_unit",
-        "weather_code",
-        "wind_speed"
+        "latitude",
+        "longitude",
+        "generationtimeMs",
+        "utcOffsetSeconds",
+        "timezone",
+        "timezoneAbbreviation",
+        "elevation",
+        "dailyUnits",
+        "daily"
       ],
       "type": "object"
     }
   },
   {
-    "description": "Get a personalized greeting for the user. This tool demonstrates how the interceptor can extract user information from JWT tokens and pass it to the main Lambda function.",
+    "description": "Generates a personalized greeting for a user.",
     "inputSchema": {
-      "description": "Input for the personalized greeting tool.",
       "properties": {
-        "authorization_token": {
-          "default": "",
-          "description": "The authorization token (for demonstration purposes)",
-          "type": "string"
-        },
-        "user_id": {
-          "default": "",
-          "description": "The user's ID extracted by the interceptor",
-          "type": "string"
-        },
         "user_name": {
-          "default": "",
-          "description": "The user's name extracted by the interceptor",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "name": "get_personalized_greeting",
-    "outputSchema": {
-      "description": "Output from the personalized greeting tool.",
-      "properties": {
-        "greeting": {
-          "description": "A personalized greeting message",
-          "type": "string"
-        },
-        "timestamp": {
-          "description": "The current time",
-          "type": "string"
-        },
-        "user_name": {
-          "description": "The user's name",
           "type": "string"
         }
       },
       "required": [
-        "greeting",
-        "user_name",
-        "timestamp"
+        "user_name"
+      ],
+      "type": "object"
+    },
+    "name": "get_personalized_greeting",
+    "outputSchema": {
+      "properties": {
+        "greeting": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "greeting"
       ],
       "type": "object"
     }

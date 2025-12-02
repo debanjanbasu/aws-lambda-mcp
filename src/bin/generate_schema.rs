@@ -15,37 +15,20 @@ struct Tool {
     output_schema: Value,
 }
 
-// Macro to create a tool entry with automatic schema generation
-macro_rules! tool_entry {
-    ($attr_fn:expr, $input_ty:ty, $output_ty:ty) => {{
-        let attr = $attr_fn;
-        Tool {
-            name: attr.name.into(),
-            description: attr.description.unwrap_or_default().into(),
-            input_schema: generate_bedrock_schema::<$input_ty>(),
-            output_schema: generate_bedrock_schema::<$output_ty>(),
-        }
-    }};
-}
-
 fn main() {
     let tools = vec![
-        tool_entry!(
-            aws_lambda_mcp::tools::weather::get_weather_tool_attr(),
-            aws_lambda_mcp::models::WeatherRequest,
-            aws_lambda_mcp::models::WeatherResponse
-        ),
-        tool_entry!(
-            aws_lambda_mcp::tools::personalized::get_personalized_greeting_tool_attr(),
-            aws_lambda_mcp::tools::personalized::PersonalizedGreetingRequest,
-            aws_lambda_mcp::tools::personalized::PersonalizedGreetingResponse
-        ),
-        // Add new tools here:
-        // tool_entry!(
-        //     aws_lambda_mcp::tools::example::another_tool_tool_attr(),
-        //     aws_lambda_mcp::models::AnotherInput,
-        //     aws_lambda_mcp::models::AnotherOutput
-        // ),
+        Tool {
+            name: "get_weather".to_string(),
+            description: "Fetches weather data from the Open-Meteo API.".to_string(),
+            input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::weather::WeatherRequest>(),
+            output_schema: generate_bedrock_schema::<aws_lambda_mcp::models::weather::WeatherResponse>(),
+        },
+        Tool {
+            name: "get_personalized_greeting".to_string(),
+            description: "Generates a personalized greeting for a user.".to_string(),
+            input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::personalized::PersonalizedGreetingRequest>(),
+            output_schema: generate_bedrock_schema::<aws_lambda_mcp::models::personalized::PersonalizedGreetingResponse>(),
+        },
     ];
 
     write_schema(&tools);
@@ -65,17 +48,20 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
         obj.remove("$schema");
         obj.remove("title");
 
-        // Handle enum references by converting them to string types
         if let Some(defs) = obj.remove("$defs")
             && let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut())
         {
-            for prop_value in properties.values_mut() {
+            for (_prop_name, prop_value) in properties.iter_mut() {
                 if let Some(prop_obj) = prop_value.as_object_mut()
                     && let Some(Value::String(ref_path)) = prop_obj.get("$ref")
                     && let Some(def_name) = ref_path.strip_prefix("#/$defs/")
                     && let Some(def_value) = defs.get(def_name)
                 {
-                    prop_obj.remove("$ref");
+                    // Inline the definition instead of keeping the reference
+                    if let Some(def_obj) = def_value.as_object() {
+                        prop_obj.clear();
+                        prop_obj.extend(def_obj.clone());
+                    }
 
                     // Convert enums to string type for Amazon Bedrock compatibility
                     if def_value.get("enum").is_some() {
@@ -85,11 +71,25 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
             }
         }
 
-        // Remove format fields from all properties (not supported by Amazon Bedrock)
+        // Remove format fields and convert union types to primary type
         if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
             for prop_value in properties.values_mut() {
                 if let Some(prop_obj) = prop_value.as_object_mut() {
                     prop_obj.remove("format");
+
+                    // Convert union types like ["string", "null"] to just "string"
+                    if let Some(type_value) = prop_obj.get("type")
+                        && let Some(type_array) = type_value.as_array()
+                        && type_array.len() == 2
+                        && type_array.contains(&json!("null"))
+                    {
+                        for t in type_array {
+                            if t != &json!("null") {
+                                prop_obj.insert("type".to_string(), t.clone());
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }

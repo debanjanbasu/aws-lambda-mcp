@@ -72,7 +72,7 @@ resource "aws_lambda_function" "bedrock_agentcore_gateway_main_lambda" {
 # Interceptor Lambda Function - JWT processing and HCM person ID resolution
 resource "aws_lambda_function" "gateway_interceptor" {
   function_name = "${local.project_name_with_suffix}-interceptor"
-  role          = aws_iam_role.lambda_execution.arn
+  role          = aws_iam_role.interceptor_lambda_execution.arn
   handler       = "bootstrap"
   runtime       = "provided.al2023"
   architectures = ["arm64"]
