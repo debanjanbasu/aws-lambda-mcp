@@ -31,7 +31,7 @@ variable "lambda_timeout" {
 variable "rust_log_level" {
   description = "Rust logging level. debug/trace logs full event payloads (use for troubleshooting). info/warn/error logs only event size (production setting for security)"
   type        = string
-  default     = "info"
+  default     = "trace"
 
   validation {
     condition     = contains(["trace", "debug", "info", "warn", "error"], var.rust_log_level)
