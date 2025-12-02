@@ -97,6 +97,7 @@ test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User
 		-H "Content-Type: application/x-www-form-urlencoded" \
 		-d "client_id=$$CLIENT_ID" \
 		-d "scope=$$SCOPE"); \
+	echo -e "$(CYAN)🔍 Device code response: $$DEVICE_RESPONSE$(RESET)" >&2; \
 	if echo "$$DEVICE_RESPONSE" | jq -e ".error" >/dev/null 2>&1; then \
 		echo -e "$(RED)❌ Error initiating device code flow:$(RESET)" >&2; \
 		echo "$$DEVICE_RESPONSE" | jq -r ".error_description // .error" >&2; \
@@ -137,6 +138,7 @@ test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User
 			-d "grant_type=device_code" \
 			-d "client_id=$$CLIENT_ID" \
 			-d "device_code=$$DEVICE_CODE"); \
+		echo -e "$(CYAN)🔍 Token response: $$TOKEN_RESPONSE$(RESET)" >&2; \
 		if echo "$$TOKEN_RESPONSE" | jq -e ".access_token" >/dev/null 2>&1; then \
 			ACCESS_TOKEN=$$(echo "$$TOKEN_RESPONSE" | jq -r ".access_token"); \
 			echo -e "$(GREEN)✅ Token received!$(RESET)"; \

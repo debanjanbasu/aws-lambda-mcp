@@ -1,88 +1,66 @@
 use anyhow::{Context, Result};
-use rmcp::tool;
-use std::time::Duration;
-use lambda_runtime::tracing::debug;
-
 use crate::http::HTTP_CLIENT;
-use crate::models::{
-    GeocodingResponse, OpenMeteoResponse, TemperatureUnit, WeatherRequest, WeatherResponse,
-};
+use crate::models::{WeatherRequest, WeatherResponse};
+use crate::models::open_meteo::OpenMeteoResponse;
 
-/// Get current weather information for a specified location.
-///
-/// Returns temperature (automatically converted to Celsius or Fahrenheit based on the country),
-/// WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide.
+/// Fetches weather data from the Open-Meteo API.
 ///
 /// # Errors
 ///
-/// Returns an error if the geocoding or weather API calls fail.
-#[tool(
-    description = "Get current weather information for a specified location. Returns temperature (automatically converted to Celsius or Fahrenheit based on the country), WMO weather code, and wind speed in km/h. Supports city names, addresses, or place names worldwide."
-)]
+/// This function will return an error if:
+/// - The HTTP request to the Open-Meteo API fails.
+/// - The response from the Open-Meteo API cannot be parsed.
 pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
-    let geocoding_url = format!(
-        "https://geocoding-api.open-meteo.com/v1/search?name={}&count=1&language=en&format=json",
-        urlencoding::encode(&request.location)
+    let daily_params = request.daily.join(",");
+    let url = format!(
+        "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&daily={}&timezone={}",
+        request.latitude, request.longitude, daily_params, request.timezone
     );
 
-    let geo_response: GeocodingResponse = HTTP_CLIENT
-        .get(&geocoding_url)
-        .timeout(Duration::from_secs(10))
+    let client = &HTTP_CLIENT;
+
+    let response: reqwest::Response = client
+        .get(&url)
         .send()
         .await
-        .context("Failed to fetch geocoding data")?
-        .json::<GeocodingResponse>()
+        .context("Failed to send request to OpenMeteo")?;
+
+    let response: OpenMeteoResponse = response
+        .json()
         .await
-        .context("Failed to parse geocoding response")?;
-
-    let geo_result = geo_response
-        .results
-        .and_then(|mut r: Vec<_>| r.pop())
-        .context("Location not found")?;
-
-    debug!(
-        name = %geo_result.name,
-        lat = %geo_result.latitude,
-        lon = %geo_result.longitude,
-        country = ?geo_result.country_code,
-        "Geocoding result"
-    );
-
-    let weather_url = format!(
-        "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&current=temperature_2m,weather_code,wind_speed_10m",
-        geo_result.latitude, geo_result.longitude
-    );
-
-    let weather_response: OpenMeteoResponse = HTTP_CLIENT
-        .get(&weather_url)
-        .timeout(Duration::from_secs(10))
-        .send()
-        .await
-        .context("Failed to fetch weather data")?
-        .json::<OpenMeteoResponse>()
-        .await
-        .context("Failed to parse weather response")?;
-
-    let temperature_unit = geo_result
-        .country_code
-        .as_deref()
-        .map_or(TemperatureUnit::C, TemperatureUnit::from_country_code);
-
-    let temperature =
-        temperature_unit.convert_from_celsius(weather_response.current.temperature_2m);
-
-    debug!(
-        temp_celsius = %weather_response.current.temperature_2m,
-        temp_converted = %temperature,
-        unit = ?temperature_unit,
-        "Temperature converted"
-    );
+        .context("Failed to parse response from OpenMeteo")?;
 
     Ok(WeatherResponse {
-        location: geo_result.name,
-        temperature,
-        temperature_unit,
-        weather_code: weather_response.current.weather_code,
-        wind_speed: weather_response.current.wind_speed_10m,
+        latitude: response.latitude,
+        longitude: response.longitude,
+        generationtime_ms: response.generationtime_ms,
+        utc_offset_seconds: response.utc_offset_seconds,
+        timezone: response.timezone,
+        timezone_abbreviation: response.timezone_abbreviation,
+        elevation: response.elevation,
+        daily_units: response.daily_units.into(),
+        daily: response.daily.into(),
     })
+}
+
+impl From<crate::models::open_meteo::DailyUnits> for crate::models::weather::DailyUnits {
+    fn from(units: crate::models::open_meteo::DailyUnits) -> Self {
+        Self {
+            time: units.time,
+            weather_code: units.weather_code,
+            temperature_2m_max: units.temperature_2m_max,
+            temperature_2m_min: units.temperature_2m_min,
+        }
+    }
+}
+
+impl From<crate::models::open_meteo::Daily> for crate::models::weather::Daily {
+    fn from(daily: crate::models::open_meteo::Daily) -> Self {
+        Self {
+            time: daily.time,
+            weather_code: daily.weather_code,
+            temperature_2m_max: daily.temperature_2m_max,
+            temperature_2m_min: daily.temperature_2m_min,
+        }
+    }
 }

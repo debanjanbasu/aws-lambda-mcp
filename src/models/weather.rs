@@ -1,80 +1,43 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// Temperature unit for weather measurements
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum TemperatureUnit {
-    #[default]
-    C,
-    F,
-}
-
-impl TemperatureUnit {
-    /// Determines temperature unit based on country code (case-insensitive)
-    ///
-    /// Countries using Fahrenheit: US, Liberia, Myanmar
-    #[must_use]
-    pub fn from_country_code(country_code: &str) -> Self {
-        matches!(country_code, "US" | "us" | "LR" | "lr" | "MM" | "mm")
-            .then_some(Self::F)
-            .unwrap_or(Self::C)
-    }
-
-    /// Converts a temperature value to this unit from Celsius
-    #[inline]
-    #[must_use]
-    pub const fn convert_from_celsius(self, celsius: f64) -> f64 {
-        match self {
-            Self::C => celsius,
-            Self::F => celsius * 1.8 + 32.0,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_from_country_code() {
-        assert_eq!(TemperatureUnit::from_country_code("US"), TemperatureUnit::F);
-        assert_eq!(TemperatureUnit::from_country_code("us"), TemperatureUnit::F);
-        assert_eq!(TemperatureUnit::from_country_code("LR"), TemperatureUnit::F);
-        assert_eq!(TemperatureUnit::from_country_code("MM"), TemperatureUnit::F);
-        assert_eq!(TemperatureUnit::from_country_code("AU"), TemperatureUnit::C);
-        assert_eq!(TemperatureUnit::from_country_code(""), TemperatureUnit::C);
-    }
-
-    #[test]
-    fn test_convert_from_celsius() {
-        assert!((TemperatureUnit::C.convert_from_celsius(20.0) - 20.0).abs() < f64::EPSILON);
-        assert!((TemperatureUnit::F.convert_from_celsius(20.0) - 68.0).abs() < f64::EPSILON);
-        assert!((TemperatureUnit::F.convert_from_celsius(0.0) - 32.0).abs() < f64::EPSILON);
-        assert!((TemperatureUnit::F.convert_from_celsius(-40.0) - (-40.0)).abs() < f64::EPSILON);
-    }
-}
-
-/// Request for weather information
-#[derive(Debug, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct WeatherRequest {
-    #[schemars(description = "Location name (city, address, or place)")]
-    pub location: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub daily: Vec<String>,
+    pub timezone: String,
 }
 
-/// Response containing weather information
-#[derive(Debug, Serialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct WeatherResponse {
-    #[schemars(description = "Location name")]
-    pub location: String,
-    #[schemars(description = "Temperature value")]
-    pub temperature: f64,
-    #[schemars(description = "The unit of temperature (Celsius or Fahrenheit)")]
-    pub temperature_unit: TemperatureUnit,
-    #[schemars(description = "WMO weather code")]
-    pub weather_code: i32,
-    #[schemars(description = "Wind speed in km/h")]
-    pub wind_speed: f64,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub generationtime_ms: f64,
+    pub utc_offset_seconds: i32,
+    pub timezone: String,
+    pub timezone_abbreviation: String,
+    pub elevation: f64,
+    pub daily_units: DailyUnits,
+    pub daily: Daily,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyUnits {
+    pub time: String,
+    pub weather_code: String,
+    pub temperature_2m_max: String,
+    pub temperature_2m_min: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Daily {
+    pub time: Vec<String>,
+    pub weather_code: Vec<i32>,
+    pub temperature_2m_max: Vec<f64>,
+    pub temperature_2m_min: Vec<f64>,
 }

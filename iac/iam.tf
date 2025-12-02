@@ -1,12 +1,16 @@
 # IAM Roles and Policies
 # Identity and access management for Lambda and Gateway services
+#
+# Security considerations:
+# - Assume role policies are kept simple to ensure compatibility with AWS services
+# - Resource-based policies are scoped to specific ARNs where possible
+# - No wildcard (*) resources except where required by AWS managed policies
 
-# IAM Role for Lambda
-resource "aws_iam_role" "lambda_execution" {
-  name               = "${local.project_name_with_suffix}-lambda-role"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
-}
+# -----------------------------------------------------------------------------
+# Assume Role Policies
+# -----------------------------------------------------------------------------
 
+# Assume role policy for Lambda functions
 data "aws_iam_policy_document" "lambda_assume_role" {
   statement {
     effect = "Allow"
@@ -20,12 +24,9 @@ data "aws_iam_policy_document" "lambda_assume_role" {
   }
 }
 
-# Gateway assume role policy - allow Bedrock AgentCore service
-# IMPORTANT: Both service principals are required for Amazon Bedrock AgentCore Gateway to work:
-# - bedrock.amazonaws.com: Legacy service principal (may be used by some Gateway operations)
-# - bedrock-agentcore.amazonaws.com: AgentCore-specific service principal for Lambda invocation
-# Without both, you'll get "Access denied while invoking Lambda function" errors even if
-# the Lambda resource policy and Gateway role policy are correctly configured.
+# Assume role policy for Bedrock AgentCore Gateway
+# Note: Bedrock services may not pass aws:SourceAccount/aws:SourceRegion conditions
+# so we keep the trust policy simple to ensure the gateway can assume the role
 data "aws_iam_policy_document" "gateway_assume_role" {
   statement {
     effect = "Allow"
@@ -39,7 +40,16 @@ data "aws_iam_policy_document" "gateway_assume_role" {
   }
 }
 
-# Basic Lambda Execution Policy
+# -----------------------------------------------------------------------------
+# Main Lambda Role
+# -----------------------------------------------------------------------------
+
+resource "aws_iam_role" "lambda_execution" {
+  name               = "${local.project_name_with_suffix}-lambda-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+  tags               = var.common_tags
+}
+
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   role       = aws_iam_role.lambda_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
@@ -67,6 +77,10 @@ resource "aws_iam_role_policy" "lambda_sqs_dlq" {
 #   role       = aws_iam_role.lambda_execution.name
 #   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 # }
+
+# -----------------------------------------------------------------------------
+# Bedrock Gateway Role
+# -----------------------------------------------------------------------------
 
 # IAM Role for Amazon Bedrock AgentCore Gateway
 resource "aws_iam_role" "gateway_role" {

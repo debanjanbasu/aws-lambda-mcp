@@ -43,4 +43,9 @@ locals {
 
   # Generate Entra app tags from project type
   entra_app_tags = ["agentcore-gateway", "oauth2", "pkce", "terraform-managed"]
+
+  # Common environment variables for Lambda functions
+  common_lambda_env_vars = {
+    RUST_LOG = var.rust_log_level
+  }
 }

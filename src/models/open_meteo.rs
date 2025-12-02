@@ -1,30 +1,30 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-// Response from geocoding API
-#[derive(Debug, Deserialize)]
-pub struct GeocodingResponse {
-    pub results: Option<Vec<GeocodingResult>>,
-}
-
-// Geocoding result with location coordinates
-#[derive(Debug, Deserialize)]
-pub struct GeocodingResult {
-    pub name: String,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OpenMeteoResponse {
     pub latitude: f64,
     pub longitude: f64,
-    pub country_code: Option<String>,
+    pub generationtime_ms: f64,
+    pub utc_offset_seconds: i32,
+    pub timezone: String,
+    pub timezone_abbreviation: String,
+    pub elevation: f64,
+    pub daily_units: DailyUnits,
+    pub daily: Daily,
 }
 
-// Response from OpenMeteo weather API
-#[derive(Debug, Deserialize)]
-pub struct OpenMeteoResponse {
-    pub current: CurrentWeather,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DailyUnits {
+    pub time: String,
+    pub weather_code: String,
+    pub temperature_2m_max: String,
+    pub temperature_2m_min: String,
 }
 
-// Current weather data
-#[derive(Debug, Deserialize)]
-pub struct CurrentWeather {
-    pub temperature_2m: f64,
-    pub weather_code: i32,
-    pub wind_speed_10m: f64,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Daily {
+    pub time: Vec<String>,
+    pub weather_code: Vec<i32>,
+    pub temperature_2m_max: Vec<f64>,
+    pub temperature_2m_min: Vec<f64>,
 }
