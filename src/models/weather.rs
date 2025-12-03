@@ -4,10 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct WeatherRequest {
-    pub latitude: f64,
-    pub longitude: f64,
-    pub daily: Vec<String>,
-    pub timezone: String,
+    pub location: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]

@@ -2,11 +2,11 @@ use anyhow::Result;
 use aws_lambda_mcp::models::interceptor::{InterceptorEvent, InterceptorResponse, McpResponse};
 use jsonwebtoken::dangerous::insecure_decode;
 use lambda_runtime::{
-    tracing::{debug, info, warn},
     Error, LambdaEvent, service_fn,
+    tracing::{debug, info, warn},
 };
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 
 /// Minimal JWT claims for extracting user information.
@@ -25,6 +25,25 @@ fn extract_auth_token(headers: &HashMap<String, String>) -> Option<&str> {
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("authorization"))
         .map(|(_, v)| v.strip_prefix("Bearer ").unwrap_or(v))
+}
+
+// Strips Bedrock Gateway prefix from tool name.
+//
+// Format: `gateway-target-id___tool_name` → `tool_name`
+fn strip_gateway_prefix(name: &str) -> String {
+    if let Some((_, actual_name)) = name.split_once("___") {
+        actual_name.to_string()
+    } else {
+        name.to_string()
+    }
+}
+
+/// Extract tool name from the request body
+fn extract_tool_name(body: &Value) -> Option<String> {
+    body.get("params")
+        .and_then(|params| params.get("name"))
+        .and_then(serde_json::Value::as_str)
+        .map(strip_gateway_prefix)
 }
 
 /// Insecurely decodes a JWT to extract user ID and name without validation.
@@ -79,18 +98,36 @@ async fn interceptor_handler(event: LambdaEvent<Value>) -> Result<InterceptorRes
         });
     }
 
-    if let Some(token) = gateway_request.headers.as_ref().and_then(extract_auth_token)
-        && let Some(body) = gateway_request.body.as_mut().and_then(|b| b.get_mut("params")).and_then(|p| p.get_mut("arguments")).and_then(|a| a.as_object_mut())
+    // Check if this is a tool that needs user information
+    let needs_user_info = gateway_request
+        .body
+        .as_ref()
+        .and_then(extract_tool_name)
+        .is_some_and(|name| name == "get_personalized_greeting");
+
+    if let Some(token) = gateway_request
+        .headers
+        .as_ref()
+        .and_then(extract_auth_token)
+        && let Some(body) = gateway_request
+            .body
+            .as_mut()
+            .and_then(|b| b.get_mut("params"))
+            .and_then(|p| p.get_mut("arguments"))
+            .and_then(|a| a.as_object_mut())
     {
         info!(message = "Injecting auth token into arguments");
         body.insert("auth_token".to_string(), json!(token));
 
-        if let Some((user_id, user_name)) = extract_user_info_from_token(token) {
-            info!(message = "Injecting user info into arguments");
-            body.insert("user_id".to_string(), json!(user_id));
-            body.insert("user_name".to_string(), json!(user_name));
-        } else {
-            warn!(message = "Could not extract user info from token");
+        // Only inject user information for tools that need it
+        if needs_user_info {
+            if let Some((user_id, user_name)) = extract_user_info_from_token(token) {
+                info!(message = "Injecting user info into arguments");
+                body.insert("user_id".to_string(), json!(user_id));
+                body.insert("user_name".to_string(), json!(user_name));
+            } else {
+                warn!(message = "Could not extract user info from token");
+            }
         }
     }
 

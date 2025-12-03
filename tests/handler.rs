@@ -30,10 +30,7 @@ async fn test_weather_argument_extraction() {
         "method": "tools/call",
         "params": {
             "arguments": {
-                "latitude": 48.8566,
-                "longitude": 2.3522,
-                "daily": ["weather_code", "temperature_2m_max", "temperature_2m_min"],
-                "timezone": "Europe/Berlin"
+                "location": "New York"
             }
         }
     });
@@ -56,5 +53,82 @@ async fn test_weather_argument_extraction() {
             // The main point is that argument parsing worked.
             // If we get here, the test has effectively passed its primary goal.
         }
+    }
+}
+
+#[tokio::test]
+async fn test_personalized_greeting_with_user_name() {
+    // Simulate MCP request structure with user information for get_personalized_greeting
+    let mcp_payload = json!({
+        "method": "tools/call",
+        "params": {
+            "arguments": {
+                "user_name": "John",
+                "user_id": "john@example.com"
+            }
+        }
+    });
+
+    let result = route_tool("get_personalized_greeting", mcp_payload).await;
+
+    // This should succeed since we're providing the user information directly
+    assert!(result.is_ok(), "Expected successful greeting");
+
+    if let Ok(response) = result {
+        let greeting = response.get("greeting").and_then(|g| g.as_str()).unwrap();
+        assert!(
+            greeting.contains("John"),
+            "Greeting should contain the user name"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_personalized_greeting_with_user_id_only() {
+    // Simulate MCP request structure with only user ID for get_personalized_greeting
+    let mcp_payload = json!({
+        "method": "tools/call",
+        "params": {
+            "arguments": {
+                "user_id": "jane.doe@example.com"
+            }
+        }
+    });
+
+    let result = route_tool("get_personalized_greeting", mcp_payload).await;
+
+    // This should succeed since we're providing the user ID
+    assert!(result.is_ok(), "Expected successful greeting");
+
+    if let Ok(response) = result {
+        let greeting = response.get("greeting").and_then(|g| g.as_str()).unwrap();
+        assert!(
+            greeting.contains("jane.doe"),
+            "Greeting should contain the user name extracted from email"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_personalized_greeting_without_user_info() {
+    // Simulate MCP request structure without user information for get_personalized_greeting
+    let mcp_payload = json!({
+        "method": "tools/call",
+        "params": {
+            "arguments": {}
+        }
+    });
+
+    let result = route_tool("get_personalized_greeting", mcp_payload).await;
+
+    // This should succeed with a default greeting
+    assert!(result.is_ok(), "Expected successful greeting");
+
+    if let Ok(response) = result {
+        let greeting = response.get("greeting").and_then(|g| g.as_str()).unwrap();
+        assert!(
+            greeting.contains("there"),
+            "Greeting should contain the default name"
+        );
     }
 }

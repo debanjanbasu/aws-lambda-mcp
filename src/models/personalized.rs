@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct PersonalizedGreetingRequest {
+    #[serde(default)]
+    pub user_id: String,
+    #[serde(default)]
     pub user_name: String,
 }
 

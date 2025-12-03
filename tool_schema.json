@@ -3,27 +3,12 @@
     "description": "Fetches weather data from the Open-Meteo API.",
     "inputSchema": {
       "properties": {
-        "daily": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "latitude": {
-          "type": "number"
-        },
-        "longitude": {
-          "type": "number"
-        },
-        "timezone": {
+        "location": {
           "type": "string"
         }
       },
       "required": [
-        "latitude",
-        "longitude",
-        "daily",
-        "timezone"
+        "location"
       ],
       "type": "object"
     },
@@ -130,14 +115,7 @@
   {
     "description": "Generates a personalized greeting for a user.",
     "inputSchema": {
-      "properties": {
-        "user_name": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "user_name"
-      ],
+      "properties": {},
       "type": "object"
     },
     "name": "get_personalized_greeting",

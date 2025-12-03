@@ -144,11 +144,12 @@ pub async fn function_handler(event: LambdaEvent<Value>) -> Result<Value, Diagno
     let tool_name = extract_tool_name(&event_payload, &context);
 
     // Extract the actual payload - if it's an API Gateway event, get from body
-    let payload_for_tool = if let Some(body_str) = event_payload.get("body").and_then(|b| b.as_str()) {
-        serde_json::from_str(body_str).unwrap_or(event_payload)
-    } else {
-        event_payload
-    };
+    let payload_for_tool =
+        if let Some(body_str) = event_payload.get("body").and_then(|b| b.as_str()) {
+            serde_json::from_str(body_str).unwrap_or(event_payload)
+        } else {
+            event_payload
+        };
 
     info!(message = format!("Invoking tool: {}", tool_name));
 

@@ -41,7 +41,7 @@ The interceptor is deployed via CloudFormation to add interceptor configuration 
 - `make build` - Debug build (main + interceptor Lambdas)
 - `make release` - ARM64 production build with UPX compression (main + interceptor Lambdas)
 - `make test` - Run all tests
-- `cargo test <test_name>` - Run single test (e.g., `cargo test weather_integration`)
+- `cargo test <test_name>` - Run single test (e.g., `cargo test test_weather_argument_extraction`)
 - `cargo clippy` - Run clippy with strict lints (denies unsafe code, unwrap, panic, etc.)
 - `cargo fmt` - Format code
 - `cargo fmt --check` - Validate code formatting

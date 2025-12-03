@@ -20,14 +20,21 @@ fn main() {
         Tool {
             name: "get_weather".to_string(),
             description: "Fetches weather data from the Open-Meteo API.".to_string(),
-            input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::weather::WeatherRequest>(),
-            output_schema: generate_bedrock_schema::<aws_lambda_mcp::models::weather::WeatherResponse>(),
+            input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::weather::WeatherRequest>(
+            ),
+            output_schema: generate_bedrock_schema::<
+                aws_lambda_mcp::models::weather::WeatherResponse,
+            >(),
         },
         Tool {
             name: "get_personalized_greeting".to_string(),
             description: "Generates a personalized greeting for a user.".to_string(),
-            input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::personalized::PersonalizedGreetingRequest>(),
-            output_schema: generate_bedrock_schema::<aws_lambda_mcp::models::personalized::PersonalizedGreetingResponse>(),
+            input_schema: generate_bedrock_schema::<
+                aws_lambda_mcp::models::personalized::PersonalizedGreetingRequest,
+            >(),
+            output_schema: generate_bedrock_schema::<
+                aws_lambda_mcp::models::personalized::PersonalizedGreetingResponse,
+            >(),
         },
     ];
 
@@ -73,6 +80,10 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
 
         // Remove format fields and convert union types to primary type
         if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
+            // Remove fields that are injected by the interceptor
+            properties.remove("user_id");
+            properties.remove("user_name");
+
             for prop_value in properties.values_mut() {
                 if let Some(prop_obj) = prop_value.as_object_mut() {
                     prop_obj.remove("format");
@@ -92,6 +103,11 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
                     }
                 }
             }
+        }
+
+        // Remove injected fields from required fields since they're provided by interceptor
+        if let Some(required) = obj.get_mut("required").and_then(|r| r.as_array_mut()) {
+            required.retain(|item| item != "user_id" && item != "user_name");
         }
     }
 
