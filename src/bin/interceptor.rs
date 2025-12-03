@@ -48,6 +48,13 @@ fn extract_tool_name(body: &Value) -> Option<String> {
 
 /// Insecurely decodes a JWT to extract user ID and name without validation.
 /// Checks for token expiry.
+///
+/// # Returns
+///
+/// Returns `None` if:
+/// - Token cannot be decoded
+/// - Token is expired
+/// - Required claims are missing
 fn extract_user_info_from_token(token: &str) -> Option<(String, String)> {
     let claims = insecure_decode::<Claims>(token).map(|d| d.claims).ok()?;
 
@@ -77,6 +84,13 @@ fn extract_user_info_from_token(token: &str) -> Option<(String, String)> {
     Some((user_id, user_name))
 }
 
+/// Handles interceptor events from the Bedrock `AgentCore` Gateway.
+///
+/// This function:
+/// 1. Parses incoming interceptor events
+/// 2. Identifies tool calls
+/// 3. Injects authentication tokens and user information
+/// 4. Forwards requests to the main Lambda
 async fn interceptor_handler(event: LambdaEvent<Value>) -> Result<InterceptorResponse, Error> {
     info!(payload = ?event.payload, "Interceptor handler invoked");
     let interceptor_event: InterceptorEvent = serde_json::from_value(event.payload)?;

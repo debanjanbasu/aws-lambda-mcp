@@ -1,16 +1,8 @@
-use aws_lambda_mcp::handler::{route_tool, strip_gateway_prefix};
-use serde_json::json;
+// Handler tests
+#![allow(clippy::unwrap_used)]
 
-#[test]
-fn test_strip_gateway_prefix() {
-    assert_eq!(
-        strip_gateway_prefix("gateway-123___get_weather"),
-        "get_weather"
-    );
-    assert_eq!(strip_gateway_prefix("get_weather"), "get_weather");
-    assert_eq!(strip_gateway_prefix(""), "");
-    assert_eq!(strip_gateway_prefix("no_prefix"), "no_prefix");
-}
+use aws_lambda_mcp::handler::route_tool;
+use serde_json::json;
 
 #[tokio::test]
 async fn test_route_tool_unknown() {
@@ -42,7 +34,6 @@ async fn test_weather_argument_extraction() {
     match result {
         Ok(_) => {
             // Success is fine, it means arguments were parsed and the API call worked.
-            assert!(true);
         }
         Err(err) => {
             // If it fails, it should be a ToolError (parsing succeeded, API call failed),
@@ -75,11 +66,14 @@ async fn test_personalized_greeting_with_user_name() {
     assert!(result.is_ok(), "Expected successful greeting");
 
     if let Ok(response) = result {
-        let greeting = response.get("greeting").and_then(|g| g.as_str()).unwrap();
-        assert!(
-            greeting.contains("John"),
-            "Greeting should contain the user name"
-        );
+        let greeting = response.get("greeting").and_then(|g| g.as_str());
+        assert!(greeting.is_some(), "Response should contain greeting field");
+        if let Some(greeting_text) = greeting {
+            assert!(
+                greeting_text.contains("John"),
+                "Greeting should contain the user name"
+            );
+        }
     }
 }
 
@@ -101,11 +95,14 @@ async fn test_personalized_greeting_with_user_id_only() {
     assert!(result.is_ok(), "Expected successful greeting");
 
     if let Ok(response) = result {
-        let greeting = response.get("greeting").and_then(|g| g.as_str()).unwrap();
-        assert!(
-            greeting.contains("jane.doe"),
-            "Greeting should contain the user name extracted from email"
-        );
+        let greeting = response.get("greeting").and_then(|g| g.as_str());
+        assert!(greeting.is_some(), "Response should contain greeting field");
+        if let Some(greeting_text) = greeting {
+            assert!(
+                greeting_text.contains("jane.doe"),
+                "Greeting should contain the user name extracted from email"
+            );
+        }
     }
 }
 
@@ -125,10 +122,13 @@ async fn test_personalized_greeting_without_user_info() {
     assert!(result.is_ok(), "Expected successful greeting");
 
     if let Ok(response) = result {
-        let greeting = response.get("greeting").and_then(|g| g.as_str()).unwrap();
-        assert!(
-            greeting.contains("there"),
-            "Greeting should contain the default name"
-        );
+        let greeting = response.get("greeting").and_then(|g| g.as_str());
+        assert!(greeting.is_some(), "Response should contain greeting field");
+        if let Some(greeting_text) = greeting {
+            assert!(
+                greeting_text.contains("there"),
+                "Greeting should contain the default name"
+            );
+        }
     }
 }

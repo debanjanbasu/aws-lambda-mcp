@@ -3,10 +3,21 @@ use anyhow::Result;
 
 /// Generates a personalized greeting for a user.
 ///
+/// This tool creates friendly greetings using user information injected by the interceptor:
+/// - Uses `user_name` if provided
+/// - Extracts name from `user_id` (email) if available
+/// - Defaults to "there" if no user information is available
+///
+/// # Examples
+///
+/// With `user_name`: "Hello, John!"
+/// With `user_id`: "Hello, jane.doe!"
+/// Without user info: "Hello, there!"
+///
 /// # Errors
 ///
-/// This function will currently not return an error, but is designed to return a `Result`
-/// to conform to the tool interface and allow for future error handling if needed.
+/// This function currently does not return errors but uses `Result` for API consistency.
+/// Future enhancements may add error conditions.
 pub async fn get_personalized_greeting(
     request: PersonalizedGreetingRequest,
 ) -> Result<PersonalizedGreetingResponse> {

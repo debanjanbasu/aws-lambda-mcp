@@ -4,18 +4,32 @@ use crate::models::{WeatherRequest, WeatherResponse};
 use anyhow::{Context, Result};
 use lambda_runtime::tracing::info;
 
+/// Default daily weather parameters for Open-Meteo API requests
+const DEFAULT_DAILY_PARAMS: [&str; 3] =
+    ["weather_code", "temperature_2m_max", "temperature_2m_min"];
+
 /// Fetches weather data from the Open-Meteo API.
+///
+/// This function simplifies weather requests by:
+/// 1. Converting location names to coordinates via geocoding
+/// 2. Using sensible defaults for weather parameters
+/// 3. Automatically handling timezone detection
 ///
 /// # Errors
 ///
 /// This function will return an error if:
-/// - The HTTP request to geocode the location fails.
-/// - The HTTP request to the Open-Meteo API fails.
-/// - The response from either API cannot be parsed.
+/// - The HTTP request to geocode the location fails
+/// - No locations are found for the provided query
+/// - Failed to extract coordinates from geocoding response
+/// - The HTTP request to the Open-Meteo API fails
+/// - The response from either API cannot be parsed
 pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
-    info!("Starting weather request for location: {}", request.location);
-    
-    // Use the global HTTP client
+    info!(
+        "Starting weather request for location: {}",
+        request.location
+    );
+
+    let daily_params_str = DEFAULT_DAILY_PARAMS.join(",");
     let client = &HTTP_CLIENT;
 
     // First, geocode the location to get coordinates
@@ -23,7 +37,7 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
         "https://geocoding-api.open-meteo.com/v1/search?name={}&count=1&language=en&format=json",
         urlencoding::encode(&request.location)
     );
-    
+
     info!("Making geocoding request to: {}", geocode_url);
 
     let geocode_response: serde_json::Value = client
@@ -35,22 +49,21 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
         .await
         .context("Failed to parse geocoding response from Open-Meteo")?;
 
-    info!("Received geocoding response: {:?}", geocode_response);
+    info!("Received geocoding response");
 
     // Extract coordinates from geocoding response
     let (latitude, longitude, timezone) = extract_coordinates_from_geocode(&geocode_response)
         .context("Failed to extract coordinates from geocoding response")?;
 
-    info!("Extracted coordinates: lat={}, lng={}, timezone={}", latitude, longitude, timezone);
-
-    // Use sensible defaults for daily weather parameters
-    let daily_params = ["weather_code", "temperature_2m_max", "temperature_2m_min"];
-    let daily_params_str = daily_params.join(",");
+    info!(
+        "Extracted coordinates: lat={}, lng={}, timezone={}",
+        latitude, longitude, timezone
+    );
 
     let weather_url = format!(
         "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&daily={daily_params_str}&timezone={timezone}"
     );
-    
+
     info!("Making weather forecast request to: {}", weather_url);
 
     let response: reqwest::Response = client
@@ -59,7 +72,10 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
         .await
         .context("Failed to send weather forecast request to Open-Meteo API")?;
 
-    info!("Received weather forecast response with status: {}", response.status());
+    info!(
+        "Received weather forecast response with status: {}",
+        response.status()
+    );
 
     let response: OpenMeteoResponse = response
         .json()
@@ -82,6 +98,13 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
 }
 
 /// Extracts coordinates and timezone from geocoding API response
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - No results are found in the geocoding response
+/// - No locations are found for the provided query
+/// - Failed to extract latitude or longitude from the response
 fn extract_coordinates_from_geocode(
     geocode_response: &serde_json::Value,
 ) -> Result<(f64, f64, String)> {

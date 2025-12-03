@@ -1,5 +1,7 @@
 // Integration tests for interceptor functionality
 // Note: These tests focus on the public behavior and helper functions
+#![allow(clippy::expect_used, clippy::panic)]
+
 use aws_lambda_mcp::models::interceptor::InterceptorEvent;
 
 #[test]
@@ -33,12 +35,12 @@ fn test_interceptor_event_parsing() {
     }"#;
 
     // Parse the event
-    let event: serde_json::Value =
-        serde_json::from_str(test_event).expect("Failed to parse test event JSON");
+    let event: serde_json::Value = serde_json::from_str(test_event)
+        .expect("Failed to parse test event JSON - this indicates a test setup issue");
 
     // This should match the InterceptorEvent structure
-    let interceptor_event: InterceptorEvent =
-        serde_json::from_value(event).expect("Failed to deserialize into InterceptorEvent");
+    let interceptor_event: InterceptorEvent = serde_json::from_value(event)
+        .expect("Failed to deserialize into InterceptorEvent - this indicates a test setup issue");
 
     // Verify the structure
     assert_eq!(interceptor_event.interceptor_input_version, "1.0");
@@ -51,11 +53,11 @@ fn test_interceptor_event_parsing() {
         .gateway_request
         .headers
         .as_ref()
-        .expect("Headers should be present");
+        .expect("Headers should be present in test setup");
     assert!(headers.contains_key("authorization"));
     let auth_header = headers
         .get("authorization")
-        .expect("Authorization header should be present");
+        .expect("Authorization header should be present in test setup");
     assert!(auth_header.starts_with("Bearer "));
 }
 
@@ -101,8 +103,7 @@ fn test_gateway_prefix_stripping() {
         assert_eq!(
             extracted_name,
             Some(expected_name.to_string()),
-            "Failed to strip prefix from '{}'",
-            input_name
+            "Failed to strip prefix from '{input_name}'"
         );
     }
 }

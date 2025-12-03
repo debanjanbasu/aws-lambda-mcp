@@ -7,6 +7,14 @@ use crate::models::{PersonalizedGreetingRequest, WeatherRequest};
 use crate::tools::{get_personalized_greeting, get_weather};
 
 /// Extracts tool name from Lambda context or MCP event payload.
+///
+/// Tool name resolution order:
+/// 1. AWS Lambda context (Bedrock `AgentCore` Gateway)
+/// 2. MCP tools/call request payload
+/// 3. Default to "unknown"
+///
+/// # Note
+///
 /// According to AWS docs, tool name is passed in `context.client_context.custom[bedrockAgentCoreToolName]`.
 /// For MCP, also check the event payload for tools/call method.
 fn extract_tool_name(event_payload: &Value, context: &Context) -> String {
@@ -33,7 +41,7 @@ fn extract_tool_name(event_payload: &Value, context: &Context) -> String {
         && let Some(name) = params.get("name").and_then(|n| n.as_str())
     {
         debug!("Found tool name in MCP payload: {}", name);
-        return name.to_string();
+        return strip_gateway_prefix(name);
     }
 
     // Final fallback
@@ -44,7 +52,7 @@ fn extract_tool_name(event_payload: &Value, context: &Context) -> String {
 // Strips Bedrock Gateway prefix from tool name.
 //
 // Format: `gateway-target-id___tool_name` → `tool_name`
-pub fn strip_gateway_prefix(name: &str) -> String {
+fn strip_gateway_prefix(name: &str) -> String {
     if let Some((_, actual_name)) = name.split_once("___") {
         debug!(
             original = %name,
@@ -59,9 +67,17 @@ pub fn strip_gateway_prefix(name: &str) -> String {
 
 /// Routes a tool request to the appropriate handler.
 ///
+/// Supported tools:
+/// - `get_weather`: Fetches weather data for a location
+/// - `get_personalized_greeting`: Generates personalized greeting for user
+///
 /// # Errors
 ///
-/// Returns a `Diagnostic` error if the tool is unknown or if tool execution fails.
+/// Returns a `Diagnostic` error if:
+/// - Tool name is not recognized (`UnknownTool`)
+/// - Request payload cannot be parsed (`InvalidInput`)
+/// - Tool execution fails (`ToolError`)
+/// - Response cannot be serialized (`SerializationError`)
 pub async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, Diagnostic> {
     debug!(tool_name = %tool_name, "Entering route_tool function");
     debug!(
@@ -127,13 +143,21 @@ pub async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, 
     }
 }
 
-/// Lambda event handler. Routes to tools based on event.name or `client_context.custom` fields.
-/// Logs full event when `RUST_LOG=debug/trace`, only `event_size` in production.
+/// Main Lambda event handler.
+///
+/// Processes incoming requests and routes them to appropriate tools.
+/// Handles both AWS Lambda events and direct MCP calls.
+///
+/// # Event Processing
+///
+/// 1. Extracts tool name from context or payload
+/// 2. Parses request arguments
+/// 3. Routes to appropriate tool handler
+/// 4. Returns JSON response or diagnostic error
 ///
 /// # Errors
 ///
 /// Returns a `Diagnostic` error with one of the following types:
-///
 /// - `InvalidInput`: Failed to parse the event payload into the required request type
 /// - `ToolError`: The requested tool failed to execute
 /// - `SerializationError`: Failed to serialize the tool response back to JSON
@@ -144,12 +168,11 @@ pub async fn function_handler(event: LambdaEvent<Value>) -> Result<Value, Diagno
     let tool_name = extract_tool_name(&event_payload, &context);
 
     // Extract the actual payload - if it's an API Gateway event, get from body
-    let payload_for_tool =
-        if let Some(body_str) = event_payload.get("body").and_then(|b| b.as_str()) {
-            serde_json::from_str(body_str).unwrap_or(event_payload)
-        } else {
-            event_payload
-        };
+    let payload_for_tool = event_payload
+        .get("body")
+        .and_then(|b| b.as_str())
+        .and_then(|body_str| serde_json::from_str(body_str).ok())
+        .unwrap_or(event_payload);
 
     info!(message = format!("Invoking tool: {}", tool_name));
 

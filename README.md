@@ -4,7 +4,7 @@
 [![Security](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/checkov.yml/badge.svg)](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/checkov.yml)
 [![CodeQL](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/debanjanbasu/aws-lambda-mcp/actions/workflows/codeql.yml)
 
-Production-ready Model Context Protocol server implementation using Amazon Bedrock AgentCore Gateway. Secure, OAuth-authenticated bridge between Bedrock AI agents and custom tools.
+Production-ready Model Context Protocol server implementation using Amazon Bedrock AgentCore Gateway. Secure, OAuth-authenticated bridge between Bedrock AI agents and custom tools with automatic weather lookup and personalized greetings.
 
 ## Table of Contents
 
@@ -15,6 +15,7 @@ Production-ready Model Context Protocol server implementation using Amazon Bedro
 - [Ephemeral Pull Request Environments](#ephemeral-pull-request-environments)
 - [Automated Dependency Updates](#automated-dependency-updates)
 - [Example: Weather Tool](#example-weather-tool)
+- [Example: Personalized Greeting Tool](#example-personalized-greeting-tool)
 - [Prerequisites](#prerequisites)
 - [Initial Setup for GitHub Template Repositories](#initial-setup-for-github-template-repositories)
 - [Structure](#structure)
@@ -30,12 +31,41 @@ Production-ready Model Context Protocol server implementation using Amazon Bedro
 ## Architecture
 
 ```
-Client → Entra ID (PKCE) → AgentCore Gateway → Interceptor Lambda → Main Lambda (Rust) → External APIs
-                                    ↓                              ↓
-                            JWT Validation (OIDC)        Header Propagation & Token Exchange
+┌───────────┐     ┌───────────┐     ┌─────────────────────────────────────────────────┐
+│    MCP    │────▶│ Entra ID  │     │                  AWS Cloud                      │
+│   Client  │◀────│  (PKCE)   │     │                                                 │
+└───────────┘     └───────────┘     │  ┌───────────────────────────────────────────┐  │
+      │                │            │  │      Bedrock AgentCore Gateway            │  │
+      │           OAuth Token       │  │  • JWT validation (OIDC)                  │  │
+      │                │            │  │  • Semantic tool search                   │  │
+      │                ▼            │  │  • Interceptor: JWT → User Info           │  │
+      └───────────▶ Gateway ────────┼──│  • Target: tool_schema.json routing       │  │
+                      URL           │  └──────────────────────┬────────────────────┘  │
+                                    │                         │                       │
+                                    │  ┌──────────────────────▼────────────────────┐  │
+                                    │  │              VPC (Private Subnets)        │  │
+                                    │  │  ┌────────────────────────────────────┐   │  │
+                                    │  │  │  Main Lambda (Rust) + Interceptor  │   │  │
+                                    │  │  │  • Weather lookup (Open-Meteo API) │   │  │
+                                    │  │  │  • Personalized greetings          │   │  │
+                                    │  │  └────────────────────────────────────┘   │  │
+                                    │  │         │  Regional NAT Gateway (EIP)     │  │
+                                    │  └─────────┼─────────────────────────────────┘  │
+                                    │            │                                    │
+                                    │  ┌─────────┴──────┐ ┌──────────┐ ┌───────────┐ │
+                                    │  │CloudWatch Logs │ │CloudWatch│ │  SQS DLQ  │ │
+                                    │  │    (Tracing)   │ │ Alarms   │ │           │ │
+                                    │  └────────────────┘ └──────────┘ └───────────┘ │
+                                    └────────────────────────┬────────────────────────┘
+                                                             ▼
+                                                   ┌─────────────────┐
+                                                   │  Open-Meteo API │
+                                                   └─────────────────┘
 ```
 
-**Stack**: ARM64 Lambdas (128MB, ~1.3MB UPX each) | Configurable concurrency | Entra ID OAuth | CloudWatch (3d retention) | CloudFormation
+**Stack**: ARM64 Lambdas (128MB, ~1.3MB UPX) | Regional NAT Gateway (auto HA) | Entra ID OAuth | CloudWatch (3d retention)
+
+**Features**: JWT token decoding, automatic weather lookup, personalized user greetings, secure header propagation, dynamic schema generation, HTTPS-only egress
 
 **License**: MIT
 
@@ -49,12 +79,14 @@ The Bedrock AgentCore Gateway is configured with a `SEMANTIC` search type, which
 
 - **ARM64/Graviton** - 20% cheaper, UPX compressed to 1.3MB per Lambda
 - **Secretless OAuth** - PKCE flow, no client secrets
-- **JWT Validation** - OIDC discovery per request
-- **Gateway Interceptor** - Header propagation and token exchange between gateway and tools
+- **JWT Token Decoding** - Automatic user information extraction from Entra ID tokens with expiry validation
+- **Gateway Interceptor** - Header propagation and identity resolution between gateway and tools
+- **Dynamic Schema Generation** - Tool schemas automatically generated and deployed
+- **Regional NAT Gateway** - Auto HA across AZs, stable egress IP
 - **Zero Unsafe** - No `unwrap/expect/panic/unsafe`, strict lints
 - **Concurrency Limits** - Function-level concurrent execution limits to prevent cost overruns
 - **Event Notifications** - CloudFormation stack events sent to encrypted SNS topic
-- **Structured Tracing** - JSON logs for CloudWatch
+- **Structured Logging** - JSON logs for CloudWatch
 - **Dead Letter Queue** - Failed invocations stored in encrypted SQS for debugging
 - **Auto Schemas** - Generated from code annotations
 - **Fast Cold Start** - Minimal deps, optimized binary
@@ -62,6 +94,8 @@ The Bedrock AgentCore Gateway is configured with a `SEMANTIC` search type, which
 - **Principle of Least Privilege** - IAM policies scoped to specific resources
 - **Resource Cleanup** - CloudFormation stacks properly clean up interceptor configurations
 - **Free Tier** - Typical usage $0/month
+- **Smart Weather Lookup** - Automatic geocoding and weather data retrieval from Open-Meteo
+- **Personalized Greetings** - Context-aware user greetings with automatic name extraction
 
 ## One-Time Backend Setup
 
@@ -129,18 +163,20 @@ Updates are automatically tested and merged when all checks pass.
 ## Example: Weather Tool
 
 Included working tool demonstrates the pattern:
-- Geocodes locations (Open-Meteo API)
-- Fetches current weather
-- Returns temperature in local units (°C/°F by country)
-- WMO weather code + wind speed
+- Simple location-based weather lookup (just provide "Kolkata" or "Sydney")
+- Automatic geocoding to coordinates (Open-Meteo API)
+- Smart default weather parameters (weather code, min/max temperature)
+- Automatic timezone detection and localization
+- Direct API integration with Open-Meteo weather service
 
 ## Example: Personalized Greeting Tool
 
 New personalized greeting tool demonstrates:
-- Gateway interceptor JWT token parsing
-- User identity extraction from OAuth tokens
-- Contextual tool responses based on user information
+- Zero-configuration user personalization
+- Automatic JWT token parsing and user identity extraction
+- Contextual responses based on authenticated user information
 - Secure header propagation between gateway and tools
+- Graceful fallback for missing user information
 
 ## Prerequisites
 
