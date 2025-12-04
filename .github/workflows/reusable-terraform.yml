@@ -75,16 +75,15 @@ jobs:
             Branch      = "${{ github.head_ref }}"
           }
           EOF
-      - name: 💾 Cache Terraform plugins
+      - name: 💾 Cache Terraform plugin cache
         uses: actions/cache@v4
         with:
           path: |
-            iac/.terraform
-            ~/.terraform.d/
-          key: ${{ runner.os }}-${{ runner.arch }}-terraform-${{ inputs.environment_name || 'prod' }}-${{ hashFiles('**/iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
+            ~/.terraform.d/plugin-cache
+          key: ${{ runner.os }}-${{ runner.arch }}-terraform-plugins-${{ inputs.environment_name || 'prod' }}-${{ hashFiles('iac/.terraform.lock.hcl', 'iac/main.tf', 'iac/providers.tf') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-terraform-${{ inputs.environment_name || 'prod' }}-
-            ${{ runner.os }}-${{ runner.arch }}-terraform-
+            ${{ runner.os }}-${{ runner.arch }}-terraform-plugins-${{ inputs.environment_name || 'prod' }}-
+            ${{ runner.os }}-${{ runner.arch }}-terraform-plugins-
       - name: 🏗️ Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -103,6 +102,11 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
+      - name: 🧹 Clean cached local terraform state
+        run: |
+          if [ -d "iac/.terraform" ]; then
+            rm -rf iac/.terraform
+          fi
       - name: 🚀 Terraform Init
         env:
           TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
@@ -117,7 +121,7 @@ jobs:
           # Use -reconfigure for PR environments to handle backend config changes
           # Issue: GitHub Actions caches Terraform state between jobs, but PR environments
           # use different state keys than main environment, causing "Backend configuration changed" errors
-          # Solution: Use -reconfigure for PR environments to avoid state migration conflicts
+          # Solution: Remove any cached local .terraform directory and use -reconfigure for PR envs
           if [ -n "${{ inputs.environment_name }}" ]; then
             terraform init -reconfigure \
               -backend-config="bucket=${TF_BACKEND_BUCKET}" \

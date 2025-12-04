@@ -80,8 +80,8 @@ resource "aws_lambda_function" "gateway_interceptor" {
   filename         = data.archive_file.interceptor_lambda_zip.output_path
   source_code_hash = data.archive_file.interceptor_lambda_zip.output_base64sha256
 
-  memory_size                    = 128  # Minimum memory for cost optimization
-  timeout                        = 30   # Standard timeout for consistency
+  memory_size                    = 128 # Minimum memory for cost optimization
+  timeout                        = 30  # Standard timeout for consistency
   reserved_concurrent_executions = var.lambda_concurrent_executions * 2
 
   # Dead Letter Queue configuration

@@ -1,6 +1,5 @@
 // Integration tests for interceptor functionality
 // Note: These tests focus on the public behavior and helper functions
-#![allow(clippy::expect_used, clippy::panic)]
 
 use aws_lambda_mcp::models::interceptor::InterceptorEvent;
 

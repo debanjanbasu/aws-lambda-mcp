@@ -23,9 +23,9 @@ locals {
   }
 
   # Derived paths (binary name matches Cargo package name)
-  lambda_binary_path            = "../target/lambda/aws-lambda-mcp/bootstrap"
+  lambda_binary_path             = "../target/lambda/aws-lambda-mcp/bootstrap"
   interceptor_lambda_binary_path = "../target/lambda/interceptor/bootstrap"
-  tool_schema_path              = "../tool_schema.json"
+  tool_schema_path               = "../tool_schema.json"
 
   # Entra ID OAuth configuration
   entra_tenant_id     = data.azuread_client_config.current.tenant_id
