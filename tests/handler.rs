@@ -78,7 +78,7 @@ async fn test_personalized_greeting_with_user_name() {
     });
 
     let result = route_tool("get_personalized_greeting", mcp_payload).await;
-    assert_successful_greeting(result, "John").await;
+    assert_successful_greeting(result, "John");
 }
 
 #[tokio::test]
@@ -94,7 +94,7 @@ async fn test_personalized_greeting_with_user_id_only() {
     });
 
     let result = route_tool("get_personalized_greeting", mcp_payload).await;
-    assert_successful_greeting(result, "jane.doe").await;
+    assert_successful_greeting(result, "jane.doe");
 }
 
 #[tokio::test]
@@ -108,7 +108,7 @@ async fn test_personalized_greeting_without_user_info() {
     });
 
     let result = route_tool("get_personalized_greeting", mcp_payload).await;
-    assert_successful_greeting(result, "there").await;
+    assert_successful_greeting(result, "there");
 }
 
 #[tokio::test]
@@ -125,11 +125,11 @@ async fn test_personalized_greeting_invalid_arguments() {
 
     let result = route_tool("get_personalized_greeting", mcp_payload).await;
     // Even with invalid fields, this should succeed with default greeting
-    assert_successful_greeting(result, "there").await;
+    assert_successful_greeting(result, "there");
 }
 
 /// Helper function to assert successful greeting response
-async fn assert_successful_greeting(result: Result<serde_json::Value, lambda_runtime::Diagnostic>, expected_name: &str) {
+fn assert_successful_greeting(result: Result<serde_json::Value, lambda_runtime::Diagnostic>, expected_name: &str) {
     assert!(result.is_ok(), "Expected successful greeting");
     
     if let Ok(response) = result {
@@ -139,9 +139,7 @@ async fn assert_successful_greeting(result: Result<serde_json::Value, lambda_run
         if let Some(greeting_text) = greeting {
             assert!(
                 greeting_text.contains(expected_name),
-                "Greeting should contain the expected name '{}', but was '{}'",
-                expected_name,
-                greeting_text
+                "Greeting should contain the expected name '{expected_name}', but was '{greeting_text}'"
             );
         }
     }
