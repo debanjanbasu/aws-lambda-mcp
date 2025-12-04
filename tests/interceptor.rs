@@ -1,7 +1,9 @@
 // Integration tests for interceptor functionality
 // Note: These tests focus on the public behavior and helper functions
+#![allow(clippy::expect_used, clippy::panic)]
 
 use aws_lambda_mcp::models::interceptor::InterceptorEvent;
+use aws_lambda_mcp::utils::strip_gateway_prefix;
 
 #[test]
 fn test_jwt_token_structure() {
@@ -63,8 +65,6 @@ fn test_interceptor_event_parsing() {
 #[test]
 fn test_gateway_prefix_stripping() {
     // Test that the interceptor correctly strips gateway prefixes from tool names
-
-    // This test simulates what happens in the interceptor code
     let test_cases = vec![
         ("get_weather", "get_weather"),
         ("gateway-123___get_weather", "get_weather"),
@@ -75,33 +75,12 @@ fn test_gateway_prefix_stripping() {
         ("custom-prefix___tool_name", "tool_name"),
     ];
 
-    // We can't directly call the private strip_gateway_prefix function,
-    // but we can test the behavior through the extract_tool_name function
-    // by mocking the JSON structure
-
+    // Use the shared utility function directly
     for (input_name, expected_name) in test_cases {
-        let body = serde_json::json!({
-            "params": {
-                "name": input_name
-            }
-        });
-
-        // This mimics the logic in the interceptor
-        let extracted_name = body
-            .get("params")
-            .and_then(|params| params.get("name"))
-            .and_then(serde_json::Value::as_str)
-            .map(|name| {
-                if let Some((_, actual_name)) = name.split_once("___") {
-                    actual_name.to_string()
-                } else {
-                    name.to_string()
-                }
-            });
-
+        let stripped_name = strip_gateway_prefix(input_name);
         assert_eq!(
-            extracted_name,
-            Some(expected_name.to_string()),
+            stripped_name,
+            expected_name,
             "Failed to strip prefix from '{input_name}'"
         );
     }

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use aws_lambda_mcp::models::interceptor::{InterceptorEvent, InterceptorResponse, McpResponse};
+use aws_lambda_mcp::utils::strip_gateway_prefix;
 use jsonwebtoken::dangerous::insecure_decode;
 use lambda_runtime::{
     Error, LambdaEvent, service_fn,
@@ -25,17 +26,6 @@ fn extract_auth_token(headers: &HashMap<String, String>) -> Option<&str> {
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("authorization"))
         .map(|(_, v)| v.strip_prefix("Bearer ").unwrap_or(v))
-}
-
-// Strips Bedrock Gateway prefix from tool name.
-//
-// Format: `gateway-target-id___tool_name` → `tool_name`
-fn strip_gateway_prefix(name: &str) -> String {
-    if let Some((_, actual_name)) = name.split_once("___") {
-        actual_name.to_string()
-    } else {
-        name.to_string()
-    }
 }
 
 /// Extract tool name from the request body

@@ -1,7 +1,8 @@
 use crate::http::HTTP_CLIENT;
+use crate::models::error::AppError;
 use crate::models::open_meteo::OpenMeteoResponse;
 use crate::models::{WeatherRequest, WeatherResponse};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use lambda_runtime::tracing::info;
 
 /// Default daily weather parameters for Open-Meteo API requests
@@ -23,110 +24,120 @@ const DEFAULT_DAILY_PARAMS: [&str; 3] =
 /// - Failed to extract coordinates from geocoding response
 /// - The HTTP request to the Open-Meteo API fails
 /// - The response from either API cannot be parsed
-pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
+pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse, AppError> {
     info!(
         "Starting weather request for location: {}",
         request.location
     );
 
-    let daily_params_str = DEFAULT_DAILY_PARAMS.join(",");
-    let client = &HTTP_CLIENT;
+    // Get coordinates for the location
+    let (latitude, longitude, timezone) = geocode_location(&request.location).await?;
 
-    // First, geocode the location to get coordinates
+    // Fetch weather data
+    let weather_data = fetch_weather_data(latitude, longitude, &timezone).await?;
+
+    info!("Successfully fetched weather data");
+    Ok(weather_data)
+}
+
+/// Geocodes a location name to coordinates
+async fn geocode_location(location: &str) -> Result<(f64, f64, String), AppError> {
+    let encoded_location = urlencoding::encode(location);
     let geocode_url = format!(
-        "https://geocoding-api.open-meteo.com/v1/search?name={}&count=1&language=en&format=json",
-        urlencoding::encode(&request.location)
+        "https://geocoding-api.open-meteo.com/v1/search?name={encoded_location}&count=1&language=en&format=json"
     );
 
+    info!("Geocoding location: {}", location);
     info!("Making geocoding request to: {}", geocode_url);
 
-    let geocode_response: serde_json::Value = client
+    let client = &HTTP_CLIENT;
+    let response: serde_json::Value = client
         .get(&geocode_url)
         .send()
         .await
-        .context("Failed to send geocoding request to Open-Meteo geocoding API")?
+        .map_err(|e| AppError::GeocodingError(format!("Failed to send geocoding request: {e}")))?
         .json()
         .await
-        .context("Failed to parse geocoding response from Open-Meteo")?;
+        .map_err(|e| AppError::GeocodingError(format!("Failed to parse geocoding response: {e}")))?;
 
     info!("Received geocoding response");
 
-    // Extract coordinates from geocoding response
-    let (latitude, longitude, timezone) = extract_coordinates_from_geocode(&geocode_response)
-        .context("Failed to extract coordinates from geocoding response")?;
+    extract_coordinates_from_geocode(&response)
+}
 
-    info!(
-        "Extracted coordinates: lat={}, lng={}, timezone={}",
-        latitude, longitude, timezone
-    );
-
+/// Fetches weather data for the given coordinates
+async fn fetch_weather_data(latitude: f64, longitude: f64, timezone: &str) -> Result<WeatherResponse, AppError> {
+    let daily_params_str = DEFAULT_DAILY_PARAMS.join(",");
     let weather_url = format!(
         "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&daily={daily_params_str}&timezone={timezone}"
     );
 
+    info!("Fetching weather data for coordinates: {}, {}", latitude, longitude);
     info!("Making weather forecast request to: {}", weather_url);
 
-    let response: reqwest::Response = client
+    let client = &HTTP_CLIENT;
+    let response = client
         .get(&weather_url)
         .send()
         .await
-        .context("Failed to send weather forecast request to Open-Meteo API")?;
+        .map_err(|e| AppError::WeatherApiError(format!("Failed to send weather forecast request: {e}")))?;
 
     info!(
         "Received weather forecast response with status: {}",
         response.status()
     );
 
-    let response: OpenMeteoResponse = response
+    // Check if the response is successful
+    if !response.status().is_success() {
+        return Err(AppError::WeatherApiError(format!(
+            "Weather API returned non-success status: {}",
+            response.status()
+        )));
+    }
+
+    let open_meteo_response: OpenMeteoResponse = response
         .json()
         .await
-        .context("Failed to parse weather forecast response from Open-Meteo")?;
+        .map_err(|e| AppError::WeatherApiError(format!("Failed to parse weather forecast response: {e}")))?;
 
     info!("Parsed weather forecast response successfully");
 
     Ok(WeatherResponse {
-        latitude: response.latitude,
-        longitude: response.longitude,
-        generationtime_ms: response.generationtime_ms,
-        utc_offset_seconds: response.utc_offset_seconds,
-        timezone: response.timezone,
-        timezone_abbreviation: response.timezone_abbreviation,
-        elevation: response.elevation,
-        daily_units: response.daily_units.into(),
-        daily: response.daily.into(),
+        latitude: open_meteo_response.latitude,
+        longitude: open_meteo_response.longitude,
+        generationtime_ms: open_meteo_response.generationtime_ms,
+        utc_offset_seconds: open_meteo_response.utc_offset_seconds,
+        timezone: open_meteo_response.timezone,
+        timezone_abbreviation: open_meteo_response.timezone_abbreviation,
+        elevation: open_meteo_response.elevation,
+        daily_units: open_meteo_response.daily_units.into(),
+        daily: open_meteo_response.daily.into(),
     })
 }
 
 /// Extracts coordinates and timezone from geocoding API response
-///
-/// # Errors
-///
-/// This function will return an error if:
-/// - No results are found in the geocoding response
-/// - No locations are found for the provided query
-/// - Failed to extract latitude or longitude from the response
 fn extract_coordinates_from_geocode(
     geocode_response: &serde_json::Value,
-) -> Result<(f64, f64, String)> {
+) -> Result<(f64, f64, String), AppError> {
     let results = geocode_response
         .get("results")
         .and_then(serde_json::Value::as_array)
-        .context("No results found in geocoding response")?;
+        .ok_or_else(|| AppError::GeocodingError("No results found in geocoding response".to_string()))?;
 
     if results.is_empty() {
-        anyhow::bail!("No locations found for the provided query");
+        return Err(AppError::GeocodingError("No locations found for the provided query".to_string()));
     }
 
     let first_result = &results[0];
     let latitude = first_result
         .get("latitude")
         .and_then(serde_json::Value::as_f64)
-        .context("Failed to extract latitude")?;
+        .ok_or_else(|| AppError::GeocodingError("Failed to extract latitude".to_string()))?;
 
     let longitude = first_result
         .get("longitude")
         .and_then(serde_json::Value::as_f64)
-        .context("Failed to extract longitude")?;
+        .ok_or_else(|| AppError::GeocodingError("Failed to extract longitude".to_string()))?;
 
     let timezone = first_result
         .get("timezone")
