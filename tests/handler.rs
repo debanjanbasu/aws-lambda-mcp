@@ -1,5 +1,4 @@
 // Handler tests
-#![allow(clippy::unwrap_used)]
 
 use aws_lambda_mcp::handler::route_tool;
 use serde_json::json;
