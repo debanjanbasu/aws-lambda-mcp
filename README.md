@@ -85,14 +85,14 @@ The Bedrock AgentCore Gateway is configured with a `SEMANTIC` search type, which
 - **Regional NAT Gateway** - Auto HA across AZs, stable egress IP
 - **Zero Unsafe** - No `unwrap/expect/panic/unsafe`, strict lints
 - **Concurrency Limits** - Function-level concurrent execution limits to prevent cost overruns
-- **Event Notifications** - CloudFormation stack events sent to encrypted SNS topic
+- **Event Notifications** - SNS notifications for infrastructure events
 - **Structured Logging** - JSON logs for CloudWatch
 - **Dead Letter Queue** - Failed invocations stored in encrypted SQS for debugging
 - **Auto Schemas** - Generated from code annotations
 - **Fast Cold Start** - Minimal deps, optimized binary
 - **Cost Optimized** - Minimum memory (128MB), conservative timeouts, low concurrency limits
 - **Principle of Least Privilege** - IAM policies scoped to specific resources
-- **Resource Cleanup** - CloudFormation stacks properly clean up interceptor configurations
+- **Resource Cleanup** - Terraform properly manages all resources
 - **Free Tier** - Typical usage $0/month
 - **Smart Weather Lookup** - Automatic geocoding and weather data retrieval from Open-Meteo
 - **Personalized Greetings** - Context-aware user greetings with automatic name extraction
@@ -308,7 +308,6 @@ src/
     └── interceptor.rs      # Gateway interceptor Lambda
 iac/
 ├── main.tf              # Terraform infrastructure
-├── gateway-with-interceptor.yaml  # CloudFormation for interceptor
 └── ...
 ```
 

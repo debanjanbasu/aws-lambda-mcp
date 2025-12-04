@@ -48,7 +48,7 @@ variable "additional_env_vars" {
 variable "lambda_concurrent_executions" {
   description = "Reserved concurrent executions for main Lambda function"
   type        = number
-  default     = 100  # Base concurrency - interceptor gets 2x this value
+  default     = 100 # Base concurrency - interceptor gets 2x this value
 
   validation {
     condition     = var.lambda_concurrent_executions > 0 && var.lambda_concurrent_executions <= 1000
@@ -59,7 +59,7 @@ variable "lambda_concurrent_executions" {
 variable "log_retention_days" {
   description = "CloudWatch Logs retention period in days"
   type        = number
-  default     = 3  # 3 days retention for cost optimization
+  default     = 3 # 3 days retention for cost optimization
 }
 
 
@@ -101,13 +101,13 @@ variable "entra_oauth_scope_value" {
 
 # Amazon Bedrock AgentCore Gateway Configuration
 variable "gateway_exception_level" {
-  description = "Exception level for Gateway error logging. Valid values are DEBUG, INFO, WARN, ERROR, or null for disabled."
+  description = "Exception level for Gateway error logging (only DEBUG is supported by Bedrock AgentCore)"
   type        = string
-  default     = null
+  default     = "DEBUG"
 
   validation {
-    condition     = var.gateway_exception_level == null || contains(["DEBUG", "INFO", "WARN", "ERROR"], var.gateway_exception_level)
-    error_message = "Exception level must be one of: DEBUG, INFO, WARN, ERROR, or null."
+    condition     = var.gateway_exception_level == "DEBUG"
+    error_message = "Bedrock AgentCore Gateway only supports DEBUG as exception level."
   }
 }
 
