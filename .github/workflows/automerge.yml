@@ -78,13 +78,15 @@ jobs:
     if: always() && !failure() && !cancelled()
     runs-on: ubuntu-24.04-arm
     steps:
-      - name: ✅ Approve and Merge
+      - name: ✅ Enable Auto-Merge for Dependabot PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          gh pr review --approve "$PR_URL"
-          gh pr merge --auto --merge "$PR_URL"
+          echo "Enabling auto-merge for Dependabot PR..."
+          # Use squash merge since merge commits are not allowed on this repository
+          gh pr merge --auto --squash "$PR_URL"
+          echo "✅ Auto-merge enabled for PR. Will merge automatically when all checks pass."
   handle_failure:
     name: 🚨 Handle Failure
     needs: [approve_and_merge]
@@ -96,6 +98,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
+          # Create label if it doesn't exist
+          gh label create "breaking-change-detected" --description "Detected breaking changes in PR" --color "e11d21" 2>/dev/null || true
           gh pr edit "$PR_URL" --add-label "breaking-change-detected"
           gh pr comment "$PR_URL" --body "## 🚨 Auto-Merge Failed - Checks Failed
           Tests failed for this PR.

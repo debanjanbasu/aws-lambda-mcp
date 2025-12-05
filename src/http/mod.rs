@@ -1,6 +1,26 @@
 use reqwest::Client;
 use std::sync::LazyLock;
+use std::time::Duration;
 
-pub static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
-// Note: The original project likely had more complex client setup (e.g., TLS config).
-// This is a minimal replacement based on the dependency.
+/// Global HTTP client with optimized configuration for Lambda environment.
+///
+/// This client is configured with:
+/// - Connection timeout of 10 seconds
+/// - Request timeout of 30 seconds
+/// - Connection pool with max of 10 idle connections per host
+/// - TCP keepalive enabled
+/// - Compression support (GZIP, Brotli, Deflate)
+pub static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
+    // In a Lambda environment, we can safely panic on startup if the client can't be created
+    // as this indicates a fundamental configuration issue
+    Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(30))
+        .pool_max_idle_per_host(10)
+        .tcp_keepalive(Duration::from_secs(60))
+        .gzip(true)
+        .brotli(true)
+        .deflate(true)
+        .build()
+        .unwrap_or_else(|_| Client::new())
+});

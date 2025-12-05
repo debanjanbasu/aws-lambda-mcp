@@ -1,4 +1,5 @@
 // Handler tests
+#![allow(clippy::unwrap_used)]
 
 use aws_lambda_mcp::handler::route_tool;
 use serde_json::json;
@@ -8,6 +9,7 @@ async fn test_route_tool_unknown() {
     let event_payload = json!({"name": "unknown_tool"});
     let result = route_tool("unknown_tool", event_payload).await;
     assert!(result.is_err(), "Expected error for unknown tool");
+    
     if let Err(err) = result {
         assert_eq!(err.error_type, "UnknownTool");
         assert!(err.error_message.contains("Unknown tool: unknown_tool"));
@@ -38,11 +40,27 @@ async fn test_weather_argument_extraction() {
             // If it fails, it should be a ToolError (parsing succeeded, API call failed),
             // not an InvalidInput error (parsing failed).
             assert_eq!(err.error_type, "ToolError");
-
-            // Optionally, we can check for network-related errors, but success is also OK.
-            // The main point is that argument parsing worked.
-            // If we get here, the test has effectively passed its primary goal.
         }
+    }
+}
+
+#[tokio::test]
+async fn test_weather_invalid_arguments() {
+    // Simulate MCP request structure with invalid arguments for get_weather
+    let mcp_payload = json!({
+        "method": "tools/call",
+        "params": {
+            "arguments": {
+                "invalid_field": "New York"
+            }
+        }
+    });
+
+    let result = route_tool("get_weather", mcp_payload).await;
+    assert!(result.is_err(), "Expected error for invalid arguments");
+    
+    if let Err(err) = result {
+        assert_eq!(err.error_type, "InvalidInput");
     }
 }
 
@@ -60,20 +78,7 @@ async fn test_personalized_greeting_with_user_name() {
     });
 
     let result = route_tool("get_personalized_greeting", mcp_payload).await;
-
-    // This should succeed since we're providing the user information directly
-    assert!(result.is_ok(), "Expected successful greeting");
-
-    if let Ok(response) = result {
-        let greeting = response.get("greeting").and_then(|g| g.as_str());
-        assert!(greeting.is_some(), "Response should contain greeting field");
-        if let Some(greeting_text) = greeting {
-            assert!(
-                greeting_text.contains("John"),
-                "Greeting should contain the user name"
-            );
-        }
-    }
+    assert_successful_greeting(result, "John");
 }
 
 #[tokio::test]
@@ -89,20 +94,7 @@ async fn test_personalized_greeting_with_user_id_only() {
     });
 
     let result = route_tool("get_personalized_greeting", mcp_payload).await;
-
-    // This should succeed since we're providing the user ID
-    assert!(result.is_ok(), "Expected successful greeting");
-
-    if let Ok(response) = result {
-        let greeting = response.get("greeting").and_then(|g| g.as_str());
-        assert!(greeting.is_some(), "Response should contain greeting field");
-        if let Some(greeting_text) = greeting {
-            assert!(
-                greeting_text.contains("jane.doe"),
-                "Greeting should contain the user name extracted from email"
-            );
-        }
-    }
+    assert_successful_greeting(result, "jane.doe");
 }
 
 #[tokio::test]
@@ -116,17 +108,38 @@ async fn test_personalized_greeting_without_user_info() {
     });
 
     let result = route_tool("get_personalized_greeting", mcp_payload).await;
+    assert_successful_greeting(result, "there");
+}
 
-    // This should succeed with a default greeting
+#[tokio::test]
+async fn test_personalized_greeting_invalid_arguments() {
+    // Simulate MCP request structure with invalid arguments
+    let mcp_payload = json!({
+        "method": "tools/call",
+        "params": {
+            "arguments": {
+                "invalid_field": "some_value"
+            }
+        }
+    });
+
+    let result = route_tool("get_personalized_greeting", mcp_payload).await;
+    // Even with invalid fields, this should succeed with default greeting
+    assert_successful_greeting(result, "there");
+}
+
+/// Helper function to assert successful greeting response
+fn assert_successful_greeting(result: Result<serde_json::Value, lambda_runtime::Diagnostic>, expected_name: &str) {
     assert!(result.is_ok(), "Expected successful greeting");
-
+    
     if let Ok(response) = result {
         let greeting = response.get("greeting").and_then(|g| g.as_str());
         assert!(greeting.is_some(), "Response should contain greeting field");
+        
         if let Some(greeting_text) = greeting {
             assert!(
-                greeting_text.contains("there"),
-                "Greeting should contain the default name"
+                greeting_text.contains(expected_name),
+                "Greeting should contain the expected name '{expected_name}', but was '{greeting_text}'"
             );
         }
     }
