@@ -39,7 +39,6 @@ All variables have defaults in `variables.tf`. Override in `terraform.tfvars`:
 entra_sign_in_audience  = "AzureADMultipleOrgs"  # Any Entra ID tenant
 lambda_memory_size      = 128                     # Minimum memory (128MB)
 lambda_timeout          = 30                      # Standard timeout (30s)
-lambda_concurrent_executions      = 100           # Main Lambda: 100, Interceptor: 200 (2x)
 log_retention_days      = 3                       # Short retention to minimize costs
 rust_log_level          = "info"                  # info (prod), debug/trace (troubleshooting)
 gateway_exception_level = null                    # Gateway exception level (DEBUG/INFO/WARN/ERROR/null)

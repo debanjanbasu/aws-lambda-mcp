@@ -45,17 +45,6 @@ variable "additional_env_vars" {
   default     = {}
 }
 
-variable "lambda_concurrent_executions" {
-  description = "Reserved concurrent executions for main Lambda function"
-  type        = number
-  default     = 100 # Base concurrency - interceptor gets 2x this value
-
-  validation {
-    condition     = var.lambda_concurrent_executions > 0 && var.lambda_concurrent_executions <= 1000
-    error_message = "Lambda concurrent executions must be between 1 and 1000."
-  }
-}
-
 variable "log_retention_days" {
   description = "CloudWatch Logs retention period in days"
   type        = number
