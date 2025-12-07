@@ -154,9 +154,11 @@ jobs:
       - name: 💥 Terraform Destroy
         if: inputs.command == 'destroy'
         run: |
-          # Create dummy bootstrap file to satisfy archive_file data source during destroy
+          # Create dummy bootstrap files to satisfy archive_file data sources during destroy
           mkdir -p target/lambda/aws-lambda-mcp
+          mkdir -p target/lambda/interceptor
           touch target/lambda/aws-lambda-mcp/bootstrap
+          touch target/lambda/interceptor/bootstrap
           cd iac
           terraform destroy -auto-approve ${{ inputs.var_file && format('-var-file={0}', inputs.var_file) || '' }}
       - name: 📤 Capture Terraform Outputs

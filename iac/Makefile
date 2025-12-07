@@ -213,6 +213,11 @@ destroy: ## Destroy infrastructure
 		echo "$(RED)❌ Aborted$(RESET)"; \
 		exit 1; \
 	fi
+	@echo "$(BLUE)📄 Generating tool schema...$(RESET)"
+	@cd .. && cargo run --bin generate-schema --features schema-gen --color=always
+	@echo "$(BLUE)📦 Creating dummy bootstrap files for destroy...$(RESET)"
+	@mkdir -p ../target/lambda/aws-lambda-mcp ../target/lambda/interceptor
+	@touch ../target/lambda/aws-lambda-mcp/bootstrap ../target/lambda/interceptor/bootstrap
 	@terraform destroy -auto-approve
 
 oauth-config: ## Display OAuth configuration for any OAuth 2.0 compliant client
