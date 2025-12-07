@@ -160,7 +160,11 @@ tf-apply: release ## 🚀 Apply Terraform changes (builds Lambda first, requires
 
 tf-destroy: ## 🧨 Destroy Terraform resources (requires backend config)
 	@make check-backend-config
+	@make schema
 	@echo "$(YELLOW)🧨 Destroying Terraform resources...$(RESET)"
+	@echo "$(BLUE)📦 Creating dummy bootstrap files for destroy...$(RESET)"
+	@mkdir -p target/lambda/aws-lambda-mcp target/lambda/interceptor
+	@touch target/lambda/aws-lambda-mcp/bootstrap target/lambda/interceptor/bootstrap
 	@cd iac && terraform destroy -auto-approve
 
 # Infrastructure Commands
