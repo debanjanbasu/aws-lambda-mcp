@@ -33,6 +33,23 @@ resource "aws_bedrockagentcore_gateway" "main" {
     }
   }
 
+  # Interceptor configuration for header propagation and user context enrichment
+  # The interceptor Lambda extracts JWT claims and custom headers, then enriches
+  # the MCP request with user identity information before forwarding to the main Lambda.
+  interceptor_configuration {
+    interception_points = ["REQUEST"]
+
+    interceptor {
+      lambda {
+        arn = aws_lambda_function.gateway_interceptor.arn
+      }
+    }
+
+    input_configuration {
+      pass_request_headers = true
+    }
+  }
+
   # Exception level for error logging
   # Controls the verbosity of error messages returned by the Gateway:
   # - DEBUG: Most verbose - detailed context and debugging information
@@ -127,87 +144,6 @@ resource "aws_lambda_permission" "agentcore_gateway_interceptor_invoke" {
   statement_id  = "AllowAgentCoreGatewayInterceptorInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.gateway_interceptor.function_name
-  principal     = "bedrock-agentcore.amazonaws.com"
-  source_arn    = aws_bedrockagentcore_gateway.main.gateway_arn
-}
-
-# Additional permission for interceptor with bedrock.amazonaws.com principal
-resource "aws_lambda_permission" "agentcore_gateway_interceptor_invoke_bedrock" {
-  statement_id  = "AllowBedrockGatewayInterceptorInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.gateway_interceptor.function_name
   principal     = "bedrock.amazonaws.com"
   source_arn    = aws_bedrockagentcore_gateway.main.gateway_arn
-}
-
-# Configure interceptor on gateway via AWS CLI
-# The Terraform AWS provider doesn't yet support interceptor_configurations,
-# so we use a null_resource with local-exec to configure it via AWS CLI.
-resource "null_resource" "configure_gateway_interceptor" {
-  # Re-run when gateway or interceptor Lambda changes
-  triggers = {
-    gateway_id      = aws_bedrockagentcore_gateway.main.gateway_id
-    interceptor_arn = aws_lambda_function.gateway_interceptor.arn
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "Configuring interceptor on gateway..."
-
-      # Get current gateway configuration
-      GATEWAY_CONFIG=$(aws bedrock-agentcore-control get-gateway \
-        --gateway-identifier ${aws_bedrockagentcore_gateway.main.gateway_id} \
-        --output json)
-
-      # Extract required fields
-      ROLE_ARN=$(echo "$GATEWAY_CONFIG" | jq -r '.roleArn')
-      PROTOCOL_TYPE=$(echo "$GATEWAY_CONFIG" | jq -r '.protocolType')
-      AUTHORIZER_TYPE=$(echo "$GATEWAY_CONFIG" | jq -r '.authorizerType')
-      PROTOCOL_CONFIG=$(echo "$GATEWAY_CONFIG" | jq -c '.protocolConfiguration')
-      AUTHORIZER_CONFIG=$(echo "$GATEWAY_CONFIG" | jq -c '.authorizerConfiguration')
-      EXCEPTION_LEVEL=$(echo "$GATEWAY_CONFIG" | jq -r '.exceptionLevel // empty')
-
-      # Build the update command
-      UPDATE_CMD="aws bedrock-agentcore-control update-gateway \
-        --gateway-identifier ${aws_bedrockagentcore_gateway.main.gateway_id} \
-        --name ${aws_bedrockagentcore_gateway.main.name} \
-        --role-arn $ROLE_ARN \
-        --protocol-type $PROTOCOL_TYPE \
-        --authorizer-type $AUTHORIZER_TYPE \
-        --protocol-configuration '$PROTOCOL_CONFIG' \
-        --authorizer-configuration '$AUTHORIZER_CONFIG' \
-        --interceptor-configurations '[{\"interceptor\":{\"lambda\":{\"arn\":\"${aws_lambda_function.gateway_interceptor.arn}\"}},\"interceptionPoints\":[\"REQUEST\"],\"inputConfiguration\":{\"passRequestHeaders\":true}}]'"
-
-      # Add exception level if set
-      if [ -n "$EXCEPTION_LEVEL" ]; then
-        UPDATE_CMD="$UPDATE_CMD --exception-level $EXCEPTION_LEVEL"
-      fi
-
-      # Execute the update
-      eval $UPDATE_CMD
-
-      # Wait for gateway to be ready
-      echo "Waiting for gateway to be ready..."
-      for i in {1..30}; do
-        STATUS=$(aws bedrock-agentcore-control get-gateway \
-          --gateway-identifier ${aws_bedrockagentcore_gateway.main.gateway_id} \
-          --query 'status' --output text)
-        if [ "$STATUS" = "READY" ]; then
-          echo "Gateway is ready with interceptor configured"
-          exit 0
-        fi
-        sleep 2
-      done
-      echo "Warning: Gateway did not reach READY state within timeout"
-    EOT
-  }
-
-  depends_on = [
-    aws_bedrockagentcore_gateway.main,
-    aws_bedrockagentcore_gateway_target.lambda,
-    aws_lambda_function.gateway_interceptor,
-    aws_lambda_permission.agentcore_gateway_invoke,
-    aws_lambda_permission.agentcore_gateway_interceptor_invoke,
-    aws_lambda_permission.agentcore_gateway_interceptor_invoke_bedrock
-  ]
 }

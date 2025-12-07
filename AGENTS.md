@@ -16,7 +16,7 @@ This document provides guidelines for AI assistants working on the AWS Lambda MC
 
 ## Project Overview
 
-The AWS Lambda MCP is a Rust-based server implementing MCP for Bedrock AgentCore, enabling AI agents to discover and use external tools securely. Features a gateway interceptor for header propagation and token exchange. Key technologies: Rust (2024 edition), AWS Lambda (ARM64), Entra ID OAuth, CloudWatch logging, Terraform for infrastructure, CloudFormation for advanced gateway configuration.
+The AWS Lambda MCP is a Rust-based server implementing MCP for Bedrock AgentCore, enabling AI agents to discover and use external tools securely. Features a gateway interceptor for header propagation and token exchange. Key technologies: Rust (2024 edition), AWS Lambda (ARM64), Entra ID OAuth, CloudWatch logging, Terraform for infrastructure with native interceptor support.
 
 **Developer Quick Start:**
 - `make login` - Authenticate AWS and Azure CLIs
@@ -33,7 +33,7 @@ The project includes a gateway interceptor Lambda that sits between the AgentCor
 - Enables secure header propagation and user context workflows
 - Demonstrates how to enrich requests with contextual data
 
-The interceptor is deployed via CloudFormation to add interceptor configuration to the existing Terraform-managed gateway.
+The interceptor is deployed via Terraform using native AWS provider support for gateway interceptor configuration.
 
 ## Commands
 

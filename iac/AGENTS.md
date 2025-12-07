@@ -16,7 +16,9 @@ This document provides guidelines for AI assistants working on the infrastructur
 
 ## Key Infrastructure Files
 
-- `main.tf` - Main Terraform resources (Lambda, API Gateway, Bedrock, interceptor configuration)
+- `gateway.tf` - Bedrock Gateway with native interceptor configuration
+- `lambda.tf` - Lambda functions (main MCP handler and interceptor)
+- `iam.tf` - IAM roles and policies
 - `variables.tf` - Input variables with defaults and validation
 - `outputs.tf` - Output values for other systems
 - `locals.tf` - Computed values and constants
@@ -36,22 +38,19 @@ This document provides guidelines for AI assistants working on the infrastructur
 - **Dependencies**: Use `depends_on` sparingly; prefer implicit dependencies
 - **Formatting**: Run `terraform fmt` before committing
 
-## AWS CLI Provisioner Guidelines
+## Gateway Interceptor Configuration
 
-- **Purpose**: Use AWS CLI provisioners for AWS features not yet supported by Terraform providers
-- **Integration**: Deploy via Terraform's `null_resource` with `local-exec` provisioners
-- **Naming**: Follow consistent naming conventions matching Terraform resources
-- **Parameters**: Pass Terraform outputs as command-line parameters
-- **Validation**: Test AWS CLI commands manually before implementing
-- **Dependencies**: Use `depends_on` to ensure proper deployment order
-- **Updates**: AWS CLI provisioners handle resource updates automatically
-- **Cleanup**: Implement proper resource cleanup in destroy handlers to prevent orphaned resources
+The gateway interceptor is configured natively in Terraform using the `interceptor_configuration` block:
+- **Native Support**: AWS provider >= 6.0 includes native support for interceptor configuration
+- **Configuration**: Defined directly in `aws_bedrockagentcore_gateway` resource
+- **Interception Points**: Currently set to "REQUEST" for pre-processing incoming requests
+- **Header Propagation**: Enabled via `pass_request_headers = true` for user context enrichment
 
 ## AWS Resource Best Practices
 
 - **Lambda**: Use ARM64 architecture, set appropriate memory/timeout, enable CloudWatch logs
-- **Bedrock AgentCore Gateway**: Configure with interceptor for header propagation when needed
-- **AWS CLI Provisioners**: Use for advanced AWS features not in Terraform providers
+- **Bedrock AgentCore Gateway**: Configure with native interceptor support for header propagation
+- **Interceptor**: Lightweight Lambda for JWT parsing and user context enrichment
 - **API Gateway**: Use regional deployment, enable logging, configure CORS properly
 - **IAM**: Follow least privilege; use managed policies where possible
 - **S3**: Enable versioning, encryption, and access logging for state buckets
@@ -64,7 +63,6 @@ This document provides guidelines for AI assistants working on the infrastructur
 - **Data Encryption**: SNS topics encrypted with AWS managed keys, Lambda environment variables encrypted
 - **IAM Roles**: Restrict permissions to minimum required; use condition keys and resource ARNs
 - **Network Security**: Use VPC endpoints where possible; avoid public IPs
-- **AWS CLI Provisioners**: Scope IAM policies to specific resources, avoid wildcard permissions
 - **Logging**: Enable CloudTrail, avoid logging sensitive data
 - **Compliance**: Follow AWS security best practices; regular audits
 
@@ -75,7 +73,6 @@ This document provides guidelines for AI assistants working on the infrastructur
 - **State Locks**: Use `terraform force-unlock` only as last resort
 - **Resource Conflicts**: Check for naming collisions; use unique suffixes
 - **Plan Failures**: Validate syntax with `terraform validate`; check variable values
-- **AWS CLI Provisioner Issues**: Check AWS CLI commands manually; verify IAM permissions
 
 ## Contributing
 
