@@ -126,7 +126,7 @@ output "entra_token_url" {
 
 output "entra_client_secret" {
   description = "Entra ID client secret for OAuth 2.0 confidential clients (2 year expiry)"
-  value       = tolist(azuread_application.agentcore_app.password)[0].value
+  value       = azuread_application_password.agentcore_app_password.value
   sensitive   = true
 }
 
