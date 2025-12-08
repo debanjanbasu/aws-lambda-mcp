@@ -168,4 +168,26 @@ source .env && echo "$MCP_ACCESS_TOKEN" | cut -d. -f2 | base64 -d | jq .
 cd .. && make deploy
 ```
 
+### State Lock Issues
+
+If you encounter a "state lock" error:
+
+**Automatic Recovery (GitHub Actions)**: The workflow automatically detects and clears stale locks from cancelled runs.
+
+**Manual Recovery (Local Development)**:
+```bash
+# List current lock (if any)
+cd iac && terraform plan
+
+# If locked, force unlock (use the Lock ID from error message)
+terraform force-unlock <LOCK_ID>
+```
+
+**Common Causes**:
+- Cancelled GitHub workflow mid-operation
+- Interrupted local Terraform command (Ctrl+C)
+- Network timeout during Terraform operation
+
+**Prevention**: The preview environment workflow uses `cancel-in-progress: true`, which may leave stale locks when workflows are cancelled. The reusable Terraform workflow now automatically detects and clears these locks.
+
 **Cost**: Free tier covers typical usage ($0/month)

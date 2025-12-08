@@ -135,6 +135,33 @@ jobs:
               -backend-config="region=${{ inputs.aws_region }}" \
               -backend-config="use_lockfile=true"
           fi
+      - name: 🔓 Check and Clear Stale State Locks
+        if: inputs.command == 'deploy' || inputs.command == 'destroy'
+        run: |
+          cd iac
+          echo "Checking for stale state locks..."
+          
+          # Try to get the current lock info
+          LOCK_INFO=$(terraform plan -detailed-exitcode 2>&1 || true)
+          
+          if echo "$LOCK_INFO" | grep -q "Error acquiring the state lock"; then
+            echo "⚠️  Stale lock detected. Attempting to recover..."
+            
+            # Extract lock ID from error message
+            LOCK_ID=$(echo "$LOCK_INFO" | grep -oP 'ID:\s+\K[a-f0-9-]+' | head -1)
+            
+            if [ -n "$LOCK_ID" ]; then
+              echo "Found lock ID: $LOCK_ID"
+              echo "This is likely from a cancelled workflow. Forcing unlock..."
+              terraform force-unlock -force "$LOCK_ID" || echo "Force unlock failed, but continuing..."
+              echo "✅ Lock cleared. Proceeding with operation."
+            else
+              echo "❌ Could not extract lock ID. Manual intervention may be required."
+              exit 1
+            fi
+          else
+            echo "✅ No stale locks detected."
+          fi
       - name: ✅ Terraform Validate
         if: inputs.command == 'validate' || inputs.command == 'deploy'
         run: cd iac && terraform validate
