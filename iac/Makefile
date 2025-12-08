@@ -84,7 +84,7 @@ test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User
 	TENANT_ID=$$(terraform output -raw entra_tenant_id 2>/dev/null); \
 	BASE_SCOPE=$$(terraform output -raw entra_app_scope 2>/dev/null); \
 	SCOPE="$${BASE_SCOPE} openid profile email"; \
-	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null); \
+	GATEWAY_URL=$$(terraform output -raw agentcore_gateway_url 2>/dev/null || echo ""); \
 	if [ -z "$$CLIENT_ID" ] || [ -z "$$TENANT_ID" ] || [ -z "$$GATEWAY_URL" ] || [ "$$GATEWAY_URL" = "null" ]; then \
 		echo "$(RED)❌ Missing Terraform outputs. Run \"make apply\" first to deploy infrastructure.$(RESET)" >&2; \
 		exit 1; \
@@ -111,15 +111,28 @@ test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User
 	if command -v pbcopy >/dev/null 2>&1; then \
 		echo "$$USER_CODE" | pbcopy; \
 		echo -e "$(CYAN)📋 Code copied to clipboard$(RESET)"; \
+	elif command -v clip.exe >/dev/null 2>&1; then \
+		echo "$$USER_CODE" | clip.exe; \
+		echo -e "$(CYAN)📋 Code copied to clipboard (WSL)$(RESET)"; \
+	elif command -v xclip >/dev/null 2>&1; then \
+		echo "$$USER_CODE" | xclip -selection clipboard; \
+		echo -e "$(CYAN)📋 Code copied to clipboard (xclip)$(RESET)"; \
+	elif command -v xsel >/dev/null 2>&1; then \
+		echo "$$USER_CODE" | xsel --clipboard --input; \
+		echo -e "$(CYAN)📋 Code copied to clipboard (xsel)$(RESET)"; \
 	fi; \
 	echo -e "$(YELLOW)🌐 Opening browser to $$VERIFICATION_URI...$(RESET)"; \
-	if command -v open >/dev/null 2>&1; then \
+	if grep -qi microsoft /proc/version 2>/dev/null && command -v powershell.exe >/dev/null 2>&1; then \
+		powershell.exe -c "Start-Process '\''$$VERIFICATION_URI'\''"; \
+	elif grep -qi microsoft /proc/version 2>/dev/null && command -v cmd.exe >/dev/null 2>&1; then \
+		cmd.exe /c start "$$VERIFICATION_URI"; \
+	elif command -v open >/dev/null 2>&1; then \
 		open "$$VERIFICATION_URI"; \
 	elif command -v xdg-open >/dev/null 2>&1; then \
 		xdg-open "$$VERIFICATION_URI"; \
 	else \
-		echo -e "$(RED)❌ No browser opener found. Open manually: $$VERIFICATION_URI$(RESET)" >&2; \
-		exit 1; \
+		echo -e "$(YELLOW)⚠️  Could not open browser automatically. Please open manually:$(RESET)"; \
+		echo -e "$(CYAN)🌐 URL: $$VERIFICATION_URI$(RESET)"; \
 	fi; \
 	echo -e "$(YELLOW)⏳ Polling for token (this may take a few minutes)...$(RESET)"; \
 	ACCESS_TOKEN=""; \
@@ -138,7 +151,7 @@ test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User
 			-d "grant_type=device_code" \
 			-d "client_id=$$CLIENT_ID" \
 			-d "device_code=$$DEVICE_CODE"); \
-		echo -e "$(CYAN)🔍 Token response: $$TOKEN_RESPONSE$(RESET)" >&2; \
+	echo -e "$(CYAN)🔍 Token response: $$TOKEN_RESPONSE$(RESET)" >&2; \
 		if echo "$$TOKEN_RESPONSE" | jq -e ".access_token" >/dev/null 2>&1; then \
 			ACCESS_TOKEN=$$(echo "$$TOKEN_RESPONSE" | jq -r ".access_token"); \
 			echo -e "$(GREEN)✅ Token received!$(RESET)"; \
@@ -168,6 +181,15 @@ test-token: ## Get OAuth token via device code flow + launch MCP Inspector (User
 	if command -v pbcopy >/dev/null 2>&1; then \
 		echo "$$ACCESS_TOKEN" | pbcopy; \
 		echo -e "$(CYAN)📋 Token copied to clipboard$(RESET)"; \
+	elif command -v clip.exe >/dev/null 2>&1; then \
+		echo "$$ACCESS_TOKEN" | clip.exe; \
+		echo -e "$(CYAN)📋 Token copied to clipboard (WSL)$(RESET)"; \
+	elif command -v xclip >/dev/null 2>&1; then \
+		echo "$$ACCESS_TOKEN" | xclip -selection clipboard; \
+		echo -e "$(CYAN)📋 Token copied to clipboard (xclip)$(RESET)"; \
+	elif command -v xsel >/dev/null 2>&1; then \
+		echo "$$ACCESS_TOKEN" | xsel --clipboard --input; \
+		echo -e "$(CYAN)📋 Token copied to clipboard (xsel)$(RESET)"; \
 	fi; \
 	echo -e "$(CYAN)🔗 Gateway URL: $$GATEWAY_URL$(RESET)"; \
 	echo -e "$(BLUE)🚀 Launching MCP Inspector...$(RESET)"; \

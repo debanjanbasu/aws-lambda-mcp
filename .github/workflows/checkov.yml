@@ -7,7 +7,7 @@ on:
       - 'iac/**'
       - '.github/workflows/checkov.yml'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
     paths:
       - 'iac/**'
       - '.github/workflows/checkov.yml'

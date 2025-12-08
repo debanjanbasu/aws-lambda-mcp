@@ -10,7 +10,7 @@ on:
       - 'Cargo.lock'
       - '.github/workflows/codeql.yml'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
     paths:
       - 'src/**'
       - 'iac/**'

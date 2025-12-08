@@ -1,4 +1,4 @@
-.PHONY: help check-tools schema build release test all deploy tf-init tf-plan tf-apply tf-destroy login test-token test-lambda logs clean kill-inspector oauth-config add-redirect-url setup-backend update-secrets
+.PHONY: help check-tools schema build release test all deploy tf-init tf-plan tf-apply tf-destroy login test-token test-lambda logs clean kill-inspector oauth-config add-redirect-url remove-redirect-url setup-backend update-secrets
 
 AWS_REGION ?= ap-southeast-2
 
@@ -21,7 +21,7 @@ help: ## ✨ Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(check-backend-config|setup-backend|deploy|tf-destroy):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(GREEN)Development Tools:$(RESET)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(login|test-token|test-lambda|logs|clean|kill-inspector|oauth-config|add-redirect-url|update-secrets):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(login|test-token|test-lambda|logs|clean|kill-inspector|oauth-config|add-redirect-url|remove-redirect-url|update-secrets):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(GREEN)Terraform Commands:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '^(tf-init|tf-plan|tf-apply):' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2}'
@@ -32,53 +32,91 @@ help: ## ✨ Show this help
 check-tools:
 	@echo "$(BLUE)🔧 Checking required tools...$(RESET)"
 	@if [ -z "$$CI" ]; then \
-		command -v cargo >/dev/null 2>&1 || (echo "$(RED)❌ cargo not found. Installing Rust nightly...$(RESET)" && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y && source $$HOME/.cargo/env && rustup component add rust-src && rustup target add aarch64-unknown-linux-gnu && echo "$(GREEN)✅ Rust nightly installed$(RESET)"); \
+		command -v cargo >/dev/null 2>&1 || ( \
+			echo "$(BLUE)📦 Installing Rust nightly...$(RESET)" && \
+			curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y && \
+			source $$HOME/.cargo/env && \
+			rustup component add rust-src && \
+			rustup target add aarch64-unknown-linux-gnu && \
+			echo "$(GREEN)✅ Rust nightly installed$(RESET)" \
+		); \
 		command -v zig >/dev/null 2>&1 || ( \
 			echo "$(BLUE)📦 Installing Zig...$(RESET)" && \
 			if command -v brew >/dev/null 2>&1; then \
-				brew install zig; \
+				brew install zig && echo "$(GREEN)✅ Zig installed via Homebrew$(RESET)"; \
 			elif command -v apt >/dev/null 2>&1; then \
-				sudo apt update && sudo apt install -y zig; \
+				sudo apt update && sudo apt install -y zig && echo "$(GREEN)✅ Zig installed via APT$(RESET)"; \
 			else \
-				echo "$(BLUE)📦 Downloading Zig...$(RESET)" && \
-				curl -L https://ziglang.org/download/latest/zig-linux-x86_64.tar.xz | tar -xJ -C /tmp && \
-				sudo mv /tmp/zig-linux-x86_64*/zig /usr/local/bin/ && \
-				sudo mv /tmp/zig-linux-x86_64*/lib /usr/local/lib/zig && \
-				rm -rf /tmp/zig-linux-x86_64*; \
-			fi && \
-			echo "$(GREEN)✅ Zig installed$(RESET)" \
+				echo "$(RED)❌ Zig installation requires a package manager (Homebrew or APT)$(RESET)"; \
+				echo "$(YELLOW)Please install Zig manually:$(RESET)"; \
+				echo "$(YELLOW)  macOS: brew install zig$(RESET)"; \
+				echo "$(YELLOW)  Linux: sudo apt install zig (or see https://ziglang.org/download/)$(RESET)"; \
+				exit 1; \
+			fi \
 		); \
-		command -v cargo-lambda >/dev/null 2>&1 || (echo "$(BLUE)📦 Installing cargo-lambda...$(RESET)" && cargo install cargo-lambda && echo "$(GREEN)✅ cargo-lambda installed$(RESET)"); \
+		command -v cargo-lambda >/dev/null 2>&1 || ( \
+			echo "$(BLUE)📦 Installing cargo-lambda...$(RESET)" && \
+			if command -v brew >/dev/null 2>&1; then \
+				brew install cargo-lambda && echo "$(GREEN)✅ cargo-lambda installed via Homebrew$(RESET)"; \
+			else \
+				cargo install cargo-lambda && echo "$(GREEN)✅ cargo-lambda installed via Cargo$(RESET)"; \
+			fi \
+		); \
 		command -v upx >/dev/null 2>&1 || ( \
 			echo "$(BLUE)📦 Installing UPX...$(RESET)" && \
 			if command -v brew >/dev/null 2>&1; then \
-				brew install upx; \
+				brew install upx && echo "$(GREEN)✅ UPX installed via Homebrew$(RESET)"; \
 			elif command -v apt >/dev/null 2>&1; then \
-				sudo apt update && sudo apt install -y upx-ucl; \
+				sudo apt update && sudo apt install -y upx-ucl && echo "$(GREEN)✅ UPX installed via APT$(RESET)"; \
 			else \
 				echo "$(RED)❌ UPX not found and no package manager detected. Install manually: brew install upx (macOS) or apt install upx-ucl (Linux)$(RESET)" && exit 1; \
-			fi && \
-			echo "$(GREEN)✅ UPX installed$(RESET)" \
+			fi \
 		); \
 		command -v jq >/dev/null 2>&1 || ( \
 			echo "$(BLUE)📦 Installing jq...$(RESET)" && \
 			if command -v brew >/dev/null 2>&1; then \
-				brew install jq; \
+				brew install jq && echo "$(GREEN)✅ jq installed via Homebrew$(RESET)"; \
 			elif command -v apt >/dev/null 2>&1; then \
-				sudo apt update && sudo apt install -y jq; \
+				sudo apt update && sudo apt install -y jq && echo "$(GREEN)✅ jq installed via APT$(RESET)"; \
 			else \
 				echo "$(RED)❌ jq not found and no package manager detected. Install manually: brew install jq (macOS) or apt install jq (Linux)$(RESET)" && exit 1; \
-			fi && \
-			echo "$(GREEN)✅ jq installed$(RESET)" \
+			fi \
 		); \
 		command -v terraform >/dev/null 2>&1 || ( \
-			echo "$(BLUE)📦 Downloading Terraform...$(RESET)" && \
-			curl -fsSL https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_arm64.zip -o /tmp/terraform.zip && \
-			unzip -o /tmp/terraform.zip -d /tmp && \
-			sudo mv /tmp/terraform /usr/local/bin/terraform && \
-			sudo chmod +x /usr/local/bin/terraform && \
-			rm /tmp/terraform.zip && \
-			echo "$(GREEN)✅ Terraform installed$(RESET)" \
+			echo "$(BLUE)📦 Installing Terraform...$(RESET)" && \
+			if command -v brew >/dev/null 2>&1; then \
+				brew tap hashicorp/tap && \
+				brew install hashicorp/tap/terraform && \
+				echo "$(GREEN)✅ Terraform installed via Homebrew$(RESET)"; \
+			elif command -v apt-get >/dev/null 2>&1; then \
+				echo "$(BLUE)📦 Using APT package manager...$(RESET)" && \
+				sudo apt-get update && \
+				sudo apt-get install -y gnupg software-properties-common && \
+				wget -qO- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null && \
+				echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $$(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list && \
+				sudo apt-get update && \
+				sudo apt-get install -y terraform && \
+				echo "$(GREEN)✅ Terraform installed via APT$(RESET)"; \
+			elif command -v yum >/dev/null 2>&1; then \
+				echo "$(BLUE)📦 Using YUM package manager...$(RESET)" && \
+				sudo yum install -y yum-utils && \
+				sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo && \
+				sudo yum -y install terraform && \
+				echo "$(GREEN)✅ Terraform installed via YUM$(RESET)"; \
+			elif command -v dnf >/dev/null 2>&1; then \
+				echo "$(BLUE)📦 Using DNF package manager...$(RESET)" && \
+				sudo dnf install -y dnf-plugins-core && \
+				sudo dnf config-manager addrepo --from-repofile=https://rpm.releases.hashicorp.com/fedora/hashicorp.repo && \
+				sudo dnf -y install terraform && \
+				echo "$(GREEN)✅ Terraform installed via DNF$(RESET)"; \
+			else \
+				echo "$(RED)❌ Terraform installation requires a package manager (Homebrew, APT, YUM, or DNF)$(RESET)"; \
+				echo "$(YELLOW)Please install Terraform manually:$(RESET)"; \
+				echo "$(YELLOW)  macOS: brew tap hashicorp/tap && brew install hashicorp/tap/terraform$(RESET)"; \
+				echo "$(YELLOW)  Ubuntu/Debian: https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli$(RESET)"; \
+				echo "$(YELLOW)  RHEL/CentOS/Fedora: https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli$(RESET)"; \
+				exit 1; \
+			fi \
 		); \
 	else \
 		echo "$(YELLOW)⚠️  Skipping tool installation (in CI). Tools installed by workflow.$(RESET)"; \

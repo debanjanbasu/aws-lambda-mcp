@@ -75,7 +75,11 @@ jobs:
   approve_and_merge:
     name: ✅ Approve and Merge
     needs: [detect_changes, terraform_validate, run_rust_tests]
-    if: always() && !failure() && !cancelled()
+    if: |
+      always() && 
+      needs.detect_changes.result == 'success' &&
+      (needs.terraform_validate.result == 'success' || needs.terraform_validate.result == 'skipped') &&
+      (needs.run_rust_tests.result == 'success' || needs.run_rust_tests.result == 'skipped')
     runs-on: ubuntu-24.04-arm
     steps:
       - name: ✅ Enable Auto-Merge for Dependabot PRs
