@@ -28,7 +28,9 @@ env:
   CARGO_TERM_COLOR: always
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || inputs.pr_number }}
-  cancel-in-progress: true
+  cancel-in-progress: true  # Cancels previous runs when new commits are pushed.
+                            # Note: Cancelled Terraform operations may leave state locks.
+                            # The reusable-terraform workflow automatically detects and clears stale locks.
 jobs:
   build-lambda:
     name: 🧱 Build Lambda
