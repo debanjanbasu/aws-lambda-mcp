@@ -2,6 +2,9 @@
 //!
 //! This binary scans registered tools and generates `tool_schema.json`,
 //! which contains the input/output schemas in Amazon Bedrock format.
+//!
+//! The generated schemas are cleaned to remove unsupported fields like `format`,
+//! and nested structures are properly handled for Terraform compatibility.
 
 use schemars::{JsonSchema, schema_for};
 use serde_json::{Value, json};
@@ -42,6 +45,55 @@ fn main() {
     println!("✅ Generated tool_schema.json with {} tool(s)", tools.len());
 }
 
+// Recursively clean up schema to conform to Amazon Bedrock AgentCore format
+fn cleanup_schema(schema: &mut Value) {
+    if let Some(obj) = schema.as_object_mut() {
+        // Remove fields not supported by Amazon Bedrock
+        obj.remove("$schema");
+        obj.remove("title");
+        obj.remove("format");
+
+        // Clean up properties
+        if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
+            // Remove fields that are injected by the interceptor
+            properties.remove("user_id");
+            properties.remove("user_name");
+
+            for prop_value in properties.values_mut() {
+                cleanup_schema(prop_value);
+            }
+        }
+
+        // Clean up items for arrays
+        if let Some(items) = obj.get_mut("items") {
+            cleanup_schema(items);
+        }
+
+        // Convert union types like ["string", "null"] to just "string"
+        if let Some(type_value) = obj.get("type")
+            && let Some(type_array) = type_value.as_array()
+            && type_array.len() == 2
+            && type_array.contains(&json!("null"))
+        {
+            for t in type_array {
+                if t != &json!("null") {
+                    obj.insert("type".to_string(), t.clone());
+                    break;
+                }
+            }
+        }
+
+        // Remove injected fields from required fields since they're provided by interceptor
+        if let Some(required) = obj.get_mut("required").and_then(|r| r.as_array_mut()) {
+            required.retain(|item| item != "user_id" && item != "user_name");
+        }
+    } else if let Some(arr) = schema.as_array_mut() {
+        for item in arr {
+            cleanup_schema(item);
+        }
+    }
+}
+
 // Generates a schema in Amazon Bedrock format for the given type
 fn generate_bedrock_schema<T: JsonSchema>() -> Value {
     let mut schema = serde_json::to_value(schema_for!(T)).unwrap_or_else(|e| {
@@ -49,12 +101,8 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
         std::process::exit(1);
     });
 
-    // Clean up schema to conform to Amazon Bedrock AgentCore format
+    // Inline $defs references
     if let Some(obj) = schema.as_object_mut() {
-        // Remove fields not supported by Amazon Bedrock
-        obj.remove("$schema");
-        obj.remove("title");
-
         if let Some(defs) = obj.remove("$defs")
             && let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut())
         {
@@ -77,39 +125,10 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
                 }
             }
         }
-
-        // Remove format fields and convert union types to primary type
-        if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
-            // Remove fields that are injected by the interceptor
-            properties.remove("user_id");
-            properties.remove("user_name");
-
-            for prop_value in properties.values_mut() {
-                if let Some(prop_obj) = prop_value.as_object_mut() {
-                    prop_obj.remove("format");
-
-                    // Convert union types like ["string", "null"] to just "string"
-                    if let Some(type_value) = prop_obj.get("type")
-                        && let Some(type_array) = type_value.as_array()
-                        && type_array.len() == 2
-                        && type_array.contains(&json!("null"))
-                    {
-                        for t in type_array {
-                            if t != &json!("null") {
-                                prop_obj.insert("type".to_string(), t.clone());
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Remove injected fields from required fields since they're provided by interceptor
-        if let Some(required) = obj.get_mut("required").and_then(|r| r.as_array_mut()) {
-            required.retain(|item| item != "user_id" && item != "user_name");
-        }
     }
+
+    // Clean up the schema recursively
+    cleanup_schema(&mut schema);
 
     schema
 }

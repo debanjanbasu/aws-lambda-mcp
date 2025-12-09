@@ -99,6 +99,26 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
                     type        = property.value.type
                     description = try(property.value.description, null)
                     required    = contains(try(inline_payload.value.inputSchema.required, []), property.key)
+
+                    # Handle array items
+                    dynamic "items" {
+                      for_each = try(property.value.items, null) != null ? [property.value.items] : []
+                      content {
+                        type        = items.value.type
+                        description = try(items.value.description, null)
+                      }
+                    }
+
+                    # Handle nested object properties (one level deep)
+                    dynamic "property" {
+                      for_each = try(property.value.properties, {})
+                      content {
+                        name        = property.key
+                        type        = property.value.type
+                        description = try(property.value.description, null)
+                        required    = contains(try(property.value.required, []), property.key)
+                      }
+                    }
                   }
                 }
               }
@@ -115,6 +135,26 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
                     type        = property.value.type
                     description = try(property.value.description, null)
                     required    = contains(try(inline_payload.value.outputSchema.required, []), property.key)
+
+                    # Handle array items
+                    dynamic "items" {
+                      for_each = try(property.value.items, null) != null ? [property.value.items] : []
+                      content {
+                        type        = items.value.type
+                        description = try(items.value.description, null)
+                      }
+                    }
+
+                    # Handle nested object properties (one level deep)
+                    dynamic "property" {
+                      for_each = try(property.value.properties, {})
+                      content {
+                        name        = property.key
+                        type        = property.value.type
+                        description = try(property.value.description, null)
+                        required    = contains(try(property.value.required, []), property.key)
+                      }
+                    }
                   }
                 }
               }
