@@ -71,7 +71,7 @@ Production-ready Model Context Protocol server implementation using Amazon Bedro
 
 ## Model Context Protocol Implementation
 
-This is a **Model Context Protocol (MCP) server** implemented as an AWS Lambda function for Amazon Bedrock AgentCore. MCP is an open-source specification that enables AI agents to discover and interact with external tools and APIs in a standardized way. This server uses the `rmcp` crate's `#[tool]` macro for MCP-compliant schema generation.
+This is a **Model Context Protocol (MCP) server** implemented as an AWS Lambda function for Amazon Bedrock AgentCore. MCP is an open-source specification that enables AI agents to discover and interact with external tools and APIs in a standardized way. This server generates MCP-compliant schemas using the `schemars` crate for JSON schema generation.
 
 The Bedrock AgentCore Gateway is configured with a `SEMANTIC` search type, which enables intelligent tool selection. This means it can understand natural language queries, match tool descriptions and parameters, and provide context-aware tool recommendations, significantly improving the agent's ability to utilize available tools effectively.
 
@@ -436,13 +436,16 @@ For advanced infrastructure commands: `cd iac && make help`
 
 ## Schema Generation
 
-Generates Amazon Bedrock AgentCore schemas from code using `rmcp` crate's `#[tool]` macro:
+Generates Amazon Bedrock AgentCore schemas from code using `schemars` crate for JSON schema generation:
 
 ```rust
-use rmcp::tool;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
-#[tool(description = "Get current weather for a location")]
-#[instrument(fields(location = %request.location))]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct WeatherRequest {
+    pub location: String,
+}
 pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
     // implementation
 }
@@ -518,7 +521,7 @@ See [AGENTS.md](./AGENTS.md) for full guidelines.
 - ❌ No wildcard imports
 - ❌ No hardcoded secrets
 
-**Dependencies**: `lambda_runtime` | `tokio` | `serde` | `schemars` | `reqwest` | `tracing` | `anyhow` | `rmcp`
+**Dependencies**: `lambda_runtime` | `tokio` | `serde` | `schemars` | `reqwest` | `tracing` | `anyhow` | `jsonwebtoken` | `chrono` | `urlencoding`
 
 ## Contributing
 
