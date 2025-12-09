@@ -4,12 +4,8 @@
 # Data source to get current Entra ID configuration
 data "azuread_client_config" "current" {}
 
-# Resolve publisher identity (current user or service principal)
-# Uses count to gracefully handle failures (e.g., when executed by service principal)
-data "azuread_user" "publisher" {
-  count     = 1
-  object_id = data.azuread_client_config.current.object_id
-}
+# Publisher identity resolution handled in locals.tf
+# For CI/CD pipelines, assumes service principal context
 
 # Generate a random suffix for unique resource names if not provided
 resource "random_string" "project_suffix" {
