@@ -130,3 +130,26 @@ output "entra_client_secret" {
   sensitive   = true
 }
 
+# ===================================================================
+# Entra App Metadata Outputs
+# ===================================================================
+
+output "agentcore_app_metadata_tags" {
+  description = "All metadata tags stamped on the Entra application (key:value strings)"
+  value       = local.entra_app_tags
+}
+
+output "agentcore_app_notes" {
+  description = "Human-readable notes containing all metadata"
+  value       = local.entra_app_notes
+}
+
+output "agentcore_app_publisher" {
+  description = "Resolved publisher identity (executor of Terraform)"
+  value       = local.publisher_account_name
+}
+
+output "agentcore_app_detected_tools" {
+  description = "Auto-detected MCP tools from tool_schema.json"
+  value       = local.entra_mcp_tools_list
+}

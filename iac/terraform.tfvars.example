@@ -35,3 +35,38 @@ common_tags = {
   ManagedBy   = "terraform"
   Environment = "production"
 }
+
+# ===================================================================
+# Entra App Metadata - Optional Governance & Discovery Tags
+# All fields are optional with smart defaults:
+# - goLiveDate: defaults to today
+# - retireBy: defaults to 30 days from today
+# - mcpTools: auto-detected from tool_schema.json
+# - createdBy: auto-detected from Azure context
+# - secretsExpiry: auto-computed (2 years from now)
+# ===================================================================
+
+# Ownership & Business
+entra_app_owner      = "iam-platform@company.com"
+entra_business_unit  = "Engineering"
+entra_app_name       = ""  # Defaults to project_name if empty
+
+# Environment & Security
+entra_environment         = "prod"
+entra_data_classification = "Internal"
+entra_pii_processing      = "None"
+
+# Lifecycle (auto-computed if empty)
+entra_go_live_date   = ""  # Defaults to today
+entra_retire_by_date = ""  # Defaults to today + 30 days
+
+# Operational
+entra_app_version             = "1.0.0"
+entra_mcp_tools_override      = []  # Auto-detected from tool_schema.json if empty
+entra_secrets_expiry_date     = ""  # Auto-computed (2 years) if empty
+entra_graph_scopes_summary    = "openid;profile;email"
+
+# Discovery
+entra_created_in_tool    = "AgentToolkit"
+entra_created_by_user    = ""  # Auto-detected from Azure context if empty
+entra_installed_by_count = 0

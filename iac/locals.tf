@@ -41,8 +41,89 @@ locals {
   # Generate display name and descriptions from project name
   project_display_name = title(replace(local.project_name_with_suffix, "-", " "))
 
-  # Generate Entra app tags from project type
-  entra_app_tags = ["agentcore-gateway", "oauth2", "pkce", "terraform-managed"]
+  # ===================================================================
+  # Entra App Metadata - Smart Defaults & Auto-Detection
+  # ===================================================================
+
+  # Auto-resolve publisher from current Azure user
+  # For service principals (CI/CD), show "CI/CD Pipeline (object-id)"
+  publisher_user_data = try(data.azuread_user.publisher[0], null)
+  publisher_is_user   = local.publisher_user_data != null
+  publisher_account_name = local.publisher_is_user ? coalesce(
+    try(local.publisher_user_data.user_principal_name, null),
+    try(local.publisher_user_data.display_name, null),
+    data.azuread_client_config.current.object_id
+  ) : "CI/CD Pipeline (${data.azuread_client_config.current.object_id})"
+
+  # Auto-detect MCP tools from tool_schema.json (full names)
+  tool_schema_data    = try(jsondecode(file(local.tool_schema_path)), [])
+  auto_detected_tools = [for tool in local.tool_schema_data : tool.name]
+
+  # Computed values with fallbacks
+  entra_resolved_app_name   = var.entra_app_name != "" ? var.entra_app_name : var.project_name
+  entra_resolved_created_by = var.entra_created_by_user != "" ? var.entra_created_by_user : local.publisher_account_name
+
+  # MCP tools: use override if provided, otherwise auto-detect from schema
+  entra_mcp_tools_list   = length(var.entra_mcp_tools_override) > 0 ? var.entra_mcp_tools_override : local.auto_detected_tools
+  entra_mcp_tools_joined = length(local.entra_mcp_tools_list) > 0 ? join(",", local.entra_mcp_tools_list) : "none"
+
+  # Date defaults: goLiveDate=today, retireBy=today+30days
+  entra_auto_go_live_date   = var.entra_go_live_date != "" ? var.entra_go_live_date : formatdate("YYYY-MM-DD", timestamp())
+  entra_auto_retire_by_date = var.entra_retire_by_date != "" ? var.entra_retire_by_date : formatdate("YYYY-MM-DD", timeadd(timestamp(), "720h"))
+
+  # Secrets expiry: auto-compute 2 years from now
+  entra_auto_secrets_expiry = var.entra_secrets_expiry_date != "" ? var.entra_secrets_expiry_date : formatdate("YYYY-MM-DD", timeadd(timestamp(), "17520h"))
+
+  # Base Entra app tags (technical characteristics)
+  entra_app_base_tags = [
+    "agentcore-gateway",
+    "oauth2",
+    "pkce",
+    "terraform-managed"
+  ]
+
+  # Metadata tags (governance, lifecycle, discovery)
+  entra_app_metadata_tags = [
+    "Publisher:${local.publisher_account_name}",
+    "Owner:${var.entra_app_owner}",
+    "businessUnit:${var.entra_business_unit}",
+    "appName:${local.entra_resolved_app_name}",
+    "env:${var.entra_environment}",
+    "dataClass:${var.entra_data_classification}",
+    "piiProcessing:${var.entra_pii_processing}",
+    "goLiveDate:${local.entra_auto_go_live_date}",
+    "retireBy:${local.entra_auto_retire_by_date}",
+    "graphScopes:${var.entra_graph_scopes_summary}",
+    "version:${var.entra_app_version}",
+    "mcpTools:${local.entra_mcp_tools_joined}",
+    "secretsExpiry:${local.entra_auto_secrets_expiry}",
+    "createdIn:${var.entra_created_in_tool}",
+    "createdBy:${local.entra_resolved_created_by}",
+    "installedByCount:${var.entra_installed_by_count}",
+  ]
+
+  # Merge base tags with metadata
+  entra_app_tags = concat(local.entra_app_base_tags, local.entra_app_metadata_tags)
+
+  # Human-readable notes (semicolon-delimited)
+  entra_app_notes = join("; ", [
+    "Publisher=${local.publisher_account_name}",
+    "Owner=${var.entra_app_owner}",
+    "businessUnit=${var.entra_business_unit}",
+    "appName=${local.entra_resolved_app_name}",
+    "env=${var.entra_environment}",
+    "dataClass=${var.entra_data_classification}",
+    "piiProcessing=${var.entra_pii_processing}",
+    "goLiveDate=${local.entra_auto_go_live_date}",
+    "retireBy=${local.entra_auto_retire_by_date}",
+    "graphScopes=${var.entra_graph_scopes_summary}",
+    "version=${var.entra_app_version}",
+    "mcpTools=${local.entra_mcp_tools_joined}",
+    "secretsExpiry=${local.entra_auto_secrets_expiry}",
+    "createdIn=${var.entra_created_in_tool}",
+    "createdBy=${local.entra_resolved_created_by}",
+    "installedByCount=${var.entra_installed_by_count}"
+  ])
 
   # Common environment variables for Lambda functions
   common_lambda_env_vars = {

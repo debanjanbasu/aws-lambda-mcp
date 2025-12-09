@@ -4,6 +4,13 @@
 # Data source to get current Entra ID configuration
 data "azuread_client_config" "current" {}
 
+# Resolve publisher identity (current user or service principal)
+# Uses count to gracefully handle failures (e.g., when executed by service principal)
+data "azuread_user" "publisher" {
+  count     = 1
+  object_id = data.azuread_client_config.current.object_id
+}
+
 # Generate a random suffix for unique resource names if not provided
 resource "random_string" "project_suffix" {
   length  = 6
@@ -79,6 +86,10 @@ resource "azuread_application" "agentcore_app" {
 
   group_membership_claims = var.entra_group_membership_claims
 
+  # Metadata tags and notes for governance and discovery
+  tags  = local.entra_app_tags
+  notes = local.entra_app_notes
+
   # Optional claims for access tokens - include user email and name
   optional_claims {
     access_token {
@@ -91,8 +102,6 @@ resource "azuread_application" "agentcore_app" {
       name = "given_name"
     }
   }
-
-  tags = local.entra_app_tags
 
   # Ignore changes to redirect URIs so they can be managed externally
   # This allows adding redirect URIs via Azure Portal or other tools
