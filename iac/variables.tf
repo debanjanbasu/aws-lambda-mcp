@@ -19,13 +19,13 @@ variable "project_name_suffix" {
 variable "lambda_memory_size" {
   description = "Memory size for Lambda function in MB"
   type        = number
-  default     = 128
+  default     = 256 # Increased from 128MB to handle ICU data initialization
 }
 
 variable "lambda_timeout" {
   description = "Timeout for Lambda function in seconds"
   type        = number
-  default     = 30
+  default     = 60 # Increased from 30s for better reliability with external API calls
 }
 
 variable "rust_log_level" {
