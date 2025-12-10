@@ -79,31 +79,42 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
         }
 
         // Remove format fields and convert union types to primary type
-        if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
-            // Remove fields that are injected by the interceptor
-            properties.remove("user_id");
-            properties.remove("user_name");
+        // Recursively clean properties, including nested objects and array items
+        fn clean_schema(obj: &mut serde_json::Map<String, Value>) {
+            if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
+                // Remove fields that are injected by the interceptor
+                properties.remove("user_id");
+                properties.remove("user_name");
 
-            for prop_value in properties.values_mut() {
-                if let Some(prop_obj) = prop_value.as_object_mut() {
-                    prop_obj.remove("format");
+                for prop_value in properties.values_mut() {
+                    if let Some(prop_obj) = prop_value.as_object_mut() {
+                        prop_obj.remove("format");
+                        clean_schema(prop_obj); // Recurse into nested objects
 
-                    // Convert union types like ["string", "null"] to just "string"
-                    if let Some(type_value) = prop_obj.get("type")
-                        && let Some(type_array) = type_value.as_array()
-                        && type_array.len() == 2
-                        && type_array.contains(&json!("null"))
-                    {
-                        for t in type_array {
-                            if t != &json!("null") {
-                                prop_obj.insert("type".to_string(), t.clone());
-                                break;
+                        // Convert union types like ["string", "null"] to just "string"
+                        if let Some(type_value) = prop_obj.get("type")
+                            && let Some(type_array) = type_value.as_array()
+                            && type_array.len() == 2
+                            && type_array.contains(&json!("null"))
+                        {
+                            for t in type_array {
+                                if t != &json!("null") {
+                                    prop_obj.insert("type".to_string(), t.clone());
+                                    break;
+                                }
                             }
+                        }
+
+                        // Clean items if it's an array
+                        if let Some(items) = prop_obj.get_mut("items").and_then(|i| i.as_object_mut()) {
+                            clean_schema(items);
                         }
                     }
                 }
             }
         }
+
+        clean_schema(obj);
 
         // Remove injected fields from required fields since they're provided by interceptor
         if let Some(required) = obj.get_mut("required").and_then(|r| r.as_array_mut()) {
