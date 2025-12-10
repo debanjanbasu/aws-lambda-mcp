@@ -80,6 +80,7 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
         lambda_arn = aws_lambda_function.bedrock_agentcore_gateway_main_lambda.arn
 
         # Load tool schemas from tool_schema.json using dynamic blocks
+        # Supports nested object properties and array items for complex schemas
         tool_schema {
           dynamic "inline_payload" {
             for_each = jsondecode(file(local.tool_schema_path))
@@ -92,6 +93,7 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
                 description = try(inline_payload.value.inputSchema.description, null)
 
                 # Dynamically create property blocks from inputSchema.properties
+                # Handles nested objects and arrays recursively
                 dynamic "property" {
                   for_each = try(inline_payload.value.inputSchema.properties, {})
                   content {
@@ -99,6 +101,24 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
                     type        = property.value.type
                     description = try(property.value.description, null)
                     required    = contains(try(inline_payload.value.inputSchema.required, []), property.key)
+                    # Handle array items - required for Bedrock to understand array element types
+                    dynamic "items" {
+                      for_each = try(property.value.items, null) != null ? [property.value.items] : []
+                      content {
+                        type        = items.value.type
+                        description = try(items.value.description, null)
+                        # Support nested properties within array items (for object arrays)
+                        dynamic "property" {
+                          for_each = try(items.value.properties, {})
+                          content {
+                            name        = property.key
+                            type        = property.value.type
+                            description = try(property.value.description, null)
+                            required    = contains(try(items.value.required, []), property.key)
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -108,6 +128,7 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
                 description = try(inline_payload.value.outputSchema.description, null)
 
                 # Dynamically create property blocks from outputSchema.properties
+                # Handles nested objects and arrays recursively
                 dynamic "property" {
                   for_each = try(inline_payload.value.outputSchema.properties, {})
                   content {
@@ -115,6 +136,24 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
                     type        = property.value.type
                     description = try(property.value.description, null)
                     required    = contains(try(inline_payload.value.outputSchema.required, []), property.key)
+                    # Handle array items - required for Bedrock to understand array element types
+                    dynamic "items" {
+                      for_each = try(property.value.items, null) != null ? [property.value.items] : []
+                      content {
+                        type        = items.value.type
+                        description = try(items.value.description, null)
+                        # Support nested properties within array items (for object arrays)
+                        dynamic "property" {
+                          for_each = try(items.value.properties, {})
+                          content {
+                            name        = property.key
+                            type        = property.value.type
+                            description = try(property.value.description, null)
+                            required    = contains(try(items.value.required, []), property.key)
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
