@@ -1,8 +1,98 @@
 // Handler tests
 #![allow(clippy::unwrap_used)]
 
+use async_trait::async_trait;
 use aws_lambda_mcp::handler::route_tool;
+use aws_lambda_mcp::http::HttpClient;
 use serde_json::json;
+use std::collections::HashMap;
+use std::sync::Mutex;
+
+/// Mock HTTP client for testing
+struct MockHttpClient {
+    responses: Mutex<HashMap<String, serde_json::Value>>,
+}
+
+impl MockHttpClient {
+    fn new() -> Self {
+        let mut responses = HashMap::new();
+
+        // Mock geocoding response for "New York"
+        responses.insert(
+            "https://geocoding-api.open-meteo.com/v1/search?name=New%20York&count=1&language=en&format=json".to_string(),
+            json!({
+                "results": [{
+                    "latitude": 40.7128,
+                    "longitude": -74.0060,
+                    "timezone": "America/New_York"
+                }]
+            })
+        );
+
+        // Mock weather response
+        responses.insert(
+            "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=America/New_York".to_string(),
+            json!({
+                "latitude": 40.7128,
+                "longitude": -74.0060,
+                "generationtime_ms": 0.5,
+                "utc_offset_seconds": -18000,
+                "timezone": "America/New_York",
+                "timezone_abbreviation": "EST",
+                "elevation": 10.0,
+                "daily_units": {
+                    "time": "iso8601",
+                    "weather_code": "wmo code",
+                    "temperature_2m_max": "°C",
+                    "temperature_2m_min": "°C"
+                },
+                "daily": {
+                    "time": ["2024-01-01"],
+                    "weather_code": [0],
+                    "temperature_2m_max": [5.0],
+                    "temperature_2m_min": [-2.0]
+                }
+            })
+        );
+
+        Self {
+            responses: Mutex::new(responses),
+        }
+    }
+}
+
+#[async_trait]
+impl HttpClient for MockHttpClient {
+    async fn get(&self, _url: &str) -> Result<reqwest::Response, Box<dyn std::error::Error + Send + Sync>> {
+        // For simplicity, we'll just return an error since we don't need this for weather tests
+        Err("Mock get not implemented".into())
+    }
+
+    async fn get_json_value(&self, url: &str) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+        let responses = self.responses.lock().unwrap();
+
+        // Check for exact match first
+        if let Some(response) = responses.get(url) {
+            return Ok(response.clone());
+        }
+
+        // For geocoding, check if URL contains the key parts
+        if url.contains("geocoding-api.open-meteo.com") && url.contains("name=New%20York") {
+            if let Some(response) = responses.get(&"https://geocoding-api.open-meteo.com/v1/search?name=New%20York&count=1&language=en&format=json".to_string()) {
+                return Ok(response.clone());
+            }
+        }
+
+        // For weather, check if URL contains the key parts
+        if url.contains("api.open-meteo.com") && url.contains("latitude=40.7128") && url.contains("longitude=-74.006") {
+            if let Some(response) = responses.get(&"https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=America/New_York".to_string()) {
+                return Ok(response.clone());
+            }
+        }
+
+        Err(format!("No mock response for URL: {}", url).into())
+    }
+}
 
 #[tokio::test]
 async fn test_route_tool_unknown() {
@@ -28,20 +118,12 @@ async fn test_weather_argument_extraction() {
         }
     });
 
-    // This test verifies that arguments are correctly parsed.
-    // It may succeed (if network is available) or fail with a ToolError (if network is blocked).
-    let result = route_tool("get_weather", mcp_payload).await;
+    // Use mock client for testing
+    let mock_client = MockHttpClient::new();
+    let result = aws_lambda_mcp::handler::route_tool_with_client("get_weather", mcp_payload, &mock_client).await;
 
-    match result {
-        Ok(_) => {
-            // Success is fine, it means arguments were parsed and the API call worked.
-        }
-        Err(err) => {
-            // If it fails, it should be a ToolError (parsing succeeded, API call failed),
-            // not an InvalidInput error (parsing failed).
-            assert_eq!(err.error_type, "ToolError");
-        }
-    }
+    // With mock client, this should succeed
+    assert!(result.is_ok(), "Weather request should succeed with mock client");
 }
 
 #[tokio::test]
