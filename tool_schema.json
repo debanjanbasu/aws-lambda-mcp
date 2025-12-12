@@ -16,65 +16,10 @@
     "outputSchema": {
       "properties": {
         "daily": {
-          "properties": {
-            "temperature2mMax": {
-              "items": {
-                "format": "double",
-                "type": "number"
-              },
-              "type": "array"
-            },
-            "temperature2mMin": {
-              "items": {
-                "format": "double",
-                "type": "number"
-              },
-              "type": "array"
-            },
-            "time": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "weatherCode": {
-              "items": {
-                "format": "int32",
-                "type": "integer"
-              },
-              "type": "array"
-            }
-          },
-          "required": [
-            "time",
-            "weatherCode",
-            "temperature2mMax",
-            "temperature2mMin"
-          ],
-          "type": "object"
+          "type": "string"
         },
         "dailyUnits": {
-          "properties": {
-            "temperature2mMax": {
-              "type": "string"
-            },
-            "temperature2mMin": {
-              "type": "string"
-            },
-            "time": {
-              "type": "string"
-            },
-            "weatherCode": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "time",
-            "weatherCode",
-            "temperature2mMax",
-            "temperature2mMin"
-          ],
-          "type": "object"
+          "type": "string"
         },
         "elevation": {
           "type": "number"

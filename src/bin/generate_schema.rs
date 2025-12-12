@@ -109,6 +109,23 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
         if let Some(required) = obj.get_mut("required").and_then(|r| r.as_array_mut()) {
             required.retain(|item| item != "user_id" && item != "user_name");
         }
+
+        // Flatten nested object properties to string type for Terraform compatibility.
+        // The Terraform aws_bedrockagentcore_gateway_target resource's dynamic property blocks
+        // don't support defining nested properties for object types. By converting object
+        // properties to strings, we ensure the schema is compatible with the infrastructure
+        // configuration while maintaining functional correctness in the Lambda handler.
+        if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
+            for prop_value in properties.values_mut() {
+                if let Some(prop_obj) = prop_value.as_object_mut() {
+                    if prop_obj.get("type") == Some(&json!("object")) {
+                        prop_obj.insert("type".to_string(), json!("string"));
+                        prop_obj.remove("properties");
+                        prop_obj.remove("required");
+                    }
+                }
+            }
+        }
     }
 
     schema
