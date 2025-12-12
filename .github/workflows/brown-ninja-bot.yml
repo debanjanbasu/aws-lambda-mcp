@@ -68,7 +68,7 @@ jobs:
           components: rust-src, clippy, rustfmt
           targets: aarch64-unknown-linux-gnu
       - name: 💾 Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -81,7 +81,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
             ${{ runner.os }}-${{ runner.arch }}-cargo-
       - name: 💾 Cache cargo-lambda
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-lambda
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
@@ -115,7 +115,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: 💾 Cache UPX
         id: cache-upx
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/bin/upx
           key: ${{ runner.os }}-${{ runner.arch }}-upx-${{ steps.get-upx-version.outputs.version }}
@@ -160,7 +160,7 @@ jobs:
         with:
           terraform_wrapper: false
       - name: 💾 Cache Terraform plugins
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             iac/.terraform
@@ -181,7 +181,7 @@ jobs:
           allow-no-subscriptions: true
       - name: 💾 Cache opencode
         id: cache-opencode
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.opencode
           key: ${{ runner.os }}-opencode
