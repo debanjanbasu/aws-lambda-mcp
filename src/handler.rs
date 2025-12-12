@@ -3,6 +3,7 @@ use lambda_runtime::tracing::{debug, error, info};
 use lambda_runtime::{Context, Diagnostic, LambdaEvent};
 use serde_json::Value;
 
+use crate::http::{HttpClient, HTTP_CLIENT};
 use crate::models::{PersonalizedGreetingRequest, WeatherRequest};
 use crate::tools::{get_personalized_greeting, get_weather};
 use crate::utils::strip_gateway_prefix;
@@ -66,6 +67,20 @@ fn extract_tool_name(event_payload: &Value, context: &Context) -> String {
 /// - Tool execution fails (`ToolError`)
 /// - Response cannot be serialized (`SerializationError`)
 pub async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, Diagnostic> {
+    route_tool_with_client(tool_name, event_payload, &*HTTP_CLIENT).await
+}
+
+/// Routes a tool call to the appropriate handler with a custom HTTP client.
+///
+/// This function is primarily used for testing with mocked HTTP clients.
+///
+/// # Errors
+///
+/// This function will return a `Diagnostic` error if:
+/// - The tool name is unknown
+/// - Tool argument parsing fails
+/// - The tool execution fails
+pub async fn route_tool_with_client(tool_name: &str, event_payload: Value, http_client: &dyn HttpClient) -> Result<Value, Diagnostic> {
     debug!(tool_name = %tool_name, "Entering route_tool function");
     debug!(
         "Routing tool: {} with payload: {:?}",
@@ -91,7 +106,7 @@ pub async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, 
                 }
             })?;
 
-            let response = get_weather(request).await.map_err(|e| {
+            let response = get_weather(request, http_client).await.map_err(|e| {
                 error!(error = %format!("{e:#}"), "Weather tool execution failed");
                 Diagnostic {
                     error_type: "ToolError".to_string(),

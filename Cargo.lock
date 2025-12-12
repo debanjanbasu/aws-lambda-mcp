@@ -110,6 +110,7 @@ name = "aws-lambda-mcp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "jsonwebtoken",
  "lambda_runtime",
