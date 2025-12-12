@@ -44,6 +44,31 @@ rust_log_level          = "info"                  # info (prod), debug/trace (tr
 gateway_exception_level = null                    # Gateway exception level (DEBUG/INFO/WARN/ERROR/null)
 ```
 
+### Entra App Metadata & Governance
+
+The Entra ID application is automatically tagged with comprehensive metadata for governance, discovery, and lifecycle management. All metadata uses smart defaults and can be customized via variables.
+
+**Automatic Metadata Tags:**
+- **Technical**: `agentcore-gateway`, `oauth2`, `pkce`, `terraform-managed`
+- **Governance**: Publisher, Owner, Business Unit, Environment, Data Classification, PII Processing
+- **Lifecycle**: Go-live Date, Retire-by Date, Secrets Expiry
+- **Operational**: App Version, MCP Tools, Graph Scopes, Created In/By
+
+**Metadata Sources:**
+- **Publisher**: Auto-detected from Azure context (CI/CD shows "CI/CD Pipeline (object-id)")
+- **MCP Tools**: Auto-detected from `tool_schema.json` or override via `entra_mcp_tools_override`
+- **Dates**: Go-live defaults to today, retire-by to 30 days later, secrets expiry to 2 years
+- **Owner/Business Unit**: Set via `entra_app_owner` and `entra_business_unit` variables
+
+**Example Configuration:**
+```hcl
+# In terraform.tfvars
+entra_app_owner      = "platform-team@company.com"
+entra_business_unit  = "Engineering"
+entra_environment    = "prod"
+entra_data_classification = "Internal"
+```
+
 ### Redirect URI Management
 
 The infrastructure automatically includes standard development redirect URIs:
