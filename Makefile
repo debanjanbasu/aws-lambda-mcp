@@ -152,15 +152,13 @@ build: schema ## 🐳 Build Lambda (debug)
 	@cargo lambda build --bin aws-lambda-mcp --color=always
 	@cargo lambda build --bin interceptor --color=always
 
-release: schema check-tools ## 📦 Build Lambda (release, ARM64) with UPX compression
+release: schema check-tools ## 📦 Build Lambda (release, ARM64)
 	@echo "$(BLUE)🚀 Building release version (ARM64)...$(RESET)"
 	@cargo lambda build --release --arm64 --bin aws-lambda-mcp --color=always
 	@cargo lambda build --release --arm64 --bin interceptor --color=always
-	@echo "$(BLUE)🗜️  Compressing binaries with UPX (--best --lzma)...$(RESET)"
-	@upx --best --lzma target/lambda/aws-lambda-mcp/bootstrap
-	@upx --best --lzma target/lambda/interceptor/bootstrap
 	@echo "$(GREEN)📊 Final binary sizes:$(RESET)"
 	@ls -lh target/lambda/aws-lambda-mcp/bootstrap target/lambda/interceptor/bootstrap
+	@echo "$(YELLOW)⚠️  UPX compression removed to prevent binary corruption issues$(RESET)"
 
 test: ## 🧪 Run tests
 	@echo "$(BLUE)🧪 Running tests...$(RESET)"
