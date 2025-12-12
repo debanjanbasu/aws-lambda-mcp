@@ -33,7 +33,7 @@ jobs:
           components: rust-src
           targets: aarch64-unknown-linux-gnu
       - name: 💾 Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -46,7 +46,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-
             ${{ runner.os }}-${{ runner.arch }}-cargo-
       - name: 💾 Cache cargo-lambda
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-lambda
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-lambda-${{ hashFiles('**/Cargo.lock') }}
@@ -80,7 +80,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: 💾 Cache UPX
         id: cache-upx
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/bin/upx
           key: ${{ runner.os }}-${{ runner.arch }}-upx-${{ steps.get-upx-version.outputs.version }}
