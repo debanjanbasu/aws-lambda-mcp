@@ -125,10 +125,18 @@ resource "azuread_application" "agentcore_app" {
   }
 }
 
+# Wait 30 seconds for the Entra ID Application object to fully replicate and be available
+# before attempting to create the application password, mitigating eventual consistency issues.
+resource "time_sleep" "wait_for_application_creation" {
+  create_duration = "30s"
+  depends_on      = [azuread_application.agentcore_app]
+}
+
 # Client secret for OAuth 2.0 confidential clients
 # Created as a separate resource to avoid Azure AD eventual consistency issues
 # with reading back the application immediately after creation
 resource "azuread_application_password" "agentcore_app_password" {
+  depends_on     = [time_sleep.wait_for_application_creation]
   display_name   = "OAuth 2.0 Confidential Client"
   application_id = azuread_application.agentcore_app.id
   end_date       = timeadd(timestamp(), "17520h") # 2 years
