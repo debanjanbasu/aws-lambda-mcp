@@ -45,15 +45,15 @@ locals {
   # Entra App Metadata - Smart Defaults & Auto-Detection
   # ===================================================================
 
-  # Auto-resolve publisher from current Azure user
-  # For service principals (CI/CD), show "CI/CD Pipeline (object-id)"
-  publisher_user_data = try(data.azuread_user.publisher[0], null)
-  publisher_is_user   = local.publisher_user_data != null
-  publisher_account_name = local.publisher_is_user ? coalesce(
-    try(local.publisher_user_data.user_principal_name, null),
-    try(local.publisher_user_data.display_name, null),
-    data.azuread_client_config.current.object_id
-  ) : "CI/CD Pipeline (${data.azuread_client_config.current.object_id})"
+  # Auto-resolve publisher from current Azure identity
+  # Uses Service Principal object data which is available for users and CI/CD identities.
+  publisher_identity_data = data.azuread_service_principal.current_identity
+
+  publisher_account_name = coalesce(
+    try(local.publisher_identity_data.user_principal_name, null),
+    try(local.publisher_identity_data.display_name, null),
+    "CI/CD Pipeline (${data.azuread_client_config.current.object_id})"
+  )
 
   # Auto-detect MCP tools from tool_schema.json (full names)
   tool_schema_data    = try(jsondecode(file(local.tool_schema_path)), [])

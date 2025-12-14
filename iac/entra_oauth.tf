@@ -4,10 +4,11 @@
 # Data source to get current Entra ID configuration
 data "azuread_client_config" "current" {}
 
-# Resolve publisher identity (current user or service principal)
-# Uses count to gracefully handle failures (e.g., when executed by service principal)
-data "azuread_user" "publisher" {
-  count     = 1
+# Resolve application object ID and tenant ID based on current authentication context.
+# We will look up Service Principal details separately if needed.
+
+# Look up the Service Principal associated with the current identity (user or CI/CD).
+data "azuread_service_principal" "current_identity" {
   object_id = data.azuread_client_config.current.object_id
 }
 
