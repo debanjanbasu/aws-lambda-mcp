@@ -128,6 +128,10 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
   credential_provider_configuration {
     gateway_iam_role {}
   }
+
+  lifecycle {
+    replace_triggered_by = [null_resource.schema_trigger]
+  }
 }
 
 # Lambda permission for Amazon Bedrock AgentCore Gateway to invoke main Lambda
@@ -137,6 +141,17 @@ resource "aws_lambda_permission" "agentcore_gateway_invoke" {
   function_name = aws_lambda_function.bedrock_agentcore_gateway_main_lambda.function_name
   principal     = "bedrock.amazonaws.com"
   source_arn    = aws_bedrockagentcore_gateway.main.gateway_arn
+}
+
+# Trigger for schema changes to force gateway target replacement
+# When tool_schema.json changes (due to model updates), the gateway target
+# must be recreated because AWS Bedrock AgentCore Gateway may not support
+# in-place updates to tool schemas. This null_resource triggers replacement
+# of the aws_bedrockagentcore_gateway_target resource.
+resource "null_resource" "schema_trigger" {
+  triggers = {
+    schema = file(local.tool_schema_path)
+  }
 }
 
 # Lambda permission for Amazon Bedrock AgentCore Gateway to invoke interceptor Lambda
