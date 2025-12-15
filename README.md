@@ -43,29 +43,23 @@ Production-ready Model Context Protocol server implementation using Amazon Bedro
                       URL           │  └──────────────────────┬────────────────────┘  │
                                     │                         │                       │
                                     │  ┌──────────────────────▼────────────────────┐  │
-                                    │  │              VPC (Private Subnets)        │  │
-                                    │  │  ┌────────────────────────────────────┐   │  │
-                                    │  │  │  Main Lambda (Rust) + Interceptor  │   │  │
-                                    │  │  │  • Weather lookup (Open-Meteo API) │   │  │
-                                    │  │  │  • Personalized greetings          │   │  │
-                                    │  │  └────────────────────────────────────┘   │  │
-                                    │  │         │  Regional NAT Gateway (EIP)     │  │
-                                    │  └─────────┼─────────────────────────────────┘  │
-                                    │            │                                    │
-                                    │  ┌─────────┴──────┐ ┌──────────┐ ┌───────────┐ │
-                                    │  │CloudWatch Logs │ │CloudWatch│ │  SQS DLQ  │ │
-                                    │  │    (Tracing)   │ │ Alarms   │ │           │ │
-                                    │  └────────────────┘ └──────────┘ └───────────┘ │
-                                    └────────────────────────┬────────────────────────┘
-                                                             ▼
+                                    │  │         Main Lambda (Rust) + Interceptor  │  │
+                                    │  │  • Weather lookup (Open-Meteo API)        │  │
+                                    │  │  • Personalized greetings                 │  │
+                                    │  └──────────────────────┬────────────────────┘  │
+                                    │                         │                       │
+                                    │  ┌────────────────┴────────┐                    │
+                                    │  │     CloudWatch Logs     │                    │
+                                    │  └─────────────────────────┘                    │
+                                    └─────────────────────────┬───────────────────────┘
+                                                              ▼
                                                    ┌─────────────────┐
                                                    │  Open-Meteo API │
                                                    └─────────────────┘
-```
 
-**Stack**: ARM64 Lambdas (128MB, ~1.3MB UPX) | Regional NAT Gateway (auto HA) | Entra ID OAuth | CloudWatch (3d retention)
+**Stack**: ARM64 Lambdas (128MB, ~1.3MB UPX) | Entra ID OAuth | CloudWatch (3d retention)
 
-**Features**: JWT token decoding, automatic weather lookup, personalized user greetings, secure header propagation, dynamic schema generation, HTTPS-only egress
+**Features**: JWT token decoding, automatic weather lookup, personalized user greetings, secure header propagation, dynamic schema generation
 
 **License**: MIT
 
