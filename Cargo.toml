@@ -27,7 +27,11 @@ path = "src/bin/interceptor.rs"
 [dependencies]
 anyhow = "1"
 tokio = { version = "1", features = ["macros"] }
-lambda_runtime = { version = "1.0", features = ["anyhow", "tracing"] }
+lambda_runtime = { version = "1.0", features = [
+    "anyhow",
+    "tracing",
+    "graceful-shutdown",
+] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 schemars = "1"
@@ -44,6 +48,7 @@ urlencoding = "2.1"
 chrono = { version = "0.4", features = ["serde"] }
 jsonwebtoken = { version = "10.2", features = ["aws_lc_rs"] }
 rmcp = { version = "0.11", features = ["macros", "schemars"] }
+tracing-appender = "0.2"
 
 [features]
 schema-gen = []
@@ -70,8 +75,8 @@ string_slice = "deny"
 pedantic = "deny"
 
 [package.metadata.lambda.deploy]
-memory = 128                    # Function's memory
-timeout = 30                    # Function's execution timeout
+memory = 128 # Function's memory
+timeout = 30 # Function's execution timeout
 # tracing = "active"              # Tracing mode
 # role = "role-full-arn"          # Function's execution role
 # env_file = ".env.production"    # File to load environment variables from

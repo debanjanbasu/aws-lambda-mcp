@@ -58,7 +58,9 @@ async fn geocode_location(location: &str) -> Result<(f64, f64, String), AppError
         .map_err(|e| AppError::GeocodingError(format!("Failed to send geocoding request: {e}")))?
         .json()
         .await
-        .map_err(|e| AppError::GeocodingError(format!("Failed to parse geocoding response: {e}")))?;
+        .map_err(|e| {
+            AppError::GeocodingError(format!("Failed to parse geocoding response: {e}"))
+        })?;
 
     info!("Received geocoding response");
 
@@ -66,21 +68,26 @@ async fn geocode_location(location: &str) -> Result<(f64, f64, String), AppError
 }
 
 /// Fetches weather data for the given coordinates
-async fn fetch_weather_data(latitude: f64, longitude: f64, timezone: &str) -> Result<WeatherResponse, AppError> {
+async fn fetch_weather_data(
+    latitude: f64,
+    longitude: f64,
+    timezone: &str,
+) -> Result<WeatherResponse, AppError> {
     let daily_params_str = DEFAULT_DAILY_PARAMS.join(",");
     let weather_url = format!(
         "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&daily={daily_params_str}&timezone={timezone}"
     );
 
-    info!("Fetching weather data for coordinates: {}, {}", latitude, longitude);
+    info!(
+        "Fetching weather data for coordinates: {}, {}",
+        latitude, longitude
+    );
     info!("Making weather forecast request to: {}", weather_url);
 
     let client = &HTTP_CLIENT;
-    let response = client
-        .get(&weather_url)
-        .send()
-        .await
-        .map_err(|e| AppError::WeatherApiError(format!("Failed to send weather forecast request: {e}")))?;
+    let response = client.get(&weather_url).send().await.map_err(|e| {
+        AppError::WeatherApiError(format!("Failed to send weather forecast request: {e}"))
+    })?;
 
     info!(
         "Received weather forecast response with status: {}",
@@ -95,10 +102,9 @@ async fn fetch_weather_data(latitude: f64, longitude: f64, timezone: &str) -> Re
         )));
     }
 
-    let open_meteo_response: OpenMeteoResponse = response
-        .json()
-        .await
-        .map_err(|e| AppError::WeatherApiError(format!("Failed to parse weather forecast response: {e}")))?;
+    let open_meteo_response: OpenMeteoResponse = response.json().await.map_err(|e| {
+        AppError::WeatherApiError(format!("Failed to parse weather forecast response: {e}"))
+    })?;
 
     info!("Parsed weather forecast response successfully");
 
@@ -122,10 +128,14 @@ fn extract_coordinates_from_geocode(
     let results = geocode_response
         .get("results")
         .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| AppError::GeocodingError("No results found in geocoding response".to_string()))?;
+        .ok_or_else(|| {
+            AppError::GeocodingError("No results found in geocoding response".to_string())
+        })?;
 
     if results.is_empty() {
-        return Err(AppError::GeocodingError("No locations found for the provided query".to_string()));
+        return Err(AppError::GeocodingError(
+            "No locations found for the provided query".to_string(),
+        ));
     }
 
     let first_result = &results[0];

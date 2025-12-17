@@ -436,7 +436,6 @@ Generates Amazon Bedrock AgentCore schemas from code using `rmcp` crate's `#[too
 use rmcp::tool;
 
 #[tool(description = "Get current weather for a location")]
-#[instrument(fields(location = %request.location))]
 pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse> {
     // implementation
 }
@@ -467,7 +466,6 @@ See `src/tools/personalized.rs` for a complete example that demonstrates:
 **2. Tool** (`src/tools/your_tool.rs`):
 ```rust
 #[tool(description = "Clear, detailed description")]
-#[instrument(fields(input = %request.input))]
 pub async fn your_tool(request: YourRequest) -> Result<YourResponse> {
     // implementation
 }
@@ -504,7 +502,6 @@ See [AGENTS.md](./AGENTS.md) for full guidelines.
 
 **Rules**:
 - ✅ `Result<T>` + `?` with `.context()`
-- ✅ `#[instrument]` for tracing
 - ✅ `#[must_use]` on pure functions
 - ✅ `#[derive(Debug, Serialize, Deserialize, JsonSchema)]` on types
 - ❌ No `unwrap/expect/panic/unsafe`

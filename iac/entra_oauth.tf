@@ -7,8 +7,17 @@ data "azuread_client_config" "current" {}
 # Resolve application object ID and tenant ID based on current authentication context.
 # We will look up Service Principal details separately if needed.
 
-# Look up the Service Principal associated with the current identity (user or CI/CD).
+# Optional: look up the Service Principal or User associated with the current identity (user or CI/CD).
+# This lookup is opt-in to avoid failing plans when the current principal is not resolvable as a Service Principal.
+# Enable via variable `entra_resolve_publisher_identity = true` if you want Terraform to attempt resolution.
+
 data "azuread_service_principal" "current_identity" {
+  count     = var.entra_resolve_publisher_identity ? 1 : 0
+  object_id = data.azuread_client_config.current.object_id
+}
+
+data "azuread_user" "current" {
+  count     = var.entra_resolve_publisher_identity ? 1 : 0
   object_id = data.azuread_client_config.current.object_id
 }
 

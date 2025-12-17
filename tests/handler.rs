@@ -9,7 +9,7 @@ async fn test_route_tool_unknown() {
     let event_payload = json!({"name": "unknown_tool"});
     let result = route_tool("unknown_tool", event_payload).await;
     assert!(result.is_err(), "Expected error for unknown tool");
-    
+
     if let Err(err) = result {
         assert_eq!(err.error_type, "UnknownTool");
         assert!(err.error_message.contains("Unknown tool: unknown_tool"));
@@ -58,7 +58,7 @@ async fn test_weather_invalid_arguments() {
 
     let result = route_tool("get_weather", mcp_payload).await;
     assert!(result.is_err(), "Expected error for invalid arguments");
-    
+
     if let Err(err) = result {
         assert_eq!(err.error_type, "InvalidInput");
     }
@@ -129,13 +129,16 @@ async fn test_personalized_greeting_invalid_arguments() {
 }
 
 /// Helper function to assert successful greeting response
-fn assert_successful_greeting(result: Result<serde_json::Value, lambda_runtime::Diagnostic>, expected_name: &str) {
+fn assert_successful_greeting(
+    result: Result<serde_json::Value, lambda_runtime::Diagnostic>,
+    expected_name: &str,
+) {
     assert!(result.is_ok(), "Expected successful greeting");
-    
+
     if let Ok(response) = result {
         let greeting = response.get("greeting").and_then(|g| g.as_str());
         assert!(greeting.is_some(), "Response should contain greeting field");
-        
+
         if let Some(greeting_text) = greeting {
             assert!(
                 greeting_text.contains(expected_name),

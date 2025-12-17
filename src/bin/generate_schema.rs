@@ -3,9 +3,14 @@
 //! This binary scans registered tools and generates `tool_schema.json`,
 //! which contains the input/output schemas in Amazon Bedrock format.
 
+use aws_lambda_mcp::models::personalized::{
+    PersonalizedGreetingRequest, PersonalizedGreetingResponse,
+};
+use aws_lambda_mcp::models::weather::{WeatherRequest, WeatherResponse};
 use schemars::{JsonSchema, schema_for};
-use serde_json::{Value, json};
-use std::fs;
+use serde_json::{Value, json, to_string_pretty, to_value};
+use std::fs::write;
+use std::process::exit;
 
 // Represents a tool with its metadata and schemas
 struct Tool {
@@ -20,21 +25,14 @@ fn main() {
         Tool {
             name: "get_weather".to_string(),
             description: "Fetches weather data from the Open-Meteo API.".to_string(),
-            input_schema: generate_bedrock_schema::<aws_lambda_mcp::models::weather::WeatherRequest>(
-            ),
-            output_schema: generate_bedrock_schema::<
-                aws_lambda_mcp::models::weather::WeatherResponse,
-            >(),
+            input_schema: generate_bedrock_schema::<WeatherRequest>(),
+            output_schema: generate_bedrock_schema::<WeatherResponse>(),
         },
         Tool {
             name: "get_personalized_greeting".to_string(),
             description: "Generates a personalized greeting for a user.".to_string(),
-            input_schema: generate_bedrock_schema::<
-                aws_lambda_mcp::models::personalized::PersonalizedGreetingRequest,
-            >(),
-            output_schema: generate_bedrock_schema::<
-                aws_lambda_mcp::models::personalized::PersonalizedGreetingResponse,
-            >(),
+            input_schema: generate_bedrock_schema::<PersonalizedGreetingRequest>(),
+            output_schema: generate_bedrock_schema::<PersonalizedGreetingResponse>(),
         },
     ];
 
@@ -44,9 +42,9 @@ fn main() {
 
 // Generates a schema in Amazon Bedrock format for the given type
 fn generate_bedrock_schema<T: JsonSchema>() -> Value {
-    let mut schema = serde_json::to_value(schema_for!(T)).unwrap_or_else(|e| {
+    let mut schema = to_value(schema_for!(T)).unwrap_or_else(|e| {
         eprintln!("Failed to serialize schema: {e}");
-        std::process::exit(1);
+        exit(1);
     });
 
     // Clean up schema to conform to Amazon Bedrock AgentCore format
@@ -128,13 +126,13 @@ fn write_schema(tools: &[Tool]) {
         })
         .collect();
 
-    let json = serde_json::to_string_pretty(&schemas).unwrap_or_else(|e| {
+    let json = to_string_pretty(&schemas).unwrap_or_else(|e| {
         eprintln!("Failed to serialize schema: {e}");
-        std::process::exit(1);
+        exit(1);
     });
 
-    fs::write("tool_schema.json", json).unwrap_or_else(|e| {
+    write("tool_schema.json", json).unwrap_or_else(|e| {
         eprintln!("Failed to write tool_schema.json: {e}");
-        std::process::exit(1);
+        exit(1);
     });
 }

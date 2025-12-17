@@ -80,8 +80,7 @@ fn test_gateway_prefix_stripping() {
     for (input_name, expected_name) in test_cases {
         let stripped_name = strip_gateway_prefix(input_name);
         assert_eq!(
-            stripped_name,
-            expected_name,
+            stripped_name, expected_name,
             "Failed to strip prefix from '{input_name}'"
         );
     }
@@ -90,46 +89,52 @@ fn test_gateway_prefix_stripping() {
 #[test]
 fn test_auth_header_extraction() {
     // Test authorization header extraction logic that mirrors interceptor behavior
-    
+
     // Test case 1: Valid authorization header with Bearer prefix
     let mut headers: HashMap<String, String> = HashMap::new();
-    headers.insert("authorization".to_string(), "Bearer abc.def.ghi".to_string());
-    
+    headers.insert(
+        "authorization".to_string(),
+        "Bearer abc.def.ghi".to_string(),
+    );
+
     let token = headers
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("authorization"))
         .map(|(_, v)| v.strip_prefix("Bearer ").unwrap_or(v.as_str()));
-    
+
     assert_eq!(token, Some("abc.def.ghi"));
-    
+
     // Test case 2: Case insensitive header name
     let mut headers: HashMap<String, String> = HashMap::new();
-    headers.insert("Authorization".to_string(), "Bearer xyz.123.456".to_string());
-    
+    headers.insert(
+        "Authorization".to_string(),
+        "Bearer xyz.123.456".to_string(),
+    );
+
     let token = headers
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("authorization"))
         .map(|(_, v)| v.strip_prefix("Bearer ").unwrap_or(v.as_str()));
-    
+
     assert_eq!(token, Some("xyz.123.456"));
-    
+
     // Test case 3: No authorization header
     let headers: HashMap<String, String> = HashMap::new();
     let token = headers
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("authorization"))
         .map(|(_, v)| v.strip_prefix("Bearer ").unwrap_or(v.as_str()));
-    
+
     assert_eq!(token, None);
-    
+
     // Test case 4: Authorization header without Bearer prefix
     let mut headers: HashMap<String, String> = HashMap::new();
     headers.insert("authorization".to_string(), "abc.def.ghi".to_string());
-    
+
     let token = headers
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("authorization"))
         .map(|(_, v)| v.strip_prefix("Bearer ").unwrap_or(v.as_str()));
-    
+
     assert_eq!(token, Some("abc.def.ghi"));
 }

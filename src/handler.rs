@@ -108,13 +108,16 @@ pub async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, 
             })
         }
         "get_personalized_greeting" => {
-            let request: PersonalizedGreetingRequest = serde_json::from_value(tool_args).map_err(|e| {
-                error!(error = %e, "Failed to parse personalized greeting request");
-                Diagnostic {
-                    error_type: "InvalidInput".to_string(),
-                    error_message: format!("Failed to parse personalized greeting request: {e}"),
-                }
-            })?;
+            let request: PersonalizedGreetingRequest =
+                serde_json::from_value(tool_args).map_err(|e| {
+                    error!(error = %e, "Failed to parse personalized greeting request");
+                    Diagnostic {
+                        error_type: "InvalidInput".to_string(),
+                        error_message: format!(
+                            "Failed to parse personalized greeting request: {e}"
+                        ),
+                    }
+                })?;
 
             let response = get_personalized_greeting(request).await.map_err(|e| {
                 error!(error = %format!("{e:#}"), "Personalized greeting tool execution failed");
@@ -128,7 +131,9 @@ pub async fn route_tool(tool_name: &str, event_payload: Value) -> Result<Value, 
                 error!(error = %e, "Failed to serialize personalized greeting response");
                 Diagnostic {
                     error_type: "SerializationError".to_string(),
-                    error_message: format!("Failed to serialize personalized greeting response: {e}"),
+                    error_message: format!(
+                        "Failed to serialize personalized greeting response: {e}"
+                    ),
                 }
             })
         }

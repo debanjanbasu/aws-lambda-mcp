@@ -45,9 +45,12 @@ locals {
   # Entra App Metadata - Smart Defaults & Auto-Detection
   # ===================================================================
 
-  # Auto-resolve publisher from current Azure identity
-  # Uses Service Principal object data which is available for users and CI/CD identities.
-  publisher_identity_data = data.azuread_service_principal.current_identity
+  # Auto-resolve publisher from current Azure identity (optional)
+  # When `var.entra_resolve_publisher_identity` is enabled, attempt to use
+  # Service Principal information first, then fall back to User info. If the
+  # lookup is not enabled, fall back to a generic CI/CD label to avoid failing
+  # Terraform plans in environments where the identity cannot be resolved.
+  publisher_identity_data = var.entra_resolve_publisher_identity ? coalesce(try(data.azuread_service_principal.current_identity[0], null), try(data.azuread_user.current[0], null), {}) : {}
 
   publisher_account_name = coalesce(
     try(local.publisher_identity_data.user_principal_name, null),

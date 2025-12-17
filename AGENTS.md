@@ -84,7 +84,7 @@ The interceptor is deployed via Terraform using native AWS provider support for 
 - **Types**: Use explicit types for clarity, derive `Debug, Serialize, Deserialize, JsonSchema`. Example: `#[derive(Debug, Serialize, Deserialize, JsonSchema)] pub struct MyStruct { ... }`
 - **Naming**: `snake_case` for variables/functions, `PascalCase` for types, `UPPERCASE` for constants
 - **Functions**: Under 60 lines, `#[must_use]` on pure functions, document `# Errors`
-- **Async**: Use `async/await` everywhere, no blocking I/O, `#[instrument]` for tracing. Use `tokio::spawn` for concurrency.
+- **Async**: Use `async/await` everywhere, no blocking I/O. Use `tokio::spawn` for concurrency.
 - **Security**: No unsafe code, no hardcoded secrets (use `std::env::var`), environment variables only
 - **Performance**: Prefer `&str` over `String`, minimize allocations, `LazyLock` for globals
 - **Makefiles**: Use `@echo "$(CYAN)Message$(RESET)"` for colored output in Makefiles (avoids shell escaping issues with printf)

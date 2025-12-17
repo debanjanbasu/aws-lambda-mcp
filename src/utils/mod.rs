@@ -16,6 +16,8 @@
 /// The tool name with the gateway prefix removed, or the original name if no prefix exists.
 #[must_use]
 pub fn strip_gateway_prefix(name: &str) -> String {
-    name.split_once("___")
-        .map_or_else(|| name.to_string(), |(_, actual_name)| actual_name.to_string())
+    name.split_once("___").map_or_else(
+        || name.to_string(),
+        |(_, actual_name)| actual_name.to_string(),
+    )
 }

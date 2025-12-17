@@ -35,15 +35,16 @@ fn extract_user_name(request: &PersonalizedGreetingRequest) -> String {
     if !request.user_name.is_empty() {
         return request.user_name.clone();
     }
-    
+
     if !request.user_id.is_empty() {
         // Extract user name from user ID (email) if available
-        return request.user_id
+        return request
+            .user_id
             .split('@')
             .next()
             .unwrap_or(DEFAULT_USER_NAME)
             .to_string();
     }
-    
+
     DEFAULT_USER_NAME.to_string()
 }

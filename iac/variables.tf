@@ -201,6 +201,17 @@ variable "entra_created_by_user" {
   default     = ""
 }
 
+# When enabled, Terraform will attempt to resolve the current Azure identity
+# to a user or service principal and populate publisher metadata (display_name
+# / user_principal_name). This is OFF by default to avoid failing plans in
+# environments where the current authentication principal is neither a user
+# nor a service principal (e.g., some CI/CD or CLI contexts).
+variable "entra_resolve_publisher_identity" {
+  description = "Attempt to resolve the current Azure identity to a user or service principal (opt-in)"
+  type        = bool
+  default     = false
+}
+
 variable "entra_installed_by_count" {
   description = "Number of users who installed the agent"
   type        = number
