@@ -18,7 +18,7 @@ use crate::utils::strip_gateway_prefix;
 ///
 /// According to AWS docs, tool name is passed in `context.client_context.custom[bedrockAgentCoreToolName]`.
 /// For MCP, also check the event payload for tools/call method.
-fn extract_tool_name(event_payload: &Value, context: &Context) -> String {
+pub fn extract_tool_name(event_payload: &Value, context: &Context) -> String {
     debug!(
         "Extracting tool name from context: {:?}",
         context.client_context
