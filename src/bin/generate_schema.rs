@@ -2,6 +2,10 @@
 //!
 //! This binary scans registered tools and generates `tool_schema.json`,
 //! which contains the input/output schemas in Amazon Bedrock format.
+//!
+//! The generated schemas are cleaned to remove unsupported fields like `format`,
+//! `$schema`, and `title` that are not compatible with Amazon Bedrock AgentCore.
+//! Union types like `["string", "null"]` are converted to their primary type.
 
 use aws_lambda_mcp::models::personalized::{
     PersonalizedGreetingRequest, PersonalizedGreetingResponse,
@@ -40,6 +44,138 @@ fn main() {
     println!("✅ Generated tool_schema.json with {} tool(s)", tools.len());
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_clean_bedrock_schema_removes_unsupported_fields() {
+        let mut schema = json!({
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "Test Schema",
+            "type": "object",
+            "properties": {
+                "field1": {
+                    "type": "string",
+                    "format": "email"
+                },
+                "field2": {
+                    "type": ["string", "null"],
+                    "format": "date"
+                }
+            },
+            "items": {
+                "type": "number",
+                "format": "double"
+            }
+        });
+
+        clean_bedrock_schema(&mut schema);
+
+        // Check that unsupported fields are removed
+        assert!(!schema.as_object().unwrap().contains_key("$schema"));
+        assert!(!schema.as_object().unwrap().contains_key("title"));
+
+        // Check properties are cleaned
+        let props = schema["properties"].as_object().unwrap();
+        assert!(!props["field1"].as_object().unwrap().contains_key("format"));
+        assert!(!props["field2"].as_object().unwrap().contains_key("format"));
+
+        // Check union type is converted
+        assert_eq!(props["field2"]["type"], "string");
+
+        // Check items are cleaned
+        assert!(!schema["items"].as_object().unwrap().contains_key("format"));
+    }
+
+    #[test]
+    fn test_clean_bedrock_schema_handles_nested_objects() {
+        let mut schema = json!({
+            "type": "object",
+            "properties": {
+                "nested": {
+                    "type": "object",
+                    "properties": {
+                        "inner": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            }
+        });
+
+        clean_bedrock_schema(&mut schema);
+
+        let nested = &schema["properties"]["nested"];
+        let inner = &nested["properties"]["inner"];
+        assert!(!inner.as_object().unwrap().contains_key("format"));
+    }
+
+    #[test]
+    fn test_clean_bedrock_schema_handles_arrays() {
+        let mut schema = json!({
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "value": {
+                        "type": "number",
+                        "format": "float"
+                    }
+                }
+            }
+        });
+
+        clean_bedrock_schema(&mut schema);
+
+        let items = &schema["items"];
+        let props = &items["properties"]["value"];
+        assert!(!props.as_object().unwrap().contains_key("format"));
+    }
+}
+
+/// Recursively cleans a JSON schema to conform to Amazon Bedrock AgentCore format.
+/// Removes unsupported fields like `$schema`, `title`, and `format`.
+/// Converts union types like `["string", "null"]` to their primary type.
+/// Processes nested objects and arrays recursively.
+fn clean_bedrock_schema(value: &mut Value) {
+    match value {
+        Value::Object(obj) => {
+            // Remove fields not supported by Amazon Bedrock
+            obj.remove("$schema");
+            obj.remove("title");
+            obj.remove("format");
+
+            // Recursively clean all nested objects and arrays
+            for val in obj.values_mut() {
+                clean_bedrock_schema(val);
+            }
+
+            // Convert union types like ["string", "null"] to just "string"
+            if let Some(type_value) = obj.get("type")
+                && let Some(type_array) = type_value.as_array()
+                && type_array.len() == 2
+                && type_array.contains(&json!("null"))
+            {
+                for t in type_array {
+                    if t != &json!("null") {
+                        obj.insert("type".to_string(), t.clone());
+                        break;
+                    }
+                }
+            }
+        }
+        Value::Array(arr) => {
+            for val in arr.iter_mut() {
+                clean_bedrock_schema(val);
+            }
+        }
+        _ => {} // Primitives don't need cleaning
+    }
+}
+
 // Generates a schema in Amazon Bedrock format for the given type
 fn generate_bedrock_schema<T: JsonSchema>() -> Value {
     let mut schema = to_value(schema_for!(T)).unwrap_or_else(|e| {
@@ -49,10 +185,6 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
 
     // Clean up schema to conform to Amazon Bedrock AgentCore format
     if let Some(obj) = schema.as_object_mut() {
-        // Remove fields not supported by Amazon Bedrock
-        obj.remove("$schema");
-        obj.remove("title");
-
         if let Some(defs) = obj.remove("$defs")
             && let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut())
         {
@@ -76,31 +208,10 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
             }
         }
 
-        // Remove format fields and convert union types to primary type
+        // Remove fields that are injected by the interceptor
         if let Some(properties) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
-            // Remove fields that are injected by the interceptor
             properties.remove("user_id");
             properties.remove("user_name");
-
-            for prop_value in properties.values_mut() {
-                if let Some(prop_obj) = prop_value.as_object_mut() {
-                    prop_obj.remove("format");
-
-                    // Convert union types like ["string", "null"] to just "string"
-                    if let Some(type_value) = prop_obj.get("type")
-                        && let Some(type_array) = type_value.as_array()
-                        && type_array.len() == 2
-                        && type_array.contains(&json!("null"))
-                    {
-                        for t in type_array {
-                            if t != &json!("null") {
-                                prop_obj.insert("type".to_string(), t.clone());
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         // Remove injected fields from required fields since they're provided by interceptor
@@ -108,6 +219,9 @@ fn generate_bedrock_schema<T: JsonSchema>() -> Value {
             required.retain(|item| item != "user_id" && item != "user_name");
         }
     }
+
+    // Recursively clean the entire schema
+    clean_bedrock_schema(&mut schema);
 
     schema
 }
