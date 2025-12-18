@@ -58,7 +58,7 @@ jobs:
         uses: actions/checkout@v6
       - name: ☁️ Download Lambda Artifacts
         if: inputs.artifact_name && inputs.artifact_name != 'dummy-artifact'
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{ inputs.artifact_name }}
           path: .
