@@ -48,6 +48,8 @@ jobs:
           git config user.name "brown-ninja-bot[bot]"
           git config user.email "brown-ninja-bot[bot]@users.noreply.github.com"
       - name: 🚀 Notify Working
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
             ISSUE_NUM=${{ github.event.issue.number }}
