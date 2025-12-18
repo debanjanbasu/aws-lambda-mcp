@@ -4,6 +4,76 @@ use crate::models::open_meteo::OpenMeteoResponse;
 use crate::models::{WeatherRequest, WeatherResponse};
 use anyhow::Result;
 use lambda_runtime::tracing::info;
+#[cfg(test)]
+use async_trait::async_trait;
+#[cfg(test)]
+use mockito::Server;
+#[cfg(test)]
+use reqwest::Client;
+
+/// HTTP client enum for making requests (allows mocking in tests)
+#[derive(Clone)]
+pub enum HttpClient {
+    Reqwest(reqwest::Client),
+    Mock(MockClient),
+}
+
+#[derive(Clone, Default)]
+pub struct MockClient {
+    pub responses: std::collections::HashMap<String, serde_json::Value>,
+}
+
+impl MockClient {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            responses: std::collections::HashMap::new(),
+        }
+    }
+
+    pub fn mock_response(&mut self, url_pattern: &str, response: serde_json::Value) {
+        self.responses.insert(url_pattern.to_string(), response);
+    }
+}
+
+impl HttpClient {
+    /// Get JSON response from URL
+    ///
+    /// # Errors
+    ///
+    /// Returns `AppError` if the HTTP request fails or response cannot be parsed
+    pub async fn get_json(&self, url: &str) -> Result<serde_json::Value, AppError> {
+        match self {
+            Self::Reqwest(client) => {
+                let response = client.get(url)
+                    .send()
+                    .await
+                    .map_err(|e| AppError::GenericError(format!("HTTP request failed: {e}")))?;
+
+                if !response.status().is_success() {
+                    return Err(AppError::GenericError(format!(
+                        "HTTP request failed with status: {}",
+                        response.status()
+                    )));
+                }
+
+                response
+                    .json()
+                    .await
+                    .map_err(|e| AppError::GenericError(format!("JSON parsing failed: {e}")))
+            }
+            Self::Mock(mock) => {
+                // Simple pattern matching for tests
+                for (pattern, response) in &mock.responses {
+                    if url.contains(pattern) {
+                        return Ok(response.clone());
+                    }
+                }
+                Err(AppError::GenericError(format!("No mock response configured for URL: {url}")))
+            }
+        }
+    }
+}
 
 /// Default daily weather parameters for Open-Meteo API requests
 const DEFAULT_DAILY_PARAMS: [&str; 3] =
@@ -25,16 +95,28 @@ const DEFAULT_DAILY_PARAMS: [&str; 3] =
 /// - The HTTP request to the Open-Meteo API fails
 /// - The response from either API cannot be parsed
 pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse, AppError> {
+    get_weather_with_client(&HttpClient::Reqwest(HTTP_CLIENT.clone()), request).await
+}
+
+/// Internal function that accepts an HTTP client (for testing)
+///
+/// # Errors
+///
+/// Returns `AppError` if geocoding or weather API requests fail
+pub async fn get_weather_with_client(
+    client: &HttpClient,
+    request: WeatherRequest,
+) -> Result<WeatherResponse, AppError> {
     info!(
         "Starting weather request for location: {}",
         request.location
     );
 
     // Get coordinates for the location
-    let (latitude, longitude, timezone) = geocode_location(&request.location).await?;
+    let (latitude, longitude, timezone) = geocode_location_with_client(client, &request.location).await?;
 
     // Fetch weather data
-    let weather_data = fetch_weather_data(latitude, longitude, &timezone).await?;
+    let weather_data = fetch_weather_data_with_client(client, latitude, longitude, &timezone).await?;
 
     info!("Successfully fetched weather data");
     Ok(weather_data)
@@ -42,6 +124,14 @@ pub async fn get_weather(request: WeatherRequest) -> Result<WeatherResponse, App
 
 /// Geocodes a location name to coordinates
 async fn geocode_location(location: &str) -> Result<(f64, f64, String), AppError> {
+    geocode_location_with_client(&HttpClient::Reqwest(HTTP_CLIENT.clone()), location).await
+}
+
+/// Internal geocoding function that accepts an HTTP client (for testing)
+async fn geocode_location_with_client(
+    client: &HttpClient,
+    location: &str,
+) -> Result<(f64, f64, String), AppError> {
     let encoded_location = urlencoding::encode(location);
     let geocode_url = format!(
         "https://geocoding-api.open-meteo.com/v1/search?name={encoded_location}&count=1&language=en&format=json"
@@ -50,17 +140,10 @@ async fn geocode_location(location: &str) -> Result<(f64, f64, String), AppError
     info!("Geocoding location: {}", location);
     info!("Making geocoding request to: {}", geocode_url);
 
-    let client = &HTTP_CLIENT;
     let response: serde_json::Value = client
-        .get(&geocode_url)
-        .send()
+        .get_json(&geocode_url)
         .await
-        .map_err(|e| AppError::GeocodingError(format!("Failed to send geocoding request: {e}")))?
-        .json()
-        .await
-        .map_err(|e| {
-            AppError::GeocodingError(format!("Failed to parse geocoding response: {e}"))
-        })?;
+        .map_err(|e| AppError::GeocodingError(format!("Failed to get geocoding response: {e}")))?;
 
     info!("Received geocoding response");
 
@@ -69,6 +152,16 @@ async fn geocode_location(location: &str) -> Result<(f64, f64, String), AppError
 
 /// Fetches weather data for the given coordinates
 async fn fetch_weather_data(
+    latitude: f64,
+    longitude: f64,
+    timezone: &str,
+) -> Result<WeatherResponse, AppError> {
+    fetch_weather_data_with_client(&HttpClient::Reqwest(HTTP_CLIENT.clone()), latitude, longitude, timezone).await
+}
+
+/// Internal weather data fetching function that accepts an HTTP client (for testing)
+async fn fetch_weather_data_with_client(
+    client: &HttpClient,
     latitude: f64,
     longitude: f64,
     timezone: &str,
@@ -84,27 +177,15 @@ async fn fetch_weather_data(
     );
     info!("Making weather forecast request to: {}", weather_url);
 
-    let client = &HTTP_CLIENT;
-    let response = client.get(&weather_url).send().await.map_err(|e| {
-        AppError::WeatherApiError(format!("Failed to send weather forecast request: {e}"))
-    })?;
+    let response: serde_json::Value = client
+        .get_json(&weather_url)
+        .await
+        .map_err(|e| AppError::WeatherApiError(format!("Failed to get weather response: {e}")))?;
 
-    info!(
-        "Received weather forecast response with status: {}",
-        response.status()
-    );
+    info!("Received weather forecast response");
 
-    // Check if the response is successful
-    if !response.status().is_success() {
-        return Err(AppError::WeatherApiError(format!(
-            "Weather API returned non-success status: {}",
-            response.status()
-        )));
-    }
-
-    let open_meteo_response: OpenMeteoResponse = response.json().await.map_err(|e| {
-        AppError::WeatherApiError(format!("Failed to parse weather forecast response: {e}"))
-    })?;
+    let open_meteo_response: OpenMeteoResponse = serde_json::from_value(response)
+        .map_err(|e| AppError::WeatherApiError(format!("Failed to parse weather forecast response: {e}")))?;
 
     info!("Parsed weather forecast response successfully");
 
