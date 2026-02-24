@@ -158,7 +158,7 @@ jobs:
            export PATH="$HOME/.local/bin:$PATH"
            upx --version
       - name: 🏗️ Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_wrapper: false
       - name: 💾 Cache Terraform plugins

@@ -85,7 +85,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-terraform-plugins-${{ inputs.environment_name || 'prod' }}-
             ${{ runner.os }}-${{ runner.arch }}-terraform-plugins-
       - name: 🏗️ Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: latest
       - name: 🎨 Terraform Format Check
