@@ -99,6 +99,15 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
                     type        = property.value.type
                     description = try(property.value.description, null)
                     required    = contains(try(inline_payload.value.inputSchema.required, []), property.key)
+
+                    # Handle array types with items
+                    dynamic "items" {
+                      for_each = property.value.type == "array" ? [1] : []
+                      content {
+                        type        = try(property.value.items.type, "string")
+                        description = try(property.value.items.description, null)
+                      }
+                    }
                   }
                 }
               }
@@ -115,6 +124,15 @@ resource "aws_bedrockagentcore_gateway_target" "lambda" {
                     type        = property.value.type
                     description = try(property.value.description, null)
                     required    = contains(try(inline_payload.value.outputSchema.required, []), property.key)
+
+                    # Handle array types with items
+                    dynamic "items" {
+                      for_each = property.value.type == "array" ? [1] : []
+                      content {
+                        type        = try(property.value.items.type, "string")
+                        description = try(property.value.items.description, null)
+                      }
+                    }
                   }
                 }
               }
