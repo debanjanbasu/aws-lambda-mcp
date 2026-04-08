@@ -19,14 +19,12 @@
           "properties": {
             "temperature2mMax": {
               "items": {
-                "format": "double",
                 "type": "number"
               },
               "type": "array"
             },
             "temperature2mMin": {
               "items": {
-                "format": "double",
                 "type": "number"
               },
               "type": "array"
@@ -39,7 +37,6 @@
             },
             "weatherCode": {
               "items": {
-                "format": "int32",
                 "type": "integer"
               },
               "type": "array"
